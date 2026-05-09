@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97402d79d19f3144ab9d54a58db3bdd1, type: 3}
+  m_Name: HeroConfig
+  m_EditorClassIdentifier: 
+  walkSpeed: 4.32
+  runSpeed: 6.5
+  groundAcceleration: 80
+  groundDeceleration: 90
+  airAcceleration: 60
+  airDeceleration: 40
+  horizontalInputDeadZone: 0.3
+  requireSprintForRun: 0
+  jumpSpeed: 18
+  maxJumpSustainSteps: 1
+  minJumpReleaseSteps: 0
+  coyoteTime: 0.08
+  jumpBufferTime: 0.1
+  baseGravityScale: 0.79
+  riseGravityScale: 0.79
+  apexGravityScale: 0.79
+  fallGravityScale: 0.79
+  normalizeGravityToReference: 1
+  referenceGravityY: -29.8
+  apexVelocityThreshold: 1
+  maxFallSpeed: 15
+  dashSpeed: 18
+  dashDuration: 0.4
+  dashCooldown: 0.86
+  attackDuration: 0.3
+  attackCooldown: 0.4
+  attackRecovery: 0.7
+  attackDamage: 1
+  attackDirectionThreshold: 0.5
+  attackHitboxStartTime: 0.05
+  attackHitboxEndTime: 0.16
+  attackHitLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  attackSideOffset: {x: 0.75, y: 0}
+  attackSideSize: {x: 1.2, y: 0.5}
+  attackUpOffset: {x: 0, y: 0.75}
+  attackUpSize: {x: 0.75, y: 1}
+  attackDownOffset: {x: 0, y: -0.75}
+  attackDownSize: {x: 0.75, y: 1}
+  wallSlideSpeed: -3
+  wallSlideDeceleration: 0.7
+  wallSlideInputThreshold: 0.3
+  terrainLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  groundProbeDistance: 0.16
+  ceilingProbeDistance: 0.08
+  wallProbeDistance: 0.1
+  sensorInset: 0.02
+  locomotionFadeDuration: 0.08
+  airFadeDuration: 0.05
+  actionFadeDuration: 0.03
+  locomotionIdleThreshold: 0
+  locomotionWalkThreshold: 4.32
+  locomotionRunThreshold: 6.5
