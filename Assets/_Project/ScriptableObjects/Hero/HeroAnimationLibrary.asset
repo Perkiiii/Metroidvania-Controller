@@ -18,8 +18,8 @@ MonoBehaviour:
   jump: {fileID: 7400000, guid: cc893bc6c59c129418cdbc2abd7c6938, type: 2}
   fall: {fileID: 7400000, guid: a1f60b1d00a5061429758ffad1a84bd2, type: 2}
   dash: {fileID: 7400000, guid: f89fc89cb67f49a408c6ea2713fb69b2, type: 2}
-  wallSlide: {fileID: 7400000, guid: f095044353f376842a478392de931f3d, type: 2}
-  wallJump: {fileID: 0}
+  wallSlide: {fileID: 7400000, guid: 0c3d62c30a3cb384d9a944dba1abd4a8, type: 2}
+  wallJump: {fileID: 7400000, guid: cc893bc6c59c129418cdbc2abd7c6938, type: 2}
   attackSide: {fileID: 7400000, guid: 54c5306d4773d38499210eb648b71185, type: 2}
   attackUp: {fileID: 0}
   attackDown: {fileID: 0}

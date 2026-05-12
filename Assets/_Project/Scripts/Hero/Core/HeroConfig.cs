@@ -36,19 +36,25 @@ public sealed class HeroConfig : ScriptableObject
     public float dashCooldown = 0.86f;
 
     [Header("Attack")]
-    public float attackDuration = 0.3f;
     public float attackCooldown = 0.4f;
     public float attackRecovery = 0.7f;
     public int attackDamage = 1;
+    [Min(1)] public int maxHitsPerSwing = 16;
     public float attackDirectionThreshold = 0.5f;
-    public float attackHitboxStartTime = 0.05f;
-    public float attackHitboxEndTime = 0.16f;
     public LayerMask attackHitLayers;
+
+    [Header("Deprecated Box Hitboxes")]
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackSideOffset = new Vector2(0.75f, 0f);
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackSideSize = new Vector2(1.2f, 0.5f);
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackUpOffset = new Vector2(0f, 0.75f);
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackUpSize = new Vector2(0.75f, 1f);
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackDownOffset = new Vector2(0f, -0.75f);
+    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
     public Vector2 attackDownSize = new Vector2(0.75f, 1f);
 
     [Header("Wall Slide")]

@@ -40,6 +40,7 @@ MonoBehaviour:
   attackCooldown: 0.4
   attackRecovery: 0.7
   attackDamage: 1
+  maxHitsPerSwing: 16
   attackDirectionThreshold: 0.5
   attackHitboxStartTime: 0.05
   attackHitboxEndTime: 0.16

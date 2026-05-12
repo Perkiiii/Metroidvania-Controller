@@ -22,20 +22,24 @@ public sealed class HeroAnimationController : MonoBehaviour
     private HeroConfig config;
     private HeroStateBlackboard blackboard;
     private HeroMotor motor;
+    private HeroActionController actions;
     private LinearMixerState locomotionMixer;
     private VisualState currentVisualState;
+    private int playedAttackVersion = -1;
 
     public void Initialize(
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroMotor heroMotor,
         AnimancerComponent animancerComponent,
+        HeroActionController actionController,
         HeroAnimationLibrary library = null)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         motor = heroMotor;
         animancer = animancerComponent != null ? animancerComponent : animancer;
+        actions = actionController;
         animationLibrary = library != null ? library : animationLibrary;
 
         EnsureAnimationLibrary();
@@ -52,7 +56,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         Vector2 velocity = motor.Velocity;
         if (blackboard.attacking)
         {
-            PlayActionClip(GetAttackClip(), VisualState.Attack);
+            PlayAttackClip(GetAttackClip());
         }
         else if (blackboard.dashing)
         {
@@ -173,6 +177,33 @@ public sealed class HeroAnimationController : MonoBehaviour
 
         animancer.Play(clip, config.actionFadeDuration, FadeMode.FromStart);
         currentVisualState = state;
+    }
+
+    private void PlayAttackClip(AnimationClip clip)
+    {
+        int attackVersion = actions != null ? actions.AttackVersion : 0;
+        if (clip == null || (currentVisualState == VisualState.Attack && playedAttackVersion == attackVersion))
+        {
+            return;
+        }
+
+        AnimancerState state = animancer.Play(clip, config.actionFadeDuration, FadeMode.FromStart);
+        state.Events(this).OnEnd = () => CompleteCurrentAttack(attackVersion);
+        actions?.SetAttackFallbackTimeout(state.Duration + 0.25f);
+        playedAttackVersion = attackVersion;
+        currentVisualState = VisualState.Attack;
+    }
+
+    private void CompleteCurrentAttack(int attackVersion)
+    {
+        if (actions == null || actions.AttackVersion != attackVersion)
+        {
+            return;
+        }
+
+        actions.CompleteAttackFromAnimation();
+        currentVisualState = VisualState.None;
+        TickVisuals();
     }
 
     private AnimationClip GetAttackClip()
