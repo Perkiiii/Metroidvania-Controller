@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Animancer;
 using UnityEngine;
@@ -20,6 +21,8 @@ public class HeroController : MonoBehaviour
     private HeroMotor motor;
     private HeroActionController actions;
     private HeroAnimationController animations;
+    private HeroHealthComponent health;
+    private SpriteFlash flasher;
 
     private Rigidbody2D body;
     private Collider2D bodyCollider;
@@ -133,6 +136,8 @@ public class HeroController : MonoBehaviour
         motor = GetOrAdd<HeroMotor>();
         actions = GetOrAdd<HeroActionController>();
         animations = GetOrAdd<HeroAnimationController>();
+        health = GetOrAdd<HeroHealthComponent>();
+        flasher = GetComponentInChildren<SpriteFlash>(true);
     }
 
     private void InitializeSystems()
@@ -142,6 +147,46 @@ public class HeroController : MonoBehaviour
         motor.Initialize(config, blackboard, body, spriteRenderer, spriteRoot);
         actions.Initialize(config, blackboard, inputReader, motor);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
+        health.Initialize(config);
+
+        health.OnDamaged += HandleDamaged;
+        health.OnDeath += HandleDeath;
+    }
+
+    private void HandleDamaged(int _, Vector2 knockback)
+    {
+        blackboard.actorState = HeroActorState.Hurt;
+        blackboard.recoiling = true;
+        actions.CancelAttack();
+        flasher?.FlashHit();
+
+        Vector2 force = knockback == Vector2.zero ? DefaultKnockback() : knockback;
+        motor.ApplyKnockback(force);
+        motor.SetNormalMovementSuppressed(true);
+
+        AddControlLock(this);
+        StartCoroutine(HurtRecoveryRoutine());
+    }
+
+    private void HandleDeath()
+    {
+        blackboard.actorState = HeroActorState.Dead;
+        AddControlLock(this);
+        // Full fade + respawn sequence wired in Milestone 1 via GameManager.BeginSceneTransition.
+        // For now, input stays locked until the scene is manually reloaded.
+    }
+
+    private IEnumerator HurtRecoveryRoutine()
+    {
+        yield return new WaitForSeconds(config.hurtStunDuration);
+        blackboard.recoiling = false;
+        motor.SetNormalMovementSuppressed(false);
+        RemoveControlLock(this);
+    }
+
+    private Vector2 DefaultKnockback()
+    {
+        return new Vector2(-blackboard.FacingDirection * config.hurtKnockbackX, config.hurtKnockbackY);
     }
 
     private T GetOrAdd<T>() where T : Component

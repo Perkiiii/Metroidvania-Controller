@@ -21,4 +21,8 @@ public sealed class HeroAnimationLibrary : ScriptableObject
     public AnimationClip attackSide;
     public AnimationClip attackUp;
     public AnimationClip attackDown;
+
+    [Header("Damage")]
+    public AnimationClip hurt;
+    public AnimationClip death;
 }

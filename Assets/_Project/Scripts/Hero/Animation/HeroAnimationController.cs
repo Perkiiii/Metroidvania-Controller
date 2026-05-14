@@ -13,7 +13,9 @@ public sealed class HeroAnimationController : MonoBehaviour
         Fall,
         WallSlide,
         Dash,
-        Attack
+        Attack,
+        Hurt,
+        Dead
     }
 
     [SerializeField] private HeroAnimationLibrary animationLibrary;
@@ -54,7 +56,15 @@ public sealed class HeroAnimationController : MonoBehaviour
         }
 
         Vector2 velocity = motor.Velocity;
-        if (blackboard.attacking)
+        if (blackboard.actorState == HeroActorState.Dead)
+        {
+            PlayActionClip(animationLibrary.death, VisualState.Dead);
+        }
+        else if (blackboard.actorState == HeroActorState.Hurt)
+        {
+            PlayActionClip(animationLibrary.hurt, VisualState.Hurt);
+        }
+        else if (blackboard.attacking)
         {
             PlayAttackClip(GetAttackClip());
         }

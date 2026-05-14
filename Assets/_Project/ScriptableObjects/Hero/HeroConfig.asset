@@ -36,17 +36,14 @@ MonoBehaviour:
   dashSpeed: 18
   dashDuration: 0.4
   dashCooldown: 0.86
-  attackDuration: 0.3
   attackCooldown: 0.4
   attackRecovery: 0.7
   attackDamage: 1
   maxHitsPerSwing: 16
   attackDirectionThreshold: 0.5
-  attackHitboxStartTime: 0.05
-  attackHitboxEndTime: 0.16
   attackHitLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   attackSideOffset: {x: 0.75, y: 0}
   attackSideSize: {x: 1.2, y: 0.5}
   attackUpOffset: {x: 0, y: 0.75}
@@ -63,6 +60,11 @@ MonoBehaviour:
   ceilingProbeDistance: 0.08
   wallProbeDistance: 0.1
   sensorInset: 0.02
+  maxHealth: 5
+  iFrameDuration: 1.5
+  hurtStunDuration: 0.35
+  hurtKnockbackX: 8
+  hurtKnockbackY: 4
   locomotionFadeDuration: 0.08
   airFadeDuration: 0.05
   actionFadeDuration: 0.03

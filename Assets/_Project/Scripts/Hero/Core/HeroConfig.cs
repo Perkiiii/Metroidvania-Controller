@@ -69,6 +69,13 @@ public sealed class HeroConfig : ScriptableObject
     public float wallProbeDistance = 0.1f;
     public float sensorInset = 0.02f;
 
+    [Header("Health & Hurt")]
+    public int maxHealth = 5;
+    public float iFrameDuration = 1.5f;
+    public float hurtStunDuration = 0.35f;
+    public float hurtKnockbackX = 8f;
+    public float hurtKnockbackY = 4f;
+
     [Header("Animation")]
     public float locomotionFadeDuration = 0.08f;
     public float airFadeDuration = 0.05f;

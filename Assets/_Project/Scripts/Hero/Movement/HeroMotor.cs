@@ -164,6 +164,16 @@ public sealed class HeroMotor : MonoBehaviour
         body.gravityScale = savedGravityScale;
     }
 
+    public void ApplyKnockback(Vector2 velocity)
+    {
+        if (body == null)
+        {
+            return;
+        }
+
+        body.linearVelocity = velocity;
+    }
+
     public void SetDashVelocity(int direction)
     {
         if (body == null || config == null)
