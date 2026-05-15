@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\samue\\\\Documents\\\\GitHub\\\\Hollow-Knight-Demo\" && grep -n \"^--- !u!20\" \"Assets\\\\Prefabs\\\\_Generic\\\\_GameCameras.prefab\" | head -20)",
+      "Read(//c/Users/samue/Documents/GitHub/Hollow-Knight-Demo/**)"
+    ]
+  }
+}

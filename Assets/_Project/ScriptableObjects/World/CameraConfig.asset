@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75a0224bf4300354898fe90466dc487b, type: 3}
+  m_Name: CameraConfig
+  m_EditorClassIdentifier: 
+  targetDampTimeNormal: 0.35
+  targetDampTimeSlow: 0.15
+  targetDampTimeSlower: 0.45
+  slowTime: 0.5
+  shortSlowTime: 0.25
+  snapDistance: 0.15
+  xLookAhead: 0.16
+  dashLookAhead: 2.51
+  fallLookAhead: 1.25
+  sprintLookAhead: 1.25
+  specialMoveLookAhead: 2.5
+  lookAheadMoveSpeed: 4
+  facingVelocityThreshold: 0.05
+  dashVelocityThreshold: 5
+  fallingVelocityThreshold: 0.25
+  risingVelocityThreshold: 0.25
+  fastFallVelocityThreshold: -6
+  baseVerticalOffset: 1
+  fastFallVerticalOffset: -1.5
+  verticalOffsetMoveSpeed: 5
+  fallCatchAccel: 80
+  fallCatchMax: 25
+  maxCombinedOffsetAreaMagnitude: 6
+  cameraDampTimeNormal: 0.32
+  cameraDampTimeSlow: 0.15
+  cameraDampTimeYGrounded: 0.32
+  cameraDampTimeYRising: 0.38
+  cameraDampTimeYFalling: 0.24
+  cameraDampTimeYMin: 0.03
+  maxVelocity: 65
+  lookInputOffset: 6
+  lookInputThreshold: 0.5
+  lookInputSlowTime: 0.35
+  lookInputDampTimeY: 0.35
+  lookInputMoveSpeed: 7
+  fieldOfView: 24
+  cameraZ: -38.1
+  nearClipPlane: 0.3
+  farClipPlane: 1000
+  lockLargeJumpDistance: 9
+  startLockedTimer: 0.65
+  positioningSettleTime: 0.1

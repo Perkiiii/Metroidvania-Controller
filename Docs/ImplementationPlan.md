@@ -54,8 +54,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 **Goal:** A functional room the hero can move through, with a working camera and room boundary.
 
-- [ ] Implement `CameraController` and `CameraZone` — smooth follow, room bounds. See `Docs/FeatureSpecs/Camera.md`.
-- [ ] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
+- [x] Implement `CameraController`, `CameraTarget`, `CameraBoundsVolume`, and `CameraLockArea` — smooth follow, room bounds, and lock zones. See `Docs/FeatureSpecs/Camera.md`.
+- [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
 - [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` sets `SaveManager.ActiveRespawnMarker` on entry.
 - [ ] Implement `HazardZone` and `HazardRespawnMarker` — place in the pit of the test level.

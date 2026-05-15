@@ -262,7 +262,7 @@ ISaveTarget (interface, implemented by SOs)
 
 See `Docs/FeatureSpecs/Camera.md` for the full spec.
 
-`CameraController` (MonoBehaviour on the Camera GameObject) reads the hero's `Transform` only — no hero component references. Room bounds are defined by `CameraZone` trigger volumes placed in each room; when the hero enters a zone, the controller transitions to that zone's bounds.
+`GameCameras` is a persistent singleton prefab containing the perspective main camera, HUD camera, fade canvas, `CameraTarget`, `CameraController`, and `CameraShakeCueService`. `CameraController` and `CameraTarget` read the hero's `Transform` only - no hero component references. Hero-specific camera intent is sent one-way by `HeroCameraSignalBridge`. Room bounds are defined by `CameraBoundsVolume`, temporary hard locks by `CameraLockArea`, and soft framing offsets by `CameraOffsetArea`.
 
 All tuning lives in `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
 

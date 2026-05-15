@@ -6,6 +6,7 @@ public sealed class Bootstrap : MonoBehaviour
 {
     [SerializeField] private GameManager gameManagerPrefab;
     [SerializeField] private AudioManager audioManagerPrefab;
+    [SerializeField] private GameCameras gameCamerasPrefab;
 
     // Change this field in the Inspector when SampleScene is replaced with the real first scene.
     [SerializeField] private string firstScene = "SampleScene";
@@ -14,6 +15,7 @@ public sealed class Bootstrap : MonoBehaviour
     {
         Instantiate(gameManagerPrefab);
         Instantiate(audioManagerPrefab);
+        if (gameCamerasPrefab != null) Instantiate(gameCamerasPrefab);
         // SaveManager and InteractManager will be instantiated here in later milestones.
     }
 

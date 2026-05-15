@@ -22,6 +22,7 @@ public class HeroController : MonoBehaviour
     private HeroActionController actions;
     private HeroAnimationController animations;
     private HeroHealthComponent health;
+    private HeroCameraSignalBridge cameraSignals;
     private SpriteFlash flasher;
 
     private Rigidbody2D body;
@@ -43,6 +44,7 @@ public class HeroController : MonoBehaviour
     protected virtual void Update()
     {
         inputReader.Tick();
+        cameraSignals.Tick();
         actions.Tick();
     }
 
@@ -91,6 +93,15 @@ public class HeroController : MonoBehaviour
         actions?.CancelAttack();
     }
 
+    public void ResetAfterRespawn()
+    {
+        blackboard.actorState = HeroActorState.Airborne;
+        blackboard.recoiling  = false;
+        motor.SetNormalMovementSuppressed(false);
+        controlLocks.Clear();
+        blackboard.controlLocked = false;
+    }
+
     private void ResolveDependencies()
     {
         if (config == null)
@@ -137,6 +148,7 @@ public class HeroController : MonoBehaviour
         actions = GetOrAdd<HeroActionController>();
         animations = GetOrAdd<HeroAnimationController>();
         health = GetOrAdd<HeroHealthComponent>();
+        cameraSignals = GetOrAdd<HeroCameraSignalBridge>();
         flasher = GetComponentInChildren<SpriteFlash>(true);
     }
 
@@ -148,6 +160,7 @@ public class HeroController : MonoBehaviour
         actions.Initialize(config, blackboard, inputReader, motor);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
+        cameraSignals.Initialize(blackboard, inputReader);
 
         health.OnDamaged += HandleDamaged;
         health.OnDeath += HandleDeath;
@@ -172,8 +185,7 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Dead;
         AddControlLock(this);
-        // Full fade + respawn sequence wired in Milestone 1 via GameManager.BeginSceneTransition.
-        // For now, input stays locked until the scene is manually reloaded.
+        if (GameManager.Instance != null) GameManager.Instance.BeginRespawnSequence();
     }
 
     private IEnumerator HurtRecoveryRoutine()

@@ -26,6 +26,7 @@ public sealed class HeroAnimationController : MonoBehaviour
     private HeroMotor motor;
     private HeroActionController actions;
     private LinearMixerState locomotionMixer;
+    private AnimancerState activeAttackState;
     private VisualState currentVisualState;
     private int playedAttackVersion = -1;
 
@@ -194,14 +195,26 @@ public sealed class HeroAnimationController : MonoBehaviour
         int attackVersion = actions != null ? actions.AttackVersion : 0;
         if (clip == null || (currentVisualState == VisualState.Attack && playedAttackVersion == attackVersion))
         {
+            CompleteAttackIfAnimationFinished(attackVersion);
             return;
         }
 
         AnimancerState state = animancer.Play(clip, config.actionFadeDuration, FadeMode.FromStart);
         state.Events(this).OnEnd = () => CompleteCurrentAttack(attackVersion);
         actions?.SetAttackFallbackTimeout(state.Duration + 0.25f);
+        activeAttackState = state;
         playedAttackVersion = attackVersion;
         currentVisualState = VisualState.Attack;
+    }
+
+    private void CompleteAttackIfAnimationFinished(int attackVersion)
+    {
+        if (activeAttackState == null || activeAttackState.IsLooping || activeAttackState.NormalizedTime < activeAttackState.NormalizedEndTime)
+        {
+            return;
+        }
+
+        CompleteCurrentAttack(attackVersion);
     }
 
     private void CompleteCurrentAttack(int attackVersion)
@@ -212,6 +225,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         }
 
         actions.CompleteAttackFromAnimation();
+        activeAttackState = null;
         currentVisualState = VisualState.None;
         TickVisuals();
     }

@@ -1,69 +1,118 @@
-# Feature Spec — Camera
+# Feature Spec - Camera
 
 ## Responsibilities
 
-Follow the hero through the world; frame combat and traversal readably; respect room/area boundaries.
+Follow the hero through the world, frame combat and traversal readably, support room bounds and lock zones, and provide camera fades and shake routing.
 
 ---
 
-## Current State
-
-No camera system exists. The `SampleScene` uses a default Unity camera. This spec describes the intended design.
-
----
-
-## Design Goals
-
-- Tight, responsive follow with a configurable horizontal lead in the facing direction
-- Vertical tracking with a lookahead bias when falling
-- Hard-locked to room/area bounds — never shows void outside designed geometry
-- Fully decoupled from `HeroController` — reads the hero's transform only, not any hero component
-
----
-
-## Intended Architecture
+## Current Architecture
 
 ```
-CameraController (MonoBehaviour on the Camera GameObject)
-├── target: Transform          (hero transform — assigned in scene, not via HeroController)
-├── CameraConfig (SO)          (all tuning: follow speed, lead distance, bounds, etc.)
-└── room bounds: Collider2D[]  (or a dedicated CameraZone component per room)
+_GameCameras (DontDestroyOnLoad prefab)
+├── GameCameras              persistent singleton and scene-init router
+├── CameraEventService       static request/event surface for camera signals
+├── CameraShakeCueService    named shake cue router backed by MM Feel
+├── CameraFade               CanvasGroup fade driver
+├── CameraParent             shake target
+│   └── MainCamera
+│       └── CameraController perspective follow, smoothing, bounds, lock zones
+├── HUDCamera                orthographic UI camera
+├── FadeCanvas               screen-space camera canvas for fades
+└── CameraTarget             smoothed hero target point
 ```
 
-`CameraController` should not reference `HeroController`, `HeroStateBlackboard`, or any hero subsystem. It observes the target position only.
+`Bootstrap` instantiates `_GameCameras`. `GameManager.SceneInit` calls `GameCameras`, which initializes `CameraTarget` before `CameraController`. The camera system intentionally does not use tk2d or PlayMaker.
 
-### Follow Behaviour
-
-- Track `target.position` with a lerp/slerp using a configurable `followSpeed`.
-- Apply a horizontal offset (`leadDistance`) in the direction the hero is moving (or facing).
-- Optionally apply a vertical downward bias when the hero is falling fast.
-- Clamp the final camera position to the active room's bounds, accounting for viewport half-extents.
-
-### Room/Zone System
-
-- Each room defines a `CameraZone` (simple trigger volume) that carries a bounds rect or a reference to a confiner collider.
-- When the hero enters a zone, `CameraController` transitions to that zone's bounds with a short lerp.
-- TODO: decide whether to use Cinemachine confiner or a hand-rolled zone system.
+`CameraEventService` is the replacement for PlayMaker-style camera messages. Trigger volumes, animation bridges, and gameplay helpers raise high-level requests; `GameCameras` routes them to the current target, controller, fade, or shake service.
 
 ---
 
-## Dependencies
+## Tuning
 
-- Hero `Transform` (read only, no hero component reference)
-- `CameraConfig` ScriptableObject (tuning)
-- Room geometry / `CameraZone` components (scene-authored)
+All camera tuning belongs in `CameraConfig` at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
+
+The runtime components keep serialized fallback values so older prefabs do not break, but `_GameCameras` should reference the shared `CameraConfig` asset.
+
+Important defaults:
+
+- Main camera projection: perspective, FOV `24`, camera local Z `-38.1`
+- Target damp: normal `0.35`, slow `0.15`
+- Camera damp: normal `0.32`, slow `0.15`
+- Horizontal look-ahead: `0.16`
+- Dash look-ahead: `2.51`
+- Falling look-ahead: `1.25`
+- Dash lead threshold: horizontal speed above `5`
+- Base vertical framing offset: `1`
+- Fast-fall vertical framing offset: `-1.5`
+- Max combined offset-area magnitude: `6`
+- Look input offset: `6`
+- Max camera velocity: `65`
 
 ---
 
-## Extension Points
+## Follow Behaviour
 
-- **Cutscene camera** — add a second camera or a `CameraController.OverrideTarget(Transform, float duration)` method; use `HeroController.AddControlLock` in parallel to freeze hero input.
-- **Split-screen** — out of scope for this project.
+`CameraTarget` reads only the hero `Transform`. It infers horizontal facing, dash lead, rising, falling, and fast-fall framing from per-frame transform deltas, with optional one-way velocity hints from the hero bridge so fall framing remains reliable across physics/update timing.
+
+`HeroCameraSignalBridge` is a hero-side adapter. It reads hero/input state and sends one-way signals such as look up/down, facing, dash, and sprint hints into `GameCameras`. Camera scripts must not read `HeroController`, `HeroStateBlackboard`, or `HeroInputReader` directly. Until ledge/edge detection exists, manual look up/down is gated to grounded, stationary hero input.
+
+Per frame, `CameraController.LateUpdate`:
+
+1. Ticks `CameraTarget`.
+2. Stops if frozen.
+3. Snaps to target during the scene-start lock timer.
+4. Smooths camera X and Y independently toward the target.
+5. Uses state-aware Y damping: slower while rising, a lower forward frame while falling, and temporary slow damp while looking up/down.
+6. Clamps to the active bounds volume and top-priority lock area.
+7. Smooths manual look offsets back toward zero when input is released.
+
+`CameraTarget` owns modes (`FollowHero`, `LockZone`, `Free`), look-ahead, dash offset, offset areas, vertical framing, and fall catcher behaviour. `CameraController` owns viewport-aware clamping, look input, freezes, positioning, final camera smoothing, and public camera modes (`Follow`, `Locked`, `Frozen`, `Free`).
+
+`CameraInfoCache` caches camera position, aspect, and world half-extents once per frame after the controller moves. Other systems can query `CameraInfoCache.WorldRect`, `HalfWidth`, and `HalfHeight` without recalculating projection math.
+
+---
+
+## Bounds And Lock Zones
+
+`CameraBoundsVolume` is a scene trigger volume sized to the legal room or level travel area. The controller clamps the perspective camera using frustum half-extents at the gameplay plane, so the camera does not reveal outside the volume.
+
+`CameraLockArea` is a trigger volume for temporary hard locks. It raises lock enter/exit events through `CameraEventService`. Active lock areas are stack-based; the highest `priority` wins. Lock areas can clamp X, clamp Y, and optionally prevent look-up or look-down offsets at authored vertical limits.
+
+`CameraOffsetArea` is a trigger volume for soft room framing. It raises offset enter/exit events through `CameraEventService`. Active offset areas are stack-based; their offsets are summed and clamped by `CameraConfig.maxCombinedOffsetAreaMagnitude`.
+
+Bounds, locks, and offset areas must be authored in scene space with `BoxCollider2D` triggers.
+
+---
+
+## Fades And Shake
+
+`CameraFade` drives a `CanvasGroup` with unscaled time so fades continue while the game is paused or during transition time-scale changes.
+
+Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `CameraShakeCueService` is the current MM Feel implementation. It can play optional `MMF_Player` presets when assigned, otherwise it falls back to More Mountains camera shake events. The shaker should move `CameraParent`, leaving `MainCamera` free to own follow position.
+
+`HeroCameraAnimancerBridge` is an optional animation-event bridge. Animation events should call high-level bridge methods such as `RequestSmallShake`, `RequestMediumShake`, `RequestHardFreeze`, or `ReleaseFreeze`; clips should not move camera transforms directly.
+
+## Unity Setup Notes
+
+- `_GameCameras` must keep references to `CameraController`, `CameraTarget`, `CameraFade`, `CameraShakeCueService`, and `HUDCamera`.
+- `CameraController` and `CameraTarget` should reference `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
+- `CameraShakeCueService` can be left with no `MMF_Player` fields assigned; it will use MM camera shake events. Assign optional small/medium/intense `MMF_Player` presets later if desired.
+- Add `HeroCameraAnimancerBridge` to the hero only if animation events need camera requests.
+- Lock, offset, and bounds volumes need `BoxCollider2D` triggers and must overlap the `Player` tagged hero.
 
 ---
 
 ## Rules
 
-- `CameraController` must not `GetComponent<HeroController>` or reference any hero subsystem.
-- All camera tuning lives in `CameraConfig` SO — no magic numbers in code.
-- The camera system must compile and function independently of any hero feature being in or out of the scene.
+- Camera systems may read the hero `Transform`; they must not reference `HeroController`, `HeroStateBlackboard`, or other hero subsystems.
+- Do not add tk2d or PlayMaker dependencies.
+- Do not call `Animator` APIs from the camera system.
+- Room bounds go through `CameraBoundsVolume`; temporary locks go through `CameraLockArea`.
+- Scene transitions snap `CameraTarget` to the repositioned hero before snapping `CameraController`.
+
+## TODOs
+
+- Add authored slide/super-move camera signals when those hero states exist.
+- Add world-position distance filtering for camera shake requests if offscreen impact effects become noisy.
+- Add render hooks or capture-to-texture only when a specific vertical-slice presentation feature needs them.
