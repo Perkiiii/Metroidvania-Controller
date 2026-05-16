@@ -39,7 +39,7 @@ public sealed class HeroActionController : MonoBehaviour
 
         jump = new HeroJumpAction(config, blackboard, input, heroMotor);
         dash = new HeroDashAction(config, blackboard, input, heroMotor);
-        attack = new HeroAttackAction(config, blackboard, input, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
+        attack = new HeroAttackAction(config, blackboard, input, heroMotor, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
         wallSlide = new HeroWallSlideAction(config, blackboard, input, heroMotor);
         wallJump = new HeroWallJumpAction(config, blackboard, input, heroMotor);
     }

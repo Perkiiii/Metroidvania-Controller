@@ -93,8 +93,6 @@ public sealed class HeroDashAction
 
         blackboard.dashing = true;
         blackboard.wallSliding = false;
-        blackboard.jumpSustaining = false;
-        blackboard.jumping = false;
         dashTimer = config.dashDuration;
         cooldownTimer = config.dashCooldown;
 

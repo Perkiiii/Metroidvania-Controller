@@ -195,6 +195,22 @@ public sealed class HeroMotor : MonoBehaviour
         body.linearVelocity = new Vector2(direction * config.dashSpeed, 0f);
     }
 
+    public void ApplyDownslashBounce()
+    {
+        if (body == null || config == null || blackboard == null)
+        {
+            return;
+        }
+
+        ResetJumpRuntime();
+        blackboard.grounded = false;
+        blackboard.actorState = HeroActorState.Airborne;
+        blackboard.rising = true;
+        blackboard.falling = false;
+
+        SetVerticalVelocity(config.downslashBounceVelocity);
+    }
+
     public void StartWallJump(int wallDirection)
     {
         if (body == null || config == null || blackboard == null || wallDirection == 0)
@@ -274,6 +290,11 @@ public sealed class HeroMotor : MonoBehaviour
         float input = Mathf.Abs(desiredMoveX) > deadZone ? desiredMoveX : 0f;
         float speed = GetTargetSpeed();
         float targetX = input * speed;
+        if (blackboard.attacking && blackboard.grounded && !blackboard.dashing)
+        {
+            targetX *= config.groundAttackMoveMultiplier;
+        }
+
         Vector2 velocity = body.linearVelocity;
         bool accelerating = Mathf.Abs(targetX) > Mathf.Abs(velocity.x);
         float acceleration = blackboard.grounded

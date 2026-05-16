@@ -42,7 +42,12 @@ public sealed class HeroConfig : ScriptableObject
     public int attackDamage = 1;
     [Min(1)] public int maxHitsPerSwing = 16;
     public float attackDirectionThreshold = 0.5f;
+    [Range(0f, 1f)] public float groundAttackMoveMultiplier = 0.75f;
+    public float attackBufferTime = 0.1f;
     public LayerMask attackHitLayers;
+
+    [Header("Downslash Bounce")]
+    public float downslashBounceVelocity = 16f;
 
     [Header("Deprecated Box Hitboxes")]
     [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]

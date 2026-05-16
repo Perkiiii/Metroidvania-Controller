@@ -14,6 +14,7 @@ public sealed class HeroInputReader : MonoBehaviour
 
     private HeroConfig config;
     private float jumpBufferTimer;
+    private float attackBufferTimer;
     private bool jumpReleaseQueued;
 
     public Vector2 MoveVector { get; private set; }
@@ -25,6 +26,7 @@ public sealed class HeroInputReader : MonoBehaviour
     public bool DashPressedThisFrame { get; private set; }
     public bool SprintHeld { get; private set; }
     public bool HasBufferedJump => jumpBufferTimer > 0f;
+    public bool HasBufferedAttack => attackBufferTimer > 0f;
 
     public void Initialize(HeroConfig heroConfig)
     {
@@ -77,12 +79,27 @@ public sealed class HeroInputReader : MonoBehaviour
         {
             jumpBufferTimer -= Time.deltaTime;
         }
+
+        if (AttackPressedThisFrame)
+        {
+            attackBufferTimer = config != null ? config.attackBufferTime : 0.1f;
+        }
+        else if (attackBufferTimer > 0f)
+        {
+            attackBufferTimer -= Time.deltaTime;
+        }
     }
 
     public void ConsumeJumpBuffer()
     {
         jumpBufferTimer = 0f;
         JumpPressedThisFrame = false;
+    }
+
+    public void ConsumeAttackBuffer()
+    {
+        attackBufferTimer = 0f;
+        AttackPressedThisFrame = false;
     }
 
     public void ConsumeJumpRelease()

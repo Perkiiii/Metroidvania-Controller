@@ -15,6 +15,8 @@ public class HeroController : MonoBehaviour
 
     private readonly HashSet<object> controlLocks = new HashSet<object>();
 
+    private Coroutine hurtRoutine;
+
     private HeroStateBlackboard blackboard;
     private HeroInputReader inputReader;
     private HeroSensors sensors;
@@ -178,7 +180,8 @@ public class HeroController : MonoBehaviour
         motor.SetNormalMovementSuppressed(true);
 
         AddControlLock(this);
-        StartCoroutine(HurtRecoveryRoutine());
+        if (hurtRoutine != null) StopCoroutine(hurtRoutine);
+        hurtRoutine = StartCoroutine(HurtRecoveryRoutine());
     }
 
     private void HandleDeath()
@@ -194,6 +197,7 @@ public class HeroController : MonoBehaviour
         blackboard.recoiling = false;
         motor.SetNormalMovementSuppressed(false);
         RemoveControlLock(this);
+        hurtRoutine = null;
     }
 
     private Vector2 DefaultKnockback()

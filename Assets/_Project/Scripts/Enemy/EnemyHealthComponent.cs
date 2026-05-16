@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 
 [DisallowMultipleComponent]
-public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver
+public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, IHeroDownslashResponder
 {
     public event Action OnDamaged;
     public event Action OnDeath;
@@ -53,6 +53,10 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver
             recoil?.RecoilFromHit(hit);
             OnDamaged?.Invoke();
         }
+    }
+
+    public void ReceiveHeroDownslash(HeroAttackHit hit)
+    {
     }
 
     private void StartDeath()

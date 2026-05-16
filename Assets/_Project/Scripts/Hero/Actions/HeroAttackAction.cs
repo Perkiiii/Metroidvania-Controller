@@ -12,6 +12,7 @@ public sealed class HeroAttackAction
     private readonly HeroConfig config;
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
+    private readonly HeroMotor motor;
     private readonly GameObject owner;
     private readonly Transform ownerTransform;
     private readonly HeroAttackModule[] attackModules;
@@ -22,6 +23,7 @@ public sealed class HeroAttackAction
     private float cooldownTimer;
     private float recoveryTimer;
     private bool attackWindowActive;
+    private bool downslashBounceConsumedThisAttack;
     private int attackVersion;
     private HeroAttackDirection currentDirection;
     private HeroAttackModule currentModule;
@@ -32,6 +34,7 @@ public sealed class HeroAttackAction
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
+        HeroMotor heroMotor,
         GameObject ownerObject,
         Transform ownerRoot,
         HeroAttackModule[] modules,
@@ -40,6 +43,7 @@ public sealed class HeroAttackAction
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
+        motor = heroMotor;
         owner = ownerObject;
         ownerTransform = ownerRoot;
         attackModules = modules ?? new HeroAttackModule[0];
@@ -65,8 +69,9 @@ public sealed class HeroAttackAction
 
         blackboard.attackRecovering = recoveryTimer > 0f;
 
-        if (input.AttackPressedThisFrame && CanStartAttack())
+        if (input.HasBufferedAttack && CanStartAttack())
         {
+            input.ConsumeAttackBuffer();
             StartAttack();
         }
     }
@@ -165,7 +170,8 @@ public sealed class HeroAttackAction
             && !blackboard.controlLocked
             && !blackboard.inputBlocked
             && !blackboard.attacking
-            && !blackboard.dashing;
+            && !blackboard.dashing
+            && !blackboard.wallJumping;
     }
 
     private void StartAttack()
@@ -189,6 +195,7 @@ public sealed class HeroAttackAction
         attackTimer = 0f;
         attackFallbackTimeout = failSafeTimeout;
         attackWindowActive = false;
+        downslashBounceConsumedThisAttack = false;
         cooldownTimer = config.attackCooldown;
         recoveryTimer = config.attackRecovery;
         blackboard.attackRecovering = true;
@@ -217,6 +224,7 @@ public sealed class HeroAttackAction
         attackTimer = 0f;
         attackFallbackTimeout = 0f;
         attackWindowActive = false;
+        downslashBounceConsumedThisAttack = false;
         blackboard.attacking = false;
         blackboard.upAttacking = false;
         blackboard.downAttacking = false;
@@ -273,7 +281,9 @@ public sealed class HeroAttackAction
                 GetForceDirection());
 
             receiver.ReceiveHeroAttack(hit);
-            NotifyDownslashResponder(hitCollider, receiver, hit);
+            IHeroDownslashResponder downslashResponder = FindDownslashResponder(hitCollider, receiver);
+            NotifyDownslashResponder(downslashResponder, hit);
+            TryApplyDownslashBounce(downslashResponder);
         }
     }
 
@@ -311,21 +321,38 @@ public sealed class HeroAttackAction
         }
     }
 
-    private void NotifyDownslashResponder(Collider2D hitCollider, IHeroAttackReceiver attackReceiver, HeroAttackHit hit)
+    private IHeroDownslashResponder FindDownslashResponder(Collider2D hitCollider, IHeroAttackReceiver attackReceiver)
     {
         if (currentDirection != HeroAttackDirection.Down)
         {
-            return;
+            return null;
         }
 
         if (attackReceiver is IHeroDownslashResponder directResponder)
         {
-            directResponder.ReceiveHeroDownslash(hit);
+            return directResponder;
+        }
+
+        return FindComponentInParents<IHeroDownslashResponder>(hitCollider);
+    }
+
+    private static void NotifyDownslashResponder(IHeroDownslashResponder responder, HeroAttackHit hit)
+    {
+        responder?.ReceiveHeroDownslash(hit);
+    }
+
+    private void TryApplyDownslashBounce(IHeroDownslashResponder responder)
+    {
+        if (responder == null
+            || downslashBounceConsumedThisAttack
+            || currentDirection != HeroAttackDirection.Down
+            || blackboard.grounded)
+        {
             return;
         }
 
-        IHeroDownslashResponder responder = FindComponentInParents<IHeroDownslashResponder>(hitCollider);
-        responder?.ReceiveHeroDownslash(hit);
+        downslashBounceConsumedThisAttack = true;
+        motor?.ApplyDownslashBounce();
     }
 
     private Vector2 GetForceDirection()

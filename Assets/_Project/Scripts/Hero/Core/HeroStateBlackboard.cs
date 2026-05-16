@@ -50,6 +50,10 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     {
         wasGrounded = grounded;
         grounded = isGrounded;
+        if (actorState == HeroActorState.Hurt || actorState == HeroActorState.Dead)
+        {
+            return;
+        }
         actorState = grounded ? HeroActorState.Grounded : HeroActorState.Airborne;
     }
 }

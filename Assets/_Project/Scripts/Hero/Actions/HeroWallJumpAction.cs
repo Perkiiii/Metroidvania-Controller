@@ -48,6 +48,7 @@ public sealed class HeroWallJumpAction
             && !blackboard.controlLocked
             && !blackboard.inputBlocked
             && !blackboard.dashing
+            && !blackboard.attackRecovering
             && input.HasBufferedJump;
     }
 
