@@ -79,9 +79,9 @@ public sealed class HeroAttackModule : MonoBehaviour
         SetVisualActive(true);
         PlayVisualAnimation();
 
-        if (audioSource != null && slashClip != null)
+        if (slashClip != null)
         {
-            audioSource.PlayOneShot(slashClip);
+            AudioManager.Instance?.PlaySFX(slashClip);
         }
     }
 

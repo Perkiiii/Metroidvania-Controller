@@ -14,16 +14,16 @@ This is a living document. Update when milestones complete or priorities shift.
 | Animancer-driven animation (locomotion, action states) | Done |
 | Input System integration (KB+Mouse, Gamepad) | Done |
 | ScriptableObject tuning pipeline | Done |
-| Boot scene / persistent infrastructure | Not started |
-| Camera system | Not started |
+| Boot scene / persistent infrastructure | Partial |
+| Camera system | Done |
 | Enemy AI framework | Not started |
 | Interactables / checkpoints | Not started |
-| HeroHealthComponent / hurt / death / respawn | Not started |
+| HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Not started |
 | Save / load system | Not started |
-| Scene transitions | Not started |
+| Scene transitions | Partial |
 | UI (HUD, menus) | Not started |
-| Audio system | Not started |
+| Audio system | Partial |
 
 ---
 
@@ -47,6 +47,12 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [ ] Implement `InteractManager` — priority-sorted interactable list, interact input routing. DontDestroyOnLoad.
 - [ ] Wire `Bootstrap`: instantiate and DontDestroyOnLoad all four managers in order; call `SaveManager.LoadOrCreate()`; then load a placeholder scene (or the camera/level scene once Milestone 1 is complete).
 - [ ] Resolve the `HeroController.ResolveDependencies` AssetDatabase fallback — link SOs via Inspector instead.
+ - [x] Create boot scene (Build Index 0) with a `Bootstrap` MonoBehaviour (Boot.unity + `Bootstrap` exist)
+ - [x] Implement `GameManager` — four responsibilities only: `GameState` enum, `SceneInit` event, `BeginSceneTransition`, `Pause` / `Unpause`. See `Docs/Architecture.md` — Scene Transitions. (Done)
+ - [x] Implement `AudioManager` — `PlaySFX(AudioClip)` and `PlayMusic(AudioClip, bool loop)` only. DontDestroyOnLoad. (Done)
+ - [ ] Implement `InteractManager` — priority-sorted interactable list, interact input routing. DontDestroyOnLoad.
+ - [ ] Wire `Bootstrap`: instantiate and DontDestroyOnLoad all four managers in order; call `SaveManager.LoadOrCreate()`; then load a placeholder scene (or the camera/level scene once Milestone 1 is complete). (Partial — Bootstrap instantiates GameManager/AudioManager/GameCameras prefabs; SaveManager/InteractManager not present.)
+ - [ ] Resolve the `HeroController.ResolveDependencies` AssetDatabase fallback — link SOs via Inspector instead.
 
 ---
 
@@ -63,6 +69,12 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [ ] Implement hero hurt response in `HeroController`: subscribe to OnDamaged → blackboard Hurt state, knockback, control lock.
 - [ ] Implement basic respawn sequence on OnDeath: fade out, position at active marker, fade in, restore control.
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
+ - [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` sets `SaveManager.ActiveRespawnMarker` on entry.
+ - [x] Implement `HazardZone` (Done) and stub `RespawnMarker` (Stubbed). (HazardZone calls `HeroBox.TriggerHazardDeath`; `RespawnMarker` is currently a compile-time stub so SaveManager integration is pending.)
+ - [x] Implement `HeroHealthComponent` — TakeDamage, TriggerHazardDeath, i-frames (reference-counted), OnDamaged / OnDeath events. (Done)
+ - [ ] Implement hero hurt response in `HeroController`: subscribe to OnDamaged → blackboard Hurt state, knockback, control lock. (Partial)
+ - [x] Implement basic respawn sequence on OnDeath: fade out, position at nearest `RespawnMarker`, fade in, restore control. (Partial — runtime respawn exists via `GameManager.BeginRespawnSequence` but persistent active markers / SaveManager wiring is not implemented.)
+ - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
 
 ---
 
@@ -127,3 +139,14 @@ These two come together because neither is meaningful without the other — a co
 - `HeroAttackModule` currently holds an `AudioSource` field — replace with `AudioClip slashSfx` and route through `AudioManager.PlaySFX` in Milestone 2.
 - `SampleScene` is the only scene; a boot scene (Build Index 0) must be created in Milestone 0 before any additional scenes are added to Build Settings.
 - `HeroController.ResolveDependencies` falls back to editor-only `AssetDatabase` calls — resolve via Inspector wire-up in Milestone 0.
+
+## Current Integration Risks
+
+- RespawnMarker is currently a compile-time stub (`Assets/_Project/Scripts/World/RespawnMarker.cs`) — SaveManager / persistent active-respawn-marker wiring is not implemented yet.
+- `SaveManager` and `InteractManager` are not present in the codebase; several systems (checkpoints, hazard respawn, Save persistence) reference them in docs and comments.
+- `CheckpointInteractable` and `HazardRespawnMarker` are not implemented — checkpoint activation and hazard-specific respawn persistence are pending.
+- Runtime respawn exists via `GameManager.BeginRespawnSequence`, but it uses nearest-marker lookup and does not honour a persisted "active" marker (Save system missing) — this is a functional gap for correct respawn semantics.
+- Prefab / Inspector wiring risk: `Bootstrap` expects `GameManager`, `AudioManager`, and `GameCameras` prefabs to be configured in the Boot scene; the prefabs exist at `Assets/_Project/Prefabs/Managers/_GameManager.prefab`, `_AudioManager.prefab`, and `_GameCameras.prefab` but inspector hookups should be verified in-editor.
+- Engine/API compatibility: the code uses `FindObjectsByType` / `FindFirstObjectByType` (Unity 2023+). Building outside the Unity Editor (e.g., `dotnet build`) will fail due to missing Unity runtime assemblies — verify compilation inside the Unity Editor.
+- HUD / UI wiring is not implemented: `HeroHealthComponent` exposes events, but `HealthDisplay` and HUD subscription are not yet in place.
+

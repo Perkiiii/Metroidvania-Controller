@@ -6,6 +6,7 @@ public sealed class HeroWallSlideAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private bool wasWallSliding;
 
     public HeroWallSlideAction(
         HeroConfig heroConfig,
@@ -21,8 +22,19 @@ public sealed class HeroWallSlideAction
 
     public void FixedTick()
     {
-        bool shouldSlide = CanWallSlide();
+        bool shouldSlide = blackboard.wallSliding ? CanContinueWallSlide() : CanEnterWallSlide();
+
+        if (shouldSlide && !wasWallSliding)
+        {
+            motor.BeginWallSlide();
+        }
+        else if (!shouldSlide && wasWallSliding)
+        {
+            motor.EndWallSlide();
+        }
+
         blackboard.wallSliding = shouldSlide;
+        wasWallSliding = shouldSlide;
 
         if (shouldSlide)
         {
@@ -30,25 +42,38 @@ public sealed class HeroWallSlideAction
         }
     }
 
-    private bool CanWallSlide()
+    private bool CanEnterWallSlide()
     {
-        if (blackboard.grounded || blackboard.dashing || blackboard.attacking || blackboard.recoiling)
-        {
-            return false;
-        }
+        return HasWallSlidePhysicalConditions() && IsPressingIntoWall();
+    }
 
-        if (!blackboard.touchingWallFront)
-        {
-            return false;
-        }
+    private bool CanContinueWallSlide()
+    {
+        return HasWallSlidePhysicalConditions() && !IsPressingAwayFromWall();
+    }
 
-        if (!(blackboard.falling || motor.Velocity.y <= 0f))
-        {
-            return false;
-        }
+    private bool HasWallSlidePhysicalConditions()
+    {
+        return !blackboard.grounded
+            && !blackboard.dashing
+            && !blackboard.attacking
+            && !blackboard.wallJumping
+            && !blackboard.recoiling
+            && blackboard.touchingWallFront
+            && (blackboard.falling || motor.Velocity.y <= 0f);
+    }
 
+    private bool IsPressingIntoWall()
+    {
         float moveX = input.MoveVector.x;
         return Mathf.Abs(moveX) >= config.wallSlideInputThreshold
             && Mathf.Sign(moveX) == blackboard.FacingDirection;
+    }
+
+    private bool IsPressingAwayFromWall()
+    {
+        float moveX = input.MoveVector.x;
+        return Mathf.Abs(moveX) >= config.wallSlideInputThreshold
+            && Mathf.Sign(moveX) == -blackboard.FacingDirection;
     }
 }

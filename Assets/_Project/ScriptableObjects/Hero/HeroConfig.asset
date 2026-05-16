@@ -23,6 +23,7 @@ MonoBehaviour:
   jumpSpeed: 18
   maxJumpSustainSteps: 1
   minJumpReleaseSteps: 0
+  jumpCutVelocityMultiplier: 0.35
   coyoteTime: 0.08
   jumpBufferTime: 0.1
   baseGravityScale: 0.79
@@ -53,6 +54,12 @@ MonoBehaviour:
   wallSlideSpeed: -3
   wallSlideDeceleration: 0.7
   wallSlideInputThreshold: 0.3
+  wallSlideInitialHoldTime: 0.25
+  wallSlideInitialSpeed: 0.1
+  wallSlideAcceleration: 16
+  wallJumpHorizontalSpeed: 10
+  wallJumpVerticalSpeed: 16
+  wallJumpRelatchLockout: 0.15
   terrainLayers:
     serializedVersion: 2
     m_Bits: 1

@@ -452,9 +452,7 @@ Library/ScriptAssemblies/
  UnityEngine.TestRunner.dll
  UnityEngine.UI.dll
 Packages/com.singularitygroup.hotreload/Editor/SingularityGroup.HotReload.EditorDependencies.dll
-Temp/bin/Debug/
- Lofelt.NiceVibrations.dll
- MoreMountains.Tools.dll
+Temp/bin/Debug/MoreMountains.Tools.dll
 
 [analyzerReferences]
 C:/Program Files/Unity/Hub/Editor/6000.3.10f1/Editor/Data/Tools/BuildPipeline/Unity.SourceGenerators/

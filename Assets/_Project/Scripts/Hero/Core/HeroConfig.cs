@@ -17,6 +17,7 @@ public sealed class HeroConfig : ScriptableObject
     public float jumpSpeed = 18f;
     public int maxJumpSustainSteps = 1;
     public int minJumpReleaseSteps;
+    public float jumpCutVelocityMultiplier = 0.35f;
     public float coyoteTime = 0.08f;
     public float jumpBufferTime = 0.1f;
 
@@ -61,6 +62,12 @@ public sealed class HeroConfig : ScriptableObject
     public float wallSlideSpeed = -3f;
     public float wallSlideDeceleration = 0.7f;
     public float wallSlideInputThreshold = 0.3f;
+    public float wallSlideInitialHoldTime = 0.25f;
+    public float wallSlideInitialSpeed = -0.5f;
+    public float wallSlideAcceleration = 12f;
+    public float wallJumpHorizontalSpeed = 10f;
+    public float wallJumpVerticalSpeed = 16f;
+    public float wallJumpRelatchLockout = 0.15f;
 
     [Header("Sensors")]
     public LayerMask terrainLayers = 1;

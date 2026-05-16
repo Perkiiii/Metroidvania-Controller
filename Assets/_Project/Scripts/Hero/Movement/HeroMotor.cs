@@ -17,6 +17,7 @@ public sealed class HeroMotor : MonoBehaviour
     private bool normalMovementSuppressed;
     private bool gravitySuspended;
     private float savedGravityScale;
+    private float wallSlideInitialTimer;
 
     public Vector2 Velocity => body != null ? body.linearVelocity : Vector2.zero;
 
@@ -164,6 +165,16 @@ public sealed class HeroMotor : MonoBehaviour
         body.gravityScale = savedGravityScale;
     }
 
+    public void BeginWallSlide()
+    {
+        wallSlideInitialTimer = config != null ? config.wallSlideInitialHoldTime : 0f;
+    }
+
+    public void EndWallSlide()
+    {
+        wallSlideInitialTimer = 0f;
+    }
+
     public void ApplyKnockback(Vector2 velocity)
     {
         if (body == null)
@@ -182,6 +193,35 @@ public sealed class HeroMotor : MonoBehaviour
         }
 
         body.linearVelocity = new Vector2(direction * config.dashSpeed, 0f);
+    }
+
+    public void StartWallJump(int wallDirection)
+    {
+        if (body == null || config == null || blackboard == null || wallDirection == 0)
+        {
+            return;
+        }
+
+        jumpStepsElapsed = 0;
+        jumpedSteps = 0;
+        jumpReleasePending = false;
+        EndWallSlide();
+
+        blackboard.wallSliding = false;
+        blackboard.jumping = true;
+        blackboard.jumpSustaining = false;
+        blackboard.grounded = false;
+        blackboard.actorState = HeroActorState.Airborne;
+        blackboard.rising = true;
+        blackboard.falling = false;
+        blackboard.jumpStepsElapsed = 0;
+        blackboard.jumpedSteps = 0;
+
+        int awayDirection = -wallDirection;
+        SetFacingDirection(awayDirection);
+        body.linearVelocity = new Vector2(
+            awayDirection * config.wallJumpHorizontalSpeed,
+            config.wallJumpVerticalSpeed);
     }
 
     public void ResetJumpRuntime()
@@ -219,7 +259,7 @@ public sealed class HeroMotor : MonoBehaviour
             ApplyGravityScale();
         }
 
-        ApplyWallSlideVelocity();
+        ApplyWallSlideVelocity(fixedDeltaTime);
         ClampFallSpeed();
         ApplyFacingVisuals();
 
@@ -244,17 +284,28 @@ public sealed class HeroMotor : MonoBehaviour
         body.linearVelocity = velocity;
     }
 
-    private void ApplyWallSlideVelocity()
+    private void ApplyWallSlideVelocity(float fixedDeltaTime)
     {
         if (!blackboard.wallSliding)
         {
             return;
         }
 
+        if (wallSlideInitialTimer > 0f)
+        {
+            wallSlideInitialTimer -= fixedDeltaTime;
+            float targetY = Mathf.Min(0f, config.wallSlideInitialSpeed);
+            float currentY = body.linearVelocity.y;
+            // Cap fast downward contacts so the initial cling is felt even when entering at high fall speed.
+            float cappedY = currentY < targetY ? targetY : currentY;
+            body.linearVelocity = new Vector2(body.linearVelocity.x, cappedY);
+            return;
+        }
+
         float y = Mathf.MoveTowards(
             body.linearVelocity.y,
             config.wallSlideSpeed,
-            config.wallSlideDeceleration);
+            Mathf.Max(0f, config.wallSlideAcceleration) * fixedDeltaTime);
 
         body.linearVelocity = new Vector2(body.linearVelocity.x, y);
     }
@@ -317,7 +368,8 @@ public sealed class HeroMotor : MonoBehaviour
 
         if (body.linearVelocity.y > 0f && jumpedSteps >= config.minJumpReleaseSteps)
         {
-            SetVerticalVelocity(0f);
+            float multiplier = Mathf.Clamp01(config.jumpCutVelocityMultiplier);
+            SetVerticalVelocity(body.linearVelocity.y * multiplier);
             StopJumpSustain();
         }
     }

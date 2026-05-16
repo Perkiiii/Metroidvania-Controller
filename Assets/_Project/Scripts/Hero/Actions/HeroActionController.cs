@@ -22,6 +22,7 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroDashAction dash;
     private HeroAttackAction attack;
     private HeroWallSlideAction wallSlide;
+    private HeroWallJumpAction wallJump;
 
     public int AttackVersion => attack != null ? attack.AttackVersion : 0;
 
@@ -40,6 +41,7 @@ public sealed class HeroActionController : MonoBehaviour
         dash = new HeroDashAction(config, blackboard, input, heroMotor);
         attack = new HeroAttackAction(config, blackboard, input, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
         wallSlide = new HeroWallSlideAction(config, blackboard, input, heroMotor);
+        wallJump = new HeroWallJumpAction(config, blackboard, input, heroMotor);
     }
 
     public void Tick()
@@ -62,6 +64,7 @@ public sealed class HeroActionController : MonoBehaviour
         }
 
         wallSlide.FixedTick();
+        wallJump.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);
         dash.FixedTick(fixedDeltaTime);
         attack.FixedTick(fixedDeltaTime);

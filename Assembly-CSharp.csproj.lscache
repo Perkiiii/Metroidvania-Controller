@@ -85,6 +85,7 @@ Assets/_Project/Scripts/
   HeroAttackAction.cs
   HeroDashAction.cs
   HeroJumpAction.cs
+  HeroWallJumpAction.cs
   HeroWallSlideAction.cs
  Hero/Animation/
   HeroAnimationController.cs

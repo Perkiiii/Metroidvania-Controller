@@ -12,6 +12,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         Jump,
         Fall,
         WallSlide,
+        WallJump,
         Dash,
         Attack,
         Hurt,
@@ -72,6 +73,10 @@ public sealed class HeroAnimationController : MonoBehaviour
         else if (blackboard.dashing)
         {
             PlayActionClip(animationLibrary.dash, VisualState.Dash);
+        }
+        else if (blackboard.wallJumping && animationLibrary.wallJump != null)
+        {
+            PlayActionClip(animationLibrary.wallJump, VisualState.WallJump);
         }
         else if (blackboard.wallSliding)
         {

@@ -36,6 +36,7 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     public bool upAttacking;
     public bool downAttacking;
     public bool wallSliding;
+    public bool wallJumping;
     public bool recoiling;
     public HeroAttackDirection attackDirection = HeroAttackDirection.Side;
 
