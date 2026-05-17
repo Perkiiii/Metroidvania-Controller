@@ -45,8 +45,12 @@ public sealed class HeroConfig : ScriptableObject
     [Range(0f, 1f)] public float groundAttackMoveMultiplier = 0.75f;
     public float attackBufferTime = 0.1f;
     public LayerMask attackHitLayers;
+    [Tooltip("Terrain layers checked for whiff sparks during the active attack window. Falls back to terrainLayers if zero.")]
+    public LayerMask attackTerrainLayers;
 
     [Header("Downslash Bounce")]
+    [Min(0f)]
+    [Tooltip("Upward velocity applied when an airborne downslash successfully hits a valid enemy.")]
     public float downslashBounceVelocity = 16f;
 
     [Header("Deprecated Box Hitboxes")]

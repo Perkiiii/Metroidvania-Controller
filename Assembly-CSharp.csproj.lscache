@@ -78,6 +78,7 @@ Assets/_Project/Scripts/
   EnemyRecoil.cs
   EnemyRecoilState.cs
   EnemyStateBlackboard.cs
+  Feedback/EnemyFeedbackController.cs
   IEnemyBehaviour.cs
   MushroomEnemy.cs
  Hero/Actions/
@@ -105,6 +106,7 @@ Assets/_Project/Scripts/
   HeroHealthComponent.cs
   HeroStateBlackboard.cs
  Hero/
+  Feedback/HeroAttackImpactFeedbackController.cs
   HeroCameraSignalBridge.cs
   HeroController.cs
   Input/HeroInputReader.cs

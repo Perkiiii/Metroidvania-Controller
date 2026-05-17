@@ -203,6 +203,9 @@ public sealed class HeroMotor : MonoBehaviour
         }
 
         ResetJumpRuntime();
+        blackboard.wallSliding = false;
+        blackboard.wallJumping = false;
+        EndWallSlide();
         blackboard.grounded = false;
         blackboard.actorState = HeroActorState.Airborne;
         blackboard.rising = true;

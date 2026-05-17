@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97402d79d19f3144ab9d54a58db3bdd1, type: 3}
   m_Name: HeroConfig
   m_EditorClassIdentifier: 
-  walkSpeed: 4.32
-  runSpeed: 6.5
+  walkSpeed: 4.25
+  runSpeed: 6.3
   groundAcceleration: 80
   groundDeceleration: 90
   airAcceleration: 60
   airDeceleration: 40
   horizontalInputDeadZone: 0.3
   requireSprintForRun: 0
-  jumpSpeed: 18
+  jumpSpeed: 16
   maxJumpSustainSteps: 1
   minJumpReleaseSteps: 0
   jumpCutVelocityMultiplier: 0.35
@@ -38,13 +38,19 @@ MonoBehaviour:
   dashDuration: 0.4
   dashCooldown: 0.86
   attackCooldown: 0.4
-  attackRecovery: 0.7
+  attackRecovery: 0.22
   attackDamage: 1
   maxHitsPerSwing: 16
   attackDirectionThreshold: 0.5
+  groundAttackMoveMultiplier: 0.75
+  attackBufferTime: 0.1
   attackHitLayers:
     serializedVersion: 2
     m_Bits: 64
+  attackTerrainLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  downslashBounceVelocity: 8
   attackSideOffset: {x: 0.75, y: 0}
   attackSideSize: {x: 1.2, y: 0.5}
   attackUpOffset: {x: 0, y: 0.75}

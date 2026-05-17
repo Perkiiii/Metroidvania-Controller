@@ -8,6 +8,8 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
     public event Action OnDamaged;
     public event Action OnDeath;
 
+    [SerializeField] private EnemyFeedbackController feedbackController;
+
     private EnemyConfig config;
     private EnemyStateBlackboard blackboard;
     private Rigidbody2D body;
@@ -29,6 +31,8 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         colliders = GetComponentsInChildren<Collider2D>(true);
         flasher = GetComponentInChildren<SpriteFlash>(true);
         currentHealth = config.maxHealth;
+        if (feedbackController == null)
+            feedbackController = GetComponentInChildren<EnemyFeedbackController>(true);
     }
 
     public void ReceiveHeroAttack(HeroAttackHit hit)
@@ -43,6 +47,7 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         flasher?.FlashHit();
         AudioManager.Instance?.PlaySFX(config.hurtSfx);
         GameManager.Instance?.HitStop(config.hitStopDuration);
+        feedbackController?.PlayHeroHit(hit, false);
 
         if (currentHealth <= 0)
         {
@@ -57,6 +62,7 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
 
     public void ReceiveHeroDownslash(HeroAttackHit hit)
     {
+        feedbackController?.PlayHeroHit(hit, true);
     }
 
     private void StartDeath()
@@ -77,6 +83,7 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         }
 
         AudioManager.Instance?.PlaySFX(config.deathSfx);
+        feedbackController?.PlayDeath(transform.position);
         OnDeath?.Invoke();
         StartCoroutine(DestroyRoutine());
     }

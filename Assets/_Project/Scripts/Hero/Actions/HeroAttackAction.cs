@@ -18,12 +18,16 @@ public sealed class HeroAttackAction
     private readonly HeroAttackModule[] attackModules;
     private readonly float failSafeTimeout;
 
+    private readonly HeroAttackImpactFeedbackController impactFeedback;
+    private readonly Collider2D[] terrainHitBuffer = new Collider2D[8];
+
     private float attackTimer;
     private float attackFallbackTimeout;
     private float cooldownTimer;
     private float recoveryTimer;
     private bool attackWindowActive;
     private bool downslashBounceConsumedThisAttack;
+    private bool terrainImpactPlayedThisSwing;
     private int attackVersion;
     private HeroAttackDirection currentDirection;
     private HeroAttackModule currentModule;
@@ -52,6 +56,7 @@ public sealed class HeroAttackAction
         int maxHits = Mathf.Max(1, config != null ? config.maxHitsPerSwing : DefaultMaxAttackHits);
         damageHitBuffer = new Collider2D[maxHits];
         clashHitBuffer = new Collider2D[maxHits];
+        impactFeedback = ownerObject != null ? ownerObject.GetComponentInChildren<HeroAttackImpactFeedbackController>() : null;
         DeactivateAllModules();
     }
 
@@ -90,6 +95,7 @@ public sealed class HeroAttackAction
             currentModule.SetHitWindowActive(true);
             EvaluateDamageCollider();
             EvaluateClashCollider();
+            EvaluateTerrainImpact();
         }
 
         if (attackTimer >= attackFallbackTimeout)
@@ -114,6 +120,7 @@ public sealed class HeroAttackAction
         currentModule.SetHitWindowActive(true);
         EvaluateDamageCollider();
         EvaluateClashCollider();
+        EvaluateTerrainImpact();
     }
 
     public void EndAttackWindow()
@@ -196,6 +203,7 @@ public sealed class HeroAttackAction
         attackFallbackTimeout = failSafeTimeout;
         attackWindowActive = false;
         downslashBounceConsumedThisAttack = false;
+        terrainImpactPlayedThisSwing = false;
         cooldownTimer = config.attackCooldown;
         recoveryTimer = config.attackRecovery;
         blackboard.attackRecovering = true;
@@ -225,6 +233,7 @@ public sealed class HeroAttackAction
         attackFallbackTimeout = 0f;
         attackWindowActive = false;
         downslashBounceConsumedThisAttack = false;
+        terrainImpactPlayedThisSwing = false;
         blackboard.attacking = false;
         blackboard.upAttacking = false;
         blackboard.downAttacking = false;
@@ -287,6 +296,64 @@ public sealed class HeroAttackAction
         }
     }
 
+    private void EvaluateTerrainImpact()
+    {
+        if (terrainImpactPlayedThisSwing) return;
+        if (hitReceivers.Count > 0) return;
+        if (clashReceivers.Count > 0) return;
+        if (downslashBounceConsumedThisAttack) return;
+        if (impactFeedback == null) return;
+        if (currentModule == null || !currentModule.HasDamageCollider) return;
+
+        int maskValue = config.attackTerrainLayers.value != 0
+            ? config.attackTerrainLayers.value
+            : config.terrainLayers.value;
+
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(maskValue);
+        filter.useTriggers = false;
+
+        int hitCount = currentModule.DamageCollider.Overlap(filter, terrainHitBuffer);
+        if (hitCount == 0) return;
+
+        Vector2 referencePoint = currentModule.GetDamageReferencePoint();
+        float nearestSqDist = float.MaxValue;
+        Vector2 bestContact = Vector2.zero;
+        bool found = false;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D col = terrainHitBuffer[i];
+            if (col == null || IsSelfCollider(col)) continue;
+
+            Vector2 candidate = col.ClosestPoint(referencePoint);
+
+            // ClosestPoint returns referencePoint when it is inside the collider.
+            // Fall back to a short raycast along the attack force direction.
+            if ((candidate - referencePoint).sqrMagnitude < 0.0001f)
+            {
+                RaycastHit2D rayHit = Physics2D.Raycast(referencePoint, GetForceDirection(), config.wallProbeDistance * 3f, maskValue);
+                candidate = (rayHit.collider != null && !IsSelfCollider(rayHit.collider))
+                    ? rayHit.point
+                    : (Vector2)col.bounds.center;
+            }
+
+            float sqDist = (candidate - referencePoint).sqrMagnitude;
+            if (sqDist < nearestSqDist)
+            {
+                nearestSqDist = sqDist;
+                bestContact = candidate;
+                found = true;
+            }
+        }
+
+        if (!found) return;
+
+        Vector3 worldContact = new Vector3(bestContact.x, bestContact.y, impactFeedback.transform.position.z);
+        impactFeedback.PlayTerrainImpact(currentDirection, worldContact);
+        terrainImpactPlayedThisSwing = true;
+    }
+
     private void EvaluateClashCollider()
     {
         if (!currentModule.HasClashCollider)
@@ -347,6 +414,14 @@ public sealed class HeroAttackAction
             || downslashBounceConsumedThisAttack
             || currentDirection != HeroAttackDirection.Down
             || blackboard.grounded)
+        {
+            return;
+        }
+
+        if (blackboard.controlLocked
+            || blackboard.inputBlocked
+            || blackboard.dashing
+            || blackboard.recoiling)
         {
             return;
         }
