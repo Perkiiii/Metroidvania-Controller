@@ -6,18 +6,21 @@ public sealed class HeroWallSlideAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private readonly HeroAudioController audio;
     private bool wasWallSliding;
 
     public HeroWallSlideAction(
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
-        HeroMotor heroMotor)
+        HeroMotor heroMotor,
+        HeroAudioController heroAudio)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        audio = heroAudio;
     }
 
     public void FixedTick()
@@ -27,10 +30,12 @@ public sealed class HeroWallSlideAction
         if (shouldSlide && !wasWallSliding)
         {
             motor.BeginWallSlide();
+            audio?.PlayWallSlide();
         }
         else if (!shouldSlide && wasWallSliding)
         {
             motor.EndWallSlide();
+            audio?.StopWallSlide();
         }
 
         blackboard.wallSliding = shouldSlide;

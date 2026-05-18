@@ -28,6 +28,13 @@ public static class GameCamerasBuilder
         // ---------------------------------------------------------------
         GameObject cameraParentGO = GetOrCreateChild(root, "CameraParent");
         MMCameraShaker shaker = GetOrAddComponent<MMCameraShaker>(cameraParentGO);
+        MMWiggle wiggle = GetOrAddComponent<MMWiggle>(cameraParentGO);
+        if (wiggle.PositionWiggleProperties == null)
+            wiggle.PositionWiggleProperties = new WiggleProperties();
+
+        wiggle.PositionActive = true;
+        wiggle.PositionWiggleProperties.WigglePermitted = false;
+        wiggle.PositionWiggleProperties.WiggleType = WiggleTypes.Noise;
 
         // ---------------------------------------------------------------
         // MainCamera  (child of CameraParent)

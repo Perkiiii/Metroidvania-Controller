@@ -298,21 +298,23 @@ Key separation rules:
 
 See `Docs/FeatureSpecs/Audio.md` for the full spec.
 
-`AudioManager` (MonoBehaviour, DontDestroyOnLoad, initialised in `Bootstrap`) is the single point of contact for all audio output.
+`AudioManager` (MonoBehaviour, DontDestroyOnLoad, initialised in `Bootstrap`) is the global audio router for music, enemy/world/UI one-shots, and shared mix settings. Hero-owned action sounds are the one local exception: they are routed through `HeroAudioController` on the hero prefab.
 
 **Vertical slice API:**
 
 ```csharp
 AudioManager.Instance.PlaySFX(AudioClip clip)
+AudioManager.Instance.PlaySFX(AudioClip clip, float pitchMin, float pitchMax, float volume = 1f)
 AudioManager.Instance.PlayMusic(AudioClip clip, bool loop = true)
 ```
 
 **Call sites:**
-- Hero and enemy action classes call `PlaySFX` for action sounds (jump, dash, attack, hurt). The clip is stored as a field on the relevant SO or module and passed at call time.
-- `HeroAttackModule` calls `AudioManager.PlaySFX(slashSfx)` on activation — not `AudioSource.Play()`.
+- Hero movement, hurt, death, footstep, and terrain-impact sounds call methods on `HeroAudioController`, which owns the `Hero/Sounds/*` child `AudioSource`s and is the only hero subsystem allowed to call `AudioSource.Play()` / `Stop()` directly.
+- `HeroAttackModule` calls `AudioManager.PlaySFX(slashSfx, pitchMin, pitchMax)` on activation — not `AudioSource.Play()`.
+- Enemy, world, UI, and shared one-shots call `AudioManager.PlaySFX`.
 - `GameManager.BeginSceneTransition` calls `PlayMusic` for the incoming scene's music clip.
 
-**Do not** call `AudioSource.Play()` directly on hero or enemy prefabs, or manage music from any gameplay MonoBehaviour. All audio routing goes through `AudioManager` so that volume settings, mix groups, and interrupt logic can be added without touching call sites.
+**Do not** call `AudioSource.Play()` directly from actions, enemies, world objects, or UI. Hero-local source playback belongs only in `HeroAudioController`; all other audio routing goes through `AudioManager` so that volume settings, mix groups, and interrupt logic can be added without touching call sites.
 
 ---
 

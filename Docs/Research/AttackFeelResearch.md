@@ -1,5 +1,7 @@
 # Hollow Knight and Silksong attack-feel research for grounded attack movement shaping
 
+> Stage 1 status note: the original audit gap in this research has been closed. Generic player-attack hit-stop and camera shake now live behind the first-confirmed-connect gate in `HeroAttackAction`; `EnemyHealthComponent` no longer triggers generic hit-stop per enemy.
+
 ## Executive summary
 
 Your current controller architecture is already set up in the right way for a Hollow Knight-inspired attack pass: `HeroInputReader` collects intent, `HeroAttackAction` owns attack state and hit logic, `HeroAnimationController` closes attacks from animation end-events with a fail-safe timeout, and `HeroMotor` is the system that writes movement velocity. That separation is exactly what you want to preserve when you add attack movement shaping. In the current repo there is no dedicated attack input buffer, attack direction is chosen from vertical input against `attackDirectionThreshold`, dash is blocked during `attacking` and `attackRecovering`, wall slide is blocked while attacking, and slash startup SFX and on-hit feedback are currently split across different systems. fileciteturn27file0L3-L3 fileciteturn28file0L3-L3 fileciteturn10file0L3-L3 fileciteturn15file0L3-L3 fileciteturn12file0L3-L3 fileciteturn13file0L3-L3

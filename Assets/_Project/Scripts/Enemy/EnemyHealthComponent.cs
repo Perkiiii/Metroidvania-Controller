@@ -46,7 +46,6 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
 
         flasher?.FlashHit();
         AudioManager.Instance?.PlaySFX(config.hurtSfx);
-        GameManager.Instance?.HitStop(config.hitStopDuration);
         feedbackController?.PlayHeroHit(hit, false);
 
         if (currentHealth <= 0)

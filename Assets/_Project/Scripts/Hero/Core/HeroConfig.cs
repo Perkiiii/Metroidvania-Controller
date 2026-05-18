@@ -39,6 +39,7 @@ public sealed class HeroConfig : ScriptableObject
     [Header("Attack")]
     public float attackCooldown = 0.4f;
     public float attackRecovery = 0.7f;
+    public float altAttackResetTime = 1f;
     public int attackDamage = 1;
     [Min(1)] public int maxHitsPerSwing = 16;
     public float attackDirectionThreshold = 0.5f;
@@ -47,6 +48,12 @@ public sealed class HeroConfig : ScriptableObject
     public LayerMask attackHitLayers;
     [Tooltip("Terrain layers checked for whiff sparks during the active attack window. Falls back to terrainLayers if zero.")]
     public LayerMask attackTerrainLayers;
+
+    [Header("Attack Impact")]
+    [Tooltip("Duration of time-scale freeze on the first confirmed enemy hit per swing.")]
+    [Min(0f)] public float attackHitStopDuration = 0.06f;
+    [Tooltip("Duration of time-scale freeze on the first confirmed clash per swing (shorter than a hit).")]
+    [Min(0f)] public float attackClashHitStopDuration = 0.04f;
 
     [Header("Downslash Bounce")]
     [Min(0f)]
@@ -99,4 +106,7 @@ public sealed class HeroConfig : ScriptableObject
     public float locomotionIdleThreshold = 0f;
     public float locomotionWalkThreshold = 4.32f;
     public float locomotionRunThreshold = 6.5f;
+
+    [Header("Audio")]
+    [Min(0f)] public float footstepMinSpeed = 0.1f;
 }

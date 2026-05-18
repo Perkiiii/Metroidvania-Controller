@@ -4,6 +4,7 @@ public sealed class HeroJumpAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private readonly HeroAudioController audio;
 
     private float coyoteTimer;
 
@@ -11,12 +12,14 @@ public sealed class HeroJumpAction
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
-        HeroMotor heroMotor)
+        HeroMotor heroMotor,
+        HeroAudioController heroAudio)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        audio = heroAudio;
     }
 
     public void FixedTick(float fixedDeltaTime)
@@ -34,6 +37,7 @@ public sealed class HeroJumpAction
             input.ConsumeJumpBuffer();
             coyoteTimer = 0f;
             motor.StartJump();
+            audio?.PlayJump();
             startedJumpThisTick = true;
         }
 

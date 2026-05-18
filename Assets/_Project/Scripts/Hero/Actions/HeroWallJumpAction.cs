@@ -4,6 +4,7 @@ public sealed class HeroWallJumpAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private readonly HeroAudioController audio;
 
     private float relatchLockoutTimer;
 
@@ -11,12 +12,14 @@ public sealed class HeroWallJumpAction
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
-        HeroMotor heroMotor)
+        HeroMotor heroMotor,
+        HeroAudioController heroAudio)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        audio = heroAudio;
     }
 
     public void FixedTick(float fixedDeltaTime)
@@ -61,6 +64,7 @@ public sealed class HeroWallJumpAction
         blackboard.wallJumping = true;
         relatchLockoutTimer = config.wallJumpRelatchLockout;
 
+        audio?.PlayWallJump();
         motor.StartWallJump(wallDirection);
     }
 

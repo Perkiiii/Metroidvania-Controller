@@ -91,6 +91,8 @@ Bounds, locks, and offset areas must be authored in scene space with `BoxCollide
 
 Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `CameraShakeCueService` is the current MM Feel implementation. It can play optional `MMF_Player` presets when assigned, otherwise it falls back to More Mountains camera shake events. The shaker should move `CameraParent`, leaving `MainCamera` free to own follow position.
 
+`CameraParent` must have `MMCameraShaker` enabled on Int channel `0`, and its required `MMWiggle` must keep Position Active enabled. `MMCameraShaker` triggers `MMWiggle.WigglePosition`; it does not make the shake visible if position wiggle is disabled.
+
 `HeroCameraAnimancerBridge` is an optional animation-event bridge. Animation events should call high-level bridge methods such as `RequestSmallShake`, `RequestMediumShake`, `RequestHardFreeze`, or `ReleaseFreeze`; clips should not move camera transforms directly.
 
 ## Unity Setup Notes
@@ -98,6 +100,7 @@ Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `
 - `_GameCameras` must keep references to `CameraController`, `CameraTarget`, `CameraFade`, `CameraShakeCueService`, and `HUDCamera`.
 - `CameraController` and `CameraTarget` should reference `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
 - `CameraShakeCueService` can be left with no `MMF_Player` fields assigned; it will use MM camera shake events. Assign optional small/medium/intense `MMF_Player` presets later if desired.
+- `CameraParent` should keep `MMWiggle.PositionActive` enabled, with Position Wiggle permitted off while idle. Shake requests will temporarily permit and time-limit the wiggle.
 - Add `HeroCameraAnimancerBridge` to the hero only if animation events need camera requests.
 - Lock, offset, and bounds volumes need `BoxCollider2D` triggers and must overlap the `Player` tagged hero.
 

@@ -8,7 +8,16 @@ Enemy perception, decision-making, movement, and reaction to hero attacks.
 
 ## Current State
 
-No enemy system exists. This spec describes the intended design.
+The first enemy path is implemented and prefab-ready for Mushroom enemies:
+
+- `EnemyController` coordinates `EnemyConfig`, `EnemyStateBlackboard`, `EnemyRecoil`, and `EnemyHealthComponent`.
+- `MushroomEnemy` is the current movement/animation behaviour and implements `IEnemyBehaviour`.
+- `EnemyHealthComponent` owns damage, death, flash, hurt/death audio, enemy-local feedback, recoil forwarding, and downslash response.
+- `EnemyFeedbackController` owns enemy-local hit, pogo, body-hit, and death MMF players.
+- `DamageHero` and `EnemyContactDamage` provide body-touch damage to the hero.
+- `Assets/_Project/Prefabs/Enemies/Mushroom.prefab` is the reusable authoring pattern created from the validated `SampleScene` setup.
+
+Enemy perception/chase/attack behaviours are still future work; the current Mushroom patrol behaviour is intentionally simple.
 
 ---
 
@@ -21,28 +30,28 @@ No enemy system exists. This spec describes the intended design.
 
 ---
 
-## Intended Architecture
+## Implemented Architecture
 
 ```
 EnemyController (MonoBehaviour — per-enemy coordinator)
 ├── EnemyConfig (SO)          movement speed, detection range, attack data, health
 ├── EnemyStateBlackboard      runtime flags (alerted, attacking, hurt, recoiling, dead)
-├── EnemyMotor                Rigidbody2D or NavMeshAgent velocity control
-├── EnemyPerception           detect hero via overlap / raycast; write to blackboard
-├── EnemyBehaviour            state machine: Idle → Patrol → Chase → Attack → Hurt → Dead
+├── IEnemyBehaviour           current implementation: MushroomEnemy patrol behaviour
 ├── EnemyHealthComponent      MonoBehaviour; implements IHeroAttackReceiver
 ├── EnemyRecoil               MonoBehaviour; hit freeze / knockback / stun recovery
 ├── DamageHero                MonoBehaviour; damage metadata for hero-hurting colliders
-└── EnemyContactDamage        MonoBehaviour; persistent body-touch damage behaviour
+├── EnemyContactDamage        MonoBehaviour; persistent body-touch damage behaviour
+└── EnemyFeedbackController   MonoBehaviour; enemy-local MMF feedback players
 ```
 
 ### Hit-Reaction Integration
 
 `EnemyHealthComponent` implements `IHeroAttackReceiver`:
 - Subtract `hit.Damage` from current health
-- Play hit feedback and forward the hit to `EnemyRecoil`
+- Play hit flash/audio/feedback and forward non-lethal hits to `EnemyRecoil`
 - Trigger death handling when health reaches zero
 - Raise `OnDamaged` for non-lethal hits and `OnDeath` when death starts, so enemy-specific behaviour scripts can handle visuals without owning health rules
+- Implement `IHeroDownslashResponder` so downslash/pogo feedback can play through the same enemy-local feedback controller
 
 `EnemyRecoil` owns hit reaction:
 - Apply `hit.ForceDirection` as a knockback impulse, or freeze in place for enemies configured that way
@@ -70,22 +79,25 @@ If an enemy can parry or deflect the hero, its collider registers as `IHeroAttac
 public sealed class EnemyConfig : ScriptableObject
 {
     public int maxHealth;
-    public float moveSpeed;
-    public float detectionRange;
-    public float attackRange;
-    public float attackDamage;
+    public float knockbackForce;
+    public float knockbackLift;
     public float stunDuration;
-    public float deathDestroyDelay;
+    public float hitStopDuration;
     public bool freezeOnHit;
     public bool preventUpwardRecoil;
     public bool stopHorizontalVelocityOnUpwardRecoil;
-    // ... additional per-type fields
+    public EnemyDeathType deathType;
+    public float deathDestroyDelay;
+    public AudioClip hurtSfx;
+    public AudioClip deathSfx;
 }
 ```
 
 ---
 
 ## Perception
+
+Not implemented yet.
 
 - `EnemyPerception` casts an overlap circle or raycast towards the hero's last known position.
 - On detection, set `blackboard.alerted = true`.
@@ -95,6 +107,8 @@ public sealed class EnemyConfig : ScriptableObject
 ---
 
 ## State Machine States
+
+The current Mushroom behaviour is a patrol/turn loop with hurt/recoil/death suppression. Chase and attack states are still future work.
 
 | State | Transitions |
 |---|---|
@@ -110,16 +124,17 @@ public sealed class EnemyConfig : ScriptableObject
 ## Dependencies
 
 - `IHeroAttackReceiver` / `IHeroDownslashResponder` — defined in `Scripts/Hero/Combat/`
-- `EnemyConfig` SO (TODO)
+- `EnemyConfig` SO
 - Hero `Transform` (read only, for detection targeting)
 
 ---
 
 ## Extension Points
 
-- **New enemy type** — new `EnemyConfig` SO + override of `EnemyBehaviour` state machine, or a subclass.
+- **New enemy type** — new `EnemyConfig` SO + a component implementing `IEnemyBehaviour`.
 - **Boss** — extend `EnemyBehaviour` with phase transitions keyed on health thresholds.
 - **New hit-reaction interface** — add to `Scripts/Hero/Combat/` and implement in `EnemyHealthComponent`.
+- **Enemy-specific impact profiles** — defer until there are at least 2-3 enemy families or a boss that needs distinct hit/death feedback.
 
 ---
 
@@ -128,3 +143,5 @@ public sealed class EnemyConfig : ScriptableObject
 - `EnemyController` must not call any method on `HeroController` or any hero subsystem except through the defined interfaces.
 - Enemy health and configuration are fully data-driven through `EnemyConfig` SO — no hard-coded values in MonoBehaviours.
 - Death must be handled gracefully: disable physics and AI before destroying the GameObject (avoid one-frame physics glitches).
+- Enemy body colliders live on the `Enemies` layer. Physics 2D disables `Enemies` vs `Enemies`, `Enemies` vs `Enemy Attack`, and `Enemy Attack` vs `Enemy Attack`; enemies still collide with `Terrain`, `Hero Box`, and `Hero Attack`.
+- Enemy prefabs should set the root and all current physics children to `Enemies` recursively. Future attack hitbox children should use `Enemy Attack` and should normally be triggers.

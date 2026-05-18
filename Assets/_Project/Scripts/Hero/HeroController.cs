@@ -25,6 +25,7 @@ public class HeroController : MonoBehaviour
     private HeroAnimationController animations;
     private HeroHealthComponent health;
     private HeroCameraSignalBridge cameraSignals;
+    private HeroAudioController audioController;
     private SpriteFlash flasher;
 
     private Rigidbody2D body;
@@ -48,12 +49,14 @@ public class HeroController : MonoBehaviour
         inputReader.Tick();
         cameraSignals.Tick();
         actions.Tick();
+        audioController.Tick();
     }
 
     protected virtual void FixedUpdate()
     {
         float fixedDeltaTime = Time.fixedDeltaTime;
         sensors.FixedTick();
+        CheckLanding();
         actions.FixedTick(fixedDeltaTime);
         motor.FixedTick(fixedDeltaTime);
     }
@@ -151,6 +154,7 @@ public class HeroController : MonoBehaviour
         animations = GetOrAdd<HeroAnimationController>();
         health = GetOrAdd<HeroHealthComponent>();
         cameraSignals = GetOrAdd<HeroCameraSignalBridge>();
+        audioController = GetOrAdd<HeroAudioController>();
         flasher = GetComponentInChildren<SpriteFlash>(true);
     }
 
@@ -159,7 +163,8 @@ public class HeroController : MonoBehaviour
         inputReader.Initialize(config);
         sensors.Initialize(config, blackboard, body, bodyCollider);
         motor.Initialize(config, blackboard, body, spriteRenderer, spriteRoot);
-        actions.Initialize(config, blackboard, inputReader, motor);
+        audioController.Initialize(config, blackboard);
+        actions.Initialize(config, blackboard, inputReader, motor, audioController);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
         cameraSignals.Initialize(blackboard, inputReader);
@@ -168,12 +173,21 @@ public class HeroController : MonoBehaviour
         health.OnDeath += HandleDeath;
     }
 
+    private void CheckLanding()
+    {
+        if (blackboard.grounded && !blackboard.wasGrounded)
+        {
+            audioController.PlayLand();
+        }
+    }
+
     private void HandleDamaged(int _, Vector2 knockback)
     {
         blackboard.actorState = HeroActorState.Hurt;
         blackboard.recoiling = true;
         actions.CancelAttack();
         flasher?.FlashHit();
+        audioController.PlayTakeDamage();
 
         Vector2 force = knockback == Vector2.zero ? DefaultKnockback() : knockback;
         motor.ApplyKnockback(force);
@@ -188,6 +202,7 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Dead;
         AddControlLock(this);
+        audioController.PlayDeath();
         if (GameManager.Instance != null) GameManager.Instance.BeginRespawnSequence();
     }
 

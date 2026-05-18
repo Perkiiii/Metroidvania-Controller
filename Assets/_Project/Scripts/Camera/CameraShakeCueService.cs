@@ -5,7 +5,6 @@ using UnityEngine;
 public enum CameraShakeCue
 {
     SmallShake = 0,
-    HeavyShake = 1,
     MediumShake = 1,
     FallRumble = 2,
     IntenseShake = 3,
@@ -36,23 +35,26 @@ public sealed class CameraShakeCueService : MonoBehaviour, ICameraShakeService
         new ShakeCueSettings
         {
             cue = CameraShakeCue.SmallShake,
-            duration = 0.15f,
-            amplitude = 0.12f,
-            frequency = 25f
+            duration = 0.13f,
+            amplitude = 0.10f,
+            frequency = 25f,
+            useUnscaledTime = true
         },
         new ShakeCueSettings
         {
-            cue = CameraShakeCue.HeavyShake,
+            cue = CameraShakeCue.MediumShake,
             duration = 0.30f,
             amplitude = 0.25f,
-            frequency = 20f
+            frequency = 20f,
+            useUnscaledTime = true
         },
         new ShakeCueSettings
         {
             cue = CameraShakeCue.IntenseShake,
             duration = 0.45f,
             amplitude = 0.4f,
-            frequency = 18f
+            frequency = 18f,
+            useUnscaledTime = true
         },
         new ShakeCueSettings
         {
@@ -60,7 +62,8 @@ public sealed class CameraShakeCueService : MonoBehaviour, ICameraShakeService
             duration = 0.5f,
             amplitude = 0.08f,
             frequency = 18f,
-            infinite = true
+            infinite = true,
+            useUnscaledTime = true
         }
     };
 

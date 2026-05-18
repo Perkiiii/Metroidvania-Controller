@@ -80,6 +80,18 @@ Use **Context Menu → "Create Default Attack Modules"** on `HeroActionControlle
 
 If direction is Down and the hit target also implements `IHeroDownslashResponder`, `ReceiveHeroDownslash` is called on the same frame.
 
+### First-Connect Impact Feel
+
+`HeroAttackAction` owns global attack-connect feel through `connectFeedbackPlayedThisSwing`. On the first confirmed enemy hit or clash in a swing, it:
+
+- calls `GameManager.HitStop` using `HeroConfig.attackHitStopDuration` or `attackClashHitStopDuration`
+- requests `CameraShakeIntensity.Small` through `CameraEventService`
+- calls `HeroAttackImpactFeedbackController.PlayConnectFeedback` for optional non-camera feedback
+
+Enemy health components must not trigger generic player-attack hit-stop or camera shake. They own target-local results such as damage, flash, hurt/death audio, enemy feedback, recoil, and death.
+
+Terrain hits are handled separately by `HeroAttackAction.EvaluateTerrainImpact()`, which plays terrain impact feedback and calls `HeroAudioController.PlayTerrainImpact()` once per swing when the attack whiffs into terrain.
+
 ---
 
 ## Timers
@@ -97,6 +109,27 @@ If direction is Down and the hit target also implements `IHeroDownslashResponder
 - **New hit-reaction type** — add a new interface (e.g. `IHeroUpslashResponder`) following the same pattern as `IHeroDownslashResponder`.
 - **Combo system** — `HeroAttackAction.attackVersion` increments each swing; the animation controller already keys off it. A combo system could inspect version and recovery state.
 - **Projectile** — would be a new Action class, not a new module type.
+
+## Stage 2 Placeholder VFX
+
+Combat impact VFX are authored as lightweight ParticleSystem prefabs under `Assets/_Project/Prefabs/VFX/Combat/` with URP-compatible materials under `Assets/_Project/Materials/VFX/`.
+
+- Enemy-local hit, pogo, body-hit, and death visuals are triggered by `EnemyFeedbackController` through MMF players.
+- Terrain-only slash impacts are triggered by `HeroAttackImpactFeedbackController` through its directional terrain MMF players.
+- Terrain impact positions are resolved from the active slash collider toward the attack direction so impacts land on the terrain surface edge, not at the middle of the overlap. If the slash starts inside thin terrain, the impact falls back to the near directional bounds edge (top edge for downslash, underside for upslash, near wall face for side slash).
+- These feedbacks must not include camera shake or hit-stop; global attack-connect feel remains owned by `HeroAttackAction`.
+
+## Stage 3 Slash Arc Presentation
+
+The hero slash arcs remain owned by the existing `SlashSide`, `SlashUp`, and `SlashDown` `HeroAttackModule` GameObjects. Each module keeps its hitbox, root transform, Animancer component, animation clip, slash SFX, and attack-window animation events.
+
+For visual-only polish, each module has a `SlashArcVisual` child containing the visible `SpriteRenderer`. The slash animation clips target this child by path, while animation events still fire on the module root so hit-window timing remains unchanged.
+
+- `SlashArcVisual` handles tint, alpha fade, and sorting.
+- `SlashArcVisual` should stay at neutral local position and scale unless the attack polygon is intentionally adjusted at the same time.
+- Module root `SpriteRenderer` components are disabled to avoid duplicate arcs.
+- Slash arc sorting is above hero/enemy sprites and below the Stage 2 hit spark particles.
+- Visual arc placement and the attack polygon must stay aligned. If the arc needs major repositioning, move or reauthor the module root/collider together with the visual.
 
 ---
 

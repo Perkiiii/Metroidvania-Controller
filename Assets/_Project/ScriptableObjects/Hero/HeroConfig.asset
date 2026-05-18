@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97402d79d19f3144ab9d54a58db3bdd1, type: 3}
   m_Name: HeroConfig
   m_EditorClassIdentifier: 
-  walkSpeed: 4.25
-  runSpeed: 6.3
+  walkSpeed: 4.32
+  runSpeed: 6.5
   groundAcceleration: 80
   groundDeceleration: 90
   airAcceleration: 60
@@ -38,7 +38,8 @@ MonoBehaviour:
   dashDuration: 0.4
   dashCooldown: 0.86
   attackCooldown: 0.4
-  attackRecovery: 0.22
+  attackRecovery: 0.25
+  altAttackResetTime: 1
   attackDamage: 1
   maxHitsPerSwing: 16
   attackDirectionThreshold: 0.5
@@ -46,10 +47,12 @@ MonoBehaviour:
   attackBufferTime: 0.1
   attackHitLayers:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 1024
   attackTerrainLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 128
+  attackHitStopDuration: 0.04
+  attackClashHitStopDuration: 0.05
   downslashBounceVelocity: 8
   attackSideOffset: {x: 0.75, y: 0}
   attackSideSize: {x: 1.2, y: 0.5}
@@ -68,7 +71,7 @@ MonoBehaviour:
   wallJumpRelatchLockout: 0.15
   terrainLayers:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 129
   groundProbeDistance: 0.16
   ceilingProbeDistance: 0.08
   wallProbeDistance: 0.1
@@ -84,3 +87,4 @@ MonoBehaviour:
   locomotionIdleThreshold: 0
   locomotionWalkThreshold: 4.32
   locomotionRunThreshold: 6.5
+  footstepMinSpeed: 0.1

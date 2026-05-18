@@ -30,6 +30,7 @@
 - `_GameCameras` should reference `CameraController`, `CameraTarget`, `CameraFade`, `CameraShakeCueService`, and the HUD camera.
 - `CameraController` and `CameraTarget` should both reference `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
 - `CameraParent` should remain the MM Feel shake target. `MainCamera` should stay under `CameraParent`.
+- `CameraParent` should keep `MMWiggle.PositionActive` enabled; `MMCameraShaker` requires it to visibly move the rig.
 - `MainCamera` should remain perspective, FOV `24`, local Z `-38.1`.
 - `CameraLockArea`, `CameraOffsetArea`, and `CameraBoundsVolume` require `BoxCollider2D` set as trigger.
 - `HeroCameraSignalBridge` should live on the hero and be initialized by `HeroController`.

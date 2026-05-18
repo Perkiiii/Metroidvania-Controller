@@ -7,6 +7,7 @@ public sealed class HeroAttackModule : MonoBehaviour
 {
     [Header("Identity")]
     public HeroAttackDirection direction = HeroAttackDirection.Side;
+    public bool isAlt;
     public bool mirrorWithFacing;
 
     [Header("Colliders")]
@@ -20,8 +21,8 @@ public sealed class HeroAttackModule : MonoBehaviour
     public AnimancerComponent visualAnimancer;
     public AnimationClip visualClip;
     public SpriteRenderer spriteRenderer;
-    public AudioSource audioSource;
     public AudioClip slashClip;
+    public Vector2 slashPitchRange = new Vector2(0.95f, 1.05f);
 
     private Vector3 initialLocalPosition;
     private Vector3 initialLocalEulerAngles;
@@ -81,7 +82,10 @@ public sealed class HeroAttackModule : MonoBehaviour
 
         if (slashClip != null)
         {
-            AudioManager.Instance?.PlaySFX(slashClip);
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySFX(slashClip, slashPitchRange.x, slashPitchRange.y);
+            }
         }
     }
 

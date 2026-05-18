@@ -35,6 +35,8 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     public bool attackRecovering;
     public bool upAttacking;
     public bool downAttacking;
+    public bool altAttack;
+    public float altAttackTime;
     public bool wallSliding;
     public bool wallJumping;
     public bool recoiling;

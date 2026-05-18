@@ -122,12 +122,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MoreMountains.Tools::MoreMountains.Feedbacks.MMWiggle
   UpdateMode: 0
-  PositionActive: 0
+  PositionActive: 1
   RotationActive: 0
   ScaleActive: 0
   PositionWiggleProperties:
-    WigglePermitted: 1
-    WiggleType: 1
+    WigglePermitted: 0
+    WiggleType: 3
     UseUnscaledTime: 0
     TimeMultiplier: 1
     StartWigglingAutomatically: 1
@@ -641,25 +641,25 @@ MonoBehaviour:
     amplitude: 0.12
     frequency: 25
     infinite: 0
-    useUnscaledTime: 0
+    useUnscaledTime: 1
   - cue: 1
     duration: 0.3
     amplitude: 0.25
     frequency: 20
     infinite: 0
-    useUnscaledTime: 0
+    useUnscaledTime: 1
   - cue: 2
     duration: 0.5
     amplitude: 0.08
     frequency: 18
     infinite: 1
-    useUnscaledTime: 0
+    useUnscaledTime: 1
   - cue: 3
     duration: 0.45
     amplitude: 0.4
     frequency: 18
     infinite: 0
-    useUnscaledTime: 0
+    useUnscaledTime: 1
 --- !u!1 &3272733895981268910
 GameObject:
   m_ObjectHideFlags: 0

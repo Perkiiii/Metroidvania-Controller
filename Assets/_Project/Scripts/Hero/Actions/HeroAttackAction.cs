@@ -13,6 +13,7 @@ public sealed class HeroAttackAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private readonly HeroAudioController audio;
     private readonly GameObject owner;
     private readonly Transform ownerTransform;
     private readonly HeroAttackModule[] attackModules;
@@ -28,6 +29,7 @@ public sealed class HeroAttackAction
     private bool attackWindowActive;
     private bool downslashBounceConsumedThisAttack;
     private bool terrainImpactPlayedThisSwing;
+    private bool connectFeedbackPlayedThisSwing;
     private int attackVersion;
     private HeroAttackDirection currentDirection;
     private HeroAttackModule currentModule;
@@ -39,6 +41,7 @@ public sealed class HeroAttackAction
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
+        HeroAudioController heroAudio,
         GameObject ownerObject,
         Transform ownerRoot,
         HeroAttackModule[] modules,
@@ -48,6 +51,7 @@ public sealed class HeroAttackAction
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        audio = heroAudio;
         owner = ownerObject;
         ownerTransform = ownerRoot;
         attackModules = modules ?? new HeroAttackModule[0];
@@ -184,7 +188,19 @@ public sealed class HeroAttackAction
     private void StartAttack()
     {
         currentDirection = DetermineAttackDirection();
-        currentModule = FindModule(currentDirection);
+
+        bool useAlt = false;
+        if (currentDirection == HeroAttackDirection.Side)
+        {
+            if (Time.unscaledTime - blackboard.altAttackTime > config.altAttackResetTime)
+                blackboard.altAttack = false;
+
+            useAlt = blackboard.altAttack;
+            blackboard.altAttack = !blackboard.altAttack;
+            blackboard.altAttackTime = Time.unscaledTime;
+        }
+
+        currentModule = FindModule(currentDirection, useAlt);
 
         if (currentModule == null || !currentModule.HasDamageCollider)
         {
@@ -204,6 +220,7 @@ public sealed class HeroAttackAction
         attackWindowActive = false;
         downslashBounceConsumedThisAttack = false;
         terrainImpactPlayedThisSwing = false;
+        connectFeedbackPlayedThisSwing = false;
         cooldownTimer = config.attackCooldown;
         recoveryTimer = config.attackRecovery;
         blackboard.attackRecovering = true;
@@ -234,6 +251,7 @@ public sealed class HeroAttackAction
         attackWindowActive = false;
         downslashBounceConsumedThisAttack = false;
         terrainImpactPlayedThisSwing = false;
+        connectFeedbackPlayedThisSwing = false;
         blackboard.attacking = false;
         blackboard.upAttacking = false;
         blackboard.downAttacking = false;
@@ -290,6 +308,7 @@ public sealed class HeroAttackAction
                 GetForceDirection());
 
             receiver.ReceiveHeroAttack(hit);
+            TriggerConnectFeel(hit, false);
             IHeroDownslashResponder downslashResponder = FindDownslashResponder(hitCollider, receiver);
             NotifyDownslashResponder(downslashResponder, hit);
             TryApplyDownslashBounce(downslashResponder);
@@ -302,7 +321,6 @@ public sealed class HeroAttackAction
         if (hitReceivers.Count > 0) return;
         if (clashReceivers.Count > 0) return;
         if (downslashBounceConsumedThisAttack) return;
-        if (impactFeedback == null) return;
         if (currentModule == null || !currentModule.HasDamageCollider) return;
 
         int maskValue = config.attackTerrainLayers.value != 0
@@ -316,6 +334,12 @@ public sealed class HeroAttackAction
         int hitCount = currentModule.DamageCollider.Overlap(filter, terrainHitBuffer);
         if (hitCount == 0) return;
 
+        if (TryGetDirectionalTerrainSurface(maskValue, out Vector2 directionalContact))
+        {
+            PlayTerrainImpactAt(directionalContact);
+            return;
+        }
+
         Vector2 referencePoint = currentModule.GetDamageReferencePoint();
         float nearestSqDist = float.MaxValue;
         Vector2 bestContact = Vector2.zero;
@@ -326,17 +350,7 @@ public sealed class HeroAttackAction
             Collider2D col = terrainHitBuffer[i];
             if (col == null || IsSelfCollider(col)) continue;
 
-            Vector2 candidate = col.ClosestPoint(referencePoint);
-
-            // ClosestPoint returns referencePoint when it is inside the collider.
-            // Fall back to a short raycast along the attack force direction.
-            if ((candidate - referencePoint).sqrMagnitude < 0.0001f)
-            {
-                RaycastHit2D rayHit = Physics2D.Raycast(referencePoint, GetForceDirection(), config.wallProbeDistance * 3f, maskValue);
-                candidate = (rayHit.collider != null && !IsSelfCollider(rayHit.collider))
-                    ? rayHit.point
-                    : (Vector2)col.bounds.center;
-            }
+            Vector2 candidate = GetTerrainSurfacePoint(col, referencePoint);
 
             float sqDist = (candidate - referencePoint).sqrMagnitude;
             if (sqDist < nearestSqDist)
@@ -349,8 +363,106 @@ public sealed class HeroAttackAction
 
         if (!found) return;
 
-        Vector3 worldContact = new Vector3(bestContact.x, bestContact.y, impactFeedback.transform.position.z);
-        impactFeedback.PlayTerrainImpact(currentDirection, worldContact);
+        PlayTerrainImpactAt(bestContact);
+    }
+
+    private bool TryGetDirectionalTerrainSurface(int maskValue, out Vector2 contact)
+    {
+        contact = default;
+
+        if (currentModule == null || currentModule.DamageCollider == null)
+        {
+            return false;
+        }
+
+        Vector2 direction = GetForceDirection();
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        Bounds bounds = currentModule.DamageCollider.bounds;
+        float directionExtent = Mathf.Abs(direction.x) > Mathf.Abs(direction.y)
+            ? bounds.extents.x
+            : bounds.extents.y;
+
+        float skin = 0.02f;
+        float probeDistance = Mathf.Max(config.wallProbeDistance * 3f, 0.05f);
+        Vector2 origin = (Vector2)bounds.center - direction * (directionExtent + skin);
+        float distance = directionExtent * 2f + skin * 2f + probeDistance;
+
+        RaycastHit2D rayHit = Physics2D.Raycast(origin, direction, distance, maskValue);
+        if (rayHit.collider == null || IsSelfCollider(rayHit.collider))
+        {
+            return false;
+        }
+
+        if (rayHit.fraction <= 0f)
+        {
+            return TryGetDirectionalBoundsSurface(rayHit.collider, origin, direction, out contact);
+        }
+
+        contact = rayHit.point;
+        return true;
+    }
+
+    private Vector2 GetTerrainSurfacePoint(Collider2D terrainCollider, Vector2 referencePoint)
+    {
+        Vector2 direction = GetForceDirection();
+        if (TryGetDirectionalBoundsSurface(terrainCollider, referencePoint, direction, out Vector2 surfacePoint))
+        {
+            return surfacePoint;
+        }
+
+        ColliderDistance2D distance = currentModule.DamageCollider.Distance(terrainCollider);
+        if (distance.isValid)
+        {
+            return distance.pointB;
+        }
+
+        return terrainCollider.ClosestPoint(referencePoint);
+    }
+
+    private static bool TryGetDirectionalBoundsSurface(
+        Collider2D terrainCollider,
+        Vector2 referencePoint,
+        Vector2 direction,
+        out Vector2 surfacePoint)
+    {
+        surfacePoint = default;
+
+        if (terrainCollider == null || direction.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        Bounds bounds = terrainCollider.bounds;
+        if (bounds.size.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        surfacePoint = referencePoint;
+        if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+        {
+            surfacePoint.x = direction.x > 0f ? bounds.min.x : bounds.max.x;
+            surfacePoint.y = Mathf.Clamp(referencePoint.y, bounds.min.y, bounds.max.y);
+        }
+        else
+        {
+            surfacePoint.x = Mathf.Clamp(referencePoint.x, bounds.min.x, bounds.max.x);
+            surfacePoint.y = direction.y > 0f ? bounds.min.y : bounds.max.y;
+        }
+
+        return true;
+    }
+
+    private void PlayTerrainImpactAt(Vector2 contact)
+    {
+        float z = impactFeedback != null ? impactFeedback.transform.position.z : ownerTransform.position.z;
+        Vector3 worldContact = new Vector3(contact.x, contact.y, z);
+        impactFeedback?.PlayTerrainImpact(currentDirection, worldContact);
+        audio?.PlayTerrainImpact();
         terrainImpactPlayedThisSwing = true;
     }
 
@@ -379,12 +491,15 @@ public sealed class HeroAttackAction
                 continue;
             }
 
-            receiver.ReceiveHeroAttackClash(new HeroAttackHit(
+            HeroAttackHit clashHit = new HeroAttackHit(
                 owner,
                 currentDirection,
                 0,
                 hitCollider.ClosestPoint(referencePoint),
-                GetForceDirection()));
+                GetForceDirection());
+
+            receiver.ReceiveHeroAttackClash(clashHit);
+            TriggerConnectFeel(clashHit, true);
         }
     }
 
@@ -430,6 +545,17 @@ public sealed class HeroAttackAction
         motor?.ApplyDownslashBounce();
     }
 
+    private void TriggerConnectFeel(HeroAttackHit hit, bool isClash)
+    {
+        if (connectFeedbackPlayedThisSwing) return;
+        connectFeedbackPlayedThisSwing = true;
+
+        float stopDuration = isClash ? config.attackClashHitStopDuration : config.attackHitStopDuration;
+        GameManager.Instance?.HitStop(stopDuration);
+        CameraEventService.RequestShake(CameraShakeIntensity.Small, hit.Point, 1f, owner);
+        impactFeedback?.PlayConnectFeedback(hit.Point);
+    }
+
     private Vector2 GetForceDirection()
     {
         return currentDirection switch
@@ -440,14 +566,22 @@ public sealed class HeroAttackAction
         };
     }
 
-    private HeroAttackModule FindModule(HeroAttackDirection direction)
+    private HeroAttackModule FindModule(HeroAttackDirection direction, bool useAlt = false)
     {
         for (int i = 0; i < attackModules.Length; i++)
         {
             HeroAttackModule module = attackModules[i];
-            if (module != null && module.direction == direction)
-            {
+            if (module != null && module.direction == direction && module.isAlt == useAlt)
                 return module;
+        }
+
+        if (useAlt)
+        {
+            for (int i = 0; i < attackModules.Length; i++)
+            {
+                HeroAttackModule module = attackModules[i];
+                if (module != null && module.direction == direction)
+                    return module;
             }
         }
 

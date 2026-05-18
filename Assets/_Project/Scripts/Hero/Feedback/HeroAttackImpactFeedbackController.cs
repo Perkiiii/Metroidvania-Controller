@@ -9,6 +9,10 @@ public sealed class HeroAttackImpactFeedbackController : MonoBehaviour
     [SerializeField] private MMF_Player downTerrainImpact;
     [SerializeField] private MMF_Player fallbackTerrainImpact;
 
+    [Header("Connect Feedback")]
+    [Tooltip("Optional non-camera MMF_Player triggered once per swing on the first confirmed enemy hit or clash. Camera shake is routed through CameraEventService.")]
+    [SerializeField] private MMF_Player attackConnectFeedback;
+
     // Called by HeroAttackAction when a swing whiffs into terrain.
     // worldPosition is the computed terrain contact point.
     public void PlayTerrainImpact(HeroAttackDirection direction, Vector3 worldPosition)
@@ -22,5 +26,12 @@ public sealed class HeroAttackImpactFeedbackController : MonoBehaviour
         };
 
         player?.PlayFeedbacks(worldPosition);
+    }
+
+    // Called by HeroAttackAction on the first confirmed enemy hit or clash per swing.
+    // worldPosition is the hit contact point in world space.
+    public void PlayConnectFeedback(Vector2 worldPosition)
+    {
+        attackConnectFeedback?.PlayFeedbacks(new Vector3(worldPosition.x, worldPosition.y, 0f));
     }
 }

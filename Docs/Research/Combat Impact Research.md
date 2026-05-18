@@ -1,5 +1,7 @@
 # More Mountains Feel Integration for Metroidvania Combat Impact
 
+> Stage 1 status note: generic player-attack hit-stop and camera shake now live behind the first-confirmed-connect gate in `HeroAttackAction`; `EnemyHealthComponent` owns only enemy-local damage, feedback, recoil, and death response.
+
 ## Executive summary
 
 Your repo is already in a good place for a **combat impact pass** because the critical responsibilities are separated cleanly. The hero attack pipeline already computes contact points, tracks one-hit-per-swing via `HashSet`s, and distinguishes normal hits, clashes, and downslash responders. The hero side already has attack buffering and a dedicated `ApplyDownslashBounce()` hook in `HeroMotor`. Time-scale control is centralised in `GameManager`, audio is routed through `AudioManager`, and camera shake is already abstracted behind `CameraEventService` and `CameraShakeCueService`, which can use optional `MMF_Player` presets or fall back to More Mountains shake events. That means you do **not** need to bolt Feel onto every gameplay object to get strong juice; you can keep code authoritative and let Feel stay presentation-only. fileciteturn24file0L3-L3 fileciteturn25file0L3-L3 fileciteturn61file0L3-L3 fileciteturn58file0L3-L3 fileciteturn31file0L3-L3 fileciteturn32file0L3-L3 fileciteturn33file0L3-L3 fileciteturn34file0L3-L3

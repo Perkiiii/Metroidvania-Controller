@@ -6,6 +6,7 @@ public sealed class HeroDashAction
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
+    private readonly HeroAudioController audio;
 
     private float dashTimer;
     private float cooldownTimer;
@@ -16,12 +17,14 @@ public sealed class HeroDashAction
         HeroConfig heroConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
-        HeroMotor heroMotor)
+        HeroMotor heroMotor,
+        HeroAudioController heroAudio)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        audio = heroAudio;
     }
 
     public void Tick(float deltaTime)
@@ -96,6 +99,7 @@ public sealed class HeroDashAction
         dashTimer = config.dashDuration;
         cooldownTimer = config.dashCooldown;
 
+        audio?.PlayDash();
         motor.StopJumpSustain();
         motor.SetNormalMovementSuppressed(true);
         motor.SetGravitySuspended(true);
