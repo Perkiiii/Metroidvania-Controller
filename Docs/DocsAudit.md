@@ -238,7 +238,6 @@ When a spec and Architecture.md conflict, Architecture.md wins for boundary/coup
 The following could not be confirmed without opening Unity:
 
 - Whether `HeroController.ResolveDependencies` still uses the `AssetDatabase` fallback (flagged as tech debt in ImplementationPlan.md, but the HeroController.cs file was not read during this audit).
-- Whether `HeroAttackModule` still has an `AudioSource` field (flagged as tech debt — should be replaced with `AudioClip`).
 - Whether `PlayerAbilityState.asset` at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` is wired into the HeroController Inspector field (asset exists; Inspector wiring must be verified in-editor).
 - Inspector wiring in Boot scene, Hero prefab, and Enemy prefab (correct prefab structures exist but cannot be verified without in-editor inspection).
 - Whether `HeroAnimationLibrary.wallJump` clip slot has been filled.

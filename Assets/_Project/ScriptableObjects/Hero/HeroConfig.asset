@@ -54,12 +54,6 @@ MonoBehaviour:
   attackHitStopDuration: 0.04
   attackClashHitStopDuration: 0.05
   downslashBounceVelocity: 8
-  attackSideOffset: {x: 0.75, y: 0}
-  attackSideSize: {x: 1.2, y: 0.5}
-  attackUpOffset: {x: 0, y: 0.75}
-  attackUpSize: {x: 0.75, y: 1}
-  attackDownOffset: {x: 0, y: -0.75}
-  attackDownSize: {x: 0.75, y: 1}
   wallSlideSpeed: -3
   wallSlideDeceleration: 0.7
   wallSlideInputThreshold: 0.3

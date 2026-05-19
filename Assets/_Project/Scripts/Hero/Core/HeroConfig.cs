@@ -60,20 +60,6 @@ public sealed class HeroConfig : ScriptableObject
     [Tooltip("Upward velocity applied when an airborne downslash successfully hits a valid enemy.")]
     public float downslashBounceVelocity = 16f;
 
-    [Header("Deprecated Box Hitboxes")]
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackSideOffset = new Vector2(0.75f, 0f);
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackSideSize = new Vector2(1.2f, 0.5f);
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackUpOffset = new Vector2(0f, 0.75f);
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackUpSize = new Vector2(0.75f, 1f);
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackDownOffset = new Vector2(0f, -0.75f);
-    [Tooltip("Deprecated. Authored HeroAttackModule polygon colliders are used at runtime.")]
-    public Vector2 attackDownSize = new Vector2(0.75f, 1f);
-
     [Header("Wall Slide")]
     public float wallSlideSpeed = -3f;
     public float wallSlideDeceleration = 0.7f;

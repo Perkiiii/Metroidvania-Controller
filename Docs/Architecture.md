@@ -60,7 +60,7 @@ HeroAttackAction (logic)
     - PolygonCollider2D  damageCollider  (trigger, enabled during hit window)
     - PolygonCollider2D  clashCollider   (optional, for parry detection)
     - AnimancerComponent visualAnimancer (VFX animation)
-    - AudioClip          slashSfx    (played via AudioManager.PlaySFX on activation, not AudioSource.Play)
+    - AudioClip          slashClip   (played via AudioManager.PlaySFX on activation, not AudioSource.Play)
     - direction          (Side | Up | Down)
     - mirrorWithFacing   (Side module mirrors on X)
 ```
@@ -329,7 +329,7 @@ AudioManager.Instance.PlayMusic(AudioClip clip, bool loop = true)
 
 **Call sites:**
 - Hero movement, hurt, death, footstep, and terrain-impact sounds call methods on `HeroAudioController`, which owns the `Hero/Sounds/*` child `AudioSource`s and is the only hero subsystem allowed to call `AudioSource.Play()` / `Stop()` directly.
-- `HeroAttackModule` calls `AudioManager.PlaySFX(slashSfx, pitchMin, pitchMax)` on activation — not `AudioSource.Play()`.
+- `HeroAttackModule` calls `AudioManager.PlaySFX(slashClip, pitchMin, pitchMax)` on activation — not `AudioSource.Play()`.
 - Enemy, world, UI, and shared one-shots call `AudioManager.PlaySFX`.
 - `GameManager.BeginSceneTransition` calls `PlayMusic` for the incoming scene's music clip.
 

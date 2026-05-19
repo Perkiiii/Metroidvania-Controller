@@ -82,7 +82,7 @@ These two come together because neither is meaningful without the other — a co
 - [ ] Implement `InteractableBase` base class (used by CheckpointInteractable and future interactables).
 - [ ] Implement `CheckpointInteractable` — calls `SaveManager.Save()`, sets active respawn marker.
 - [ ] Place a checkpoint and at least one enemy in the test level; validate the full loop: fight → die → respawn → fight.
-- [ ] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule` (remove the AudioSource field).
+- [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule` (AudioSource field removed). (Done)
 - [ ] Add basic action SFX (jump, land, dash, hurt) via `AudioManager.PlaySFX` calls in the relevant Action classes.
 
 ---
@@ -130,8 +130,6 @@ These two come together because neither is meaningful without the other — a co
 
 ## Known Technical Debt
 
-- `HeroConfig` has deprecated box-hitbox fields (`attackSideOffset`, `attackSideSize`, etc.) — remove once all attack modules use authored PolygonCollider2D shapes.
-- `HeroAttackModule` currently holds an `AudioSource` field — replace with `AudioClip slashSfx` and route through `AudioManager.PlaySFX` in Milestone 2.
 - `SampleScene` is the only scene; a proper first-level scene should replace it once the test level is authored in Milestone 1.
 - `HeroController.ResolveDependencies` falls back to editor-only `AssetDatabase` calls — resolve via Inspector wire-up in Milestone 0.
 - `GameManager` holds `_hero` and `_heroHealth` as cached fields and calls `_heroHealth.RestoreFullHealth()` from `BeginRespawnSequence`. This is a temporary coupling; health restoration on respawn should move into `SaveManager.ApplySaveData` once the save system exists. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when SaveManager is implemented.
@@ -146,4 +144,3 @@ These two come together because neither is meaningful without the other — a co
 - Prefab / Inspector wiring risk: `Bootstrap` expects `GameManager`, `AudioManager`, and `GameCameras` prefabs to be configured in the Boot scene; the prefabs exist at `Assets/_Project/Prefabs/Managers/_GameManager.prefab`, `_AudioManager.prefab`, and `_GameCameras.prefab` but inspector hookups should be verified in-editor.
 - Engine/API compatibility: the code uses `FindObjectsByType` / `FindFirstObjectByType` (Unity 2023+). Building outside the Unity Editor (e.g., `dotnet build`) will fail due to missing Unity runtime assemblies — verify compilation inside the Unity Editor.
 - HUD / UI wiring is not implemented: `HeroHealthComponent` exposes events, but `HealthDisplay` and HUD subscription are not yet in place.
-

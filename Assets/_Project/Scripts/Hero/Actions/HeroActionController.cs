@@ -6,6 +6,13 @@ using UnityEditor;
 [DisallowMultipleComponent]
 public sealed class HeroActionController : MonoBehaviour
 {
+    private static readonly Vector2 DefaultSideAttackOffset = new Vector2(0.75f, 0f);
+    private static readonly Vector2 DefaultSideAttackSize = new Vector2(1.2f, 0.5f);
+    private static readonly Vector2 DefaultUpAttackOffset = new Vector2(0f, 0.75f);
+    private static readonly Vector2 DefaultUpAttackSize = new Vector2(0.75f, 1f);
+    private static readonly Vector2 DefaultDownAttackOffset = new Vector2(0f, -0.75f);
+    private static readonly Vector2 DefaultDownAttackSize = new Vector2(0.75f, 1f);
+
     [Header("Attack Modules")]
     [SerializeField] private Transform attackRoot;
     [SerializeField] private HeroAttackModule[] attackModules;
@@ -157,24 +164,24 @@ public sealed class HeroActionController : MonoBehaviour
             "SlashSide",
             HeroAttackDirection.Side,
             true,
-            sourceConfig != null ? sourceConfig.attackSideOffset : new Vector2(0.75f, 0f),
-            sourceConfig != null ? sourceConfig.attackSideSize : new Vector2(1.2f, 0.5f),
+            DefaultSideAttackOffset,
+            DefaultSideAttackSize,
             sourceConfig);
 
         CreateOrUpdateDefaultModule(
             "SlashUp",
             HeroAttackDirection.Up,
             false,
-            sourceConfig != null ? sourceConfig.attackUpOffset : new Vector2(0f, 0.75f),
-            sourceConfig != null ? sourceConfig.attackUpSize : new Vector2(0.75f, 1f),
+            DefaultUpAttackOffset,
+            DefaultUpAttackSize,
             sourceConfig);
 
         CreateOrUpdateDefaultModule(
             "SlashDown",
             HeroAttackDirection.Down,
             false,
-            sourceConfig != null ? sourceConfig.attackDownOffset : new Vector2(0f, -0.75f),
-            sourceConfig != null ? sourceConfig.attackDownSize : new Vector2(0.75f, 1f),
+            DefaultDownAttackOffset,
+            DefaultDownAttackSize,
             sourceConfig);
 
         CacheAttackModules();
