@@ -7,6 +7,7 @@ public sealed class HeroDashAction
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
     private readonly HeroAudioController audio;
+    private readonly PlayerAbilityState abilityState;
 
     private float dashTimer;
     private float cooldownTimer;
@@ -18,13 +19,15 @@ public sealed class HeroDashAction
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
-        HeroAudioController heroAudio)
+        HeroAudioController heroAudio,
+        PlayerAbilityState abilityState)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
         audio = heroAudio;
+        this.abilityState = abilityState;
     }
 
     public void Tick(float deltaTime)
@@ -63,6 +66,11 @@ public sealed class HeroDashAction
 
     private bool CanStartDash()
     {
+        if (abilityState == null || !abilityState.dashUnlocked)
+        {
+            return false;
+        }
+
         if (blackboard.controlLocked || blackboard.inputBlocked || blackboard.dashing || blackboard.attacking || blackboard.attackRecovering)
         {
             return false;

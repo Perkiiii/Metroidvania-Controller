@@ -11,6 +11,7 @@ public class HeroController : MonoBehaviour
     [Header("Data")]
     [SerializeField] private HeroConfig config;
     [SerializeField] private HeroAnimationLibrary animationLibrary;
+    [SerializeField] private PlayerAbilityState abilityState;
     [SerializeField] private Transform spriteRoot;
 
     private readonly HashSet<object> controlLocks = new HashSet<object>();
@@ -164,7 +165,7 @@ public class HeroController : MonoBehaviour
         sensors.Initialize(config, blackboard, body, bodyCollider);
         motor.Initialize(config, blackboard, body, spriteRenderer, spriteRoot);
         audioController.Initialize(config, blackboard);
-        actions.Initialize(config, blackboard, inputReader, motor, audioController);
+        actions.Initialize(config, blackboard, inputReader, motor, audioController, abilityState);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
         cameraSignals.Initialize(blackboard, inputReader);

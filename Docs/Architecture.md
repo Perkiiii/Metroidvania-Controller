@@ -132,17 +132,28 @@ HeroController
 
 ## Ability Unlock State
 
-Gated abilities are controlled by a `PlayerAbilityState` ScriptableObject at `Assets/_Project/ScriptableObjects/World/PlayerAbilityState.asset`. Each action class checks the relevant flag in its `CanStart` condition:
+Gated abilities are controlled by a `PlayerAbilityState` ScriptableObject at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`. Each action class checks the relevant flag in its `CanStart` condition. Ability gate checks live in the individual action classes — never in `HeroController` or `HeroStateBlackboard`.
 
 ```
+AbilityId (enum)
+  Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast
+
 PlayerAbilityState (SO)
-├── wallJumpUnlocked   bool
-├── wallLatchUnlocked  bool
-├── spiritCastUnlocked bool
-└── ...
+├── dashUnlocked        bool  (default true — covers ground and air dash; no separate flags)
+├── wallClingUnlocked   bool  (default true — shared gate for wall-slide and wall-jump; no separate flags)
+├── sprintUnlocked      bool  (default false)
+├── wallLatchUnlocked   bool  (default false)
+├── doubleJumpUnlocked  bool  (default false)
+├── driftCloakUnlocked  bool  (default false)
+├── spiritCastUnlocked  bool  (default false)
+└── AbilityChanged event — fired by SetUnlocked only when value changes; scene gates subscribe here
 ```
 
-`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). At load time, `SaveManager` calls `ApplySaveData` on the SO to restore unlock flags. Always-available abilities (dash, wall-slide in the current build) default their flags to `true` so they can be gated later if scope changes.
+`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). At load time, `SaveManager` calls `ApplySaveData` on the SO to restore unlock flags.
+
+`AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
+
+`PlayerAbilityState` is wired into `HeroController` via a serialized Inspector field; `HeroActionController.Initialize` passes it to the action constructors. No `AssetDatabase` lookup is used.
 
 See `Docs/FeatureSpecs/Abilities.md` for the full per-ability spec.
 

@@ -5,6 +5,7 @@ public sealed class HeroWallJumpAction
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
     private readonly HeroAudioController audio;
+    private readonly PlayerAbilityState abilityState;
 
     private float relatchLockoutTimer;
 
@@ -13,13 +14,15 @@ public sealed class HeroWallJumpAction
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
-        HeroAudioController heroAudio)
+        HeroAudioController heroAudio,
+        PlayerAbilityState abilityState)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
         audio = heroAudio;
+        this.abilityState = abilityState;
     }
 
     public void FixedTick(float fixedDeltaTime)
@@ -47,6 +50,9 @@ public sealed class HeroWallJumpAction
 
     private bool CanStartWallJump()
     {
+        if (abilityState == null || !abilityState.wallClingUnlocked)
+            return false;
+
         return blackboard.wallSliding
             && !blackboard.controlLocked
             && !blackboard.inputBlocked

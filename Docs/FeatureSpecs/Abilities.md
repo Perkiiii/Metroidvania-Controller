@@ -10,18 +10,48 @@ Gated traversal and combat abilities that the player earns through progression. 
 
 ## Current State
 
-No ability-unlock system exists yet. The following are planned or in progress:
+The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exists; dash and wall-cling are gated; pickup and gate scene objects are available.
 
 | Ability | Status | Notes |
 |---|---|---|
-| Dash | Implemented (always available) | `HeroDashAction`; no unlock gate yet |
+| Dash | **Gated** | `HeroDashAction`; gate: `PlayerAbilityState.dashUnlocked` (default true); covers both ground and air dash |
 | Sprint | Planned | Hold input to increase grounded move speed |
-| Wall-slide | Implemented (always available) | `HeroWallSlideAction` |
-| Wall-jump | **Implemented** | `HeroWallJumpAction`; wired in `HeroActionController`; no unlock gate yet (PlayerAbilityState not created) |
+| Wall-slide | **Gated** | `HeroWallSlideAction`; gate: `PlayerAbilityState.wallClingUnlocked` (default true) |
+| Wall-jump | **Gated** | `HeroWallJumpAction`; gate: `PlayerAbilityState.wallClingUnlocked` (shared with wall-slide) |
 | Wall latch / aimed wall launch | Planned | Hold jump to latch, aim, and launch off wall |
 | Spirit cast | Planned | Forward projectile ability |
-| Air dash / double-jump | Not started | — |
+| Double-jump | Planned | — |
+| Drift Cloak | Planned | — |
 | Directional attack variants | Partial | Up/Down/Side all present; gating not implemented |
+
+---
+
+## Implemented Unlock System
+
+### AbilityId (`Assets/_Project/Scripts/Hero/Core/AbilityId.cs`)
+```csharp
+public enum AbilityId { Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast }
+```
+
+### PlayerAbilityState (`Assets/_Project/Scripts/Hero/Core/PlayerAbilityState.cs`)
+ScriptableObject at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` (create via CreateAssetMenu after compile; wire into HeroController Inspector field).
+
+Fields: `dashUnlocked` (default true), `wallClingUnlocked` (default true), `sprintUnlocked`, `wallLatchUnlocked`, `doubleJumpUnlocked`, `driftCloakUnlocked`, `spiritCastUnlocked` (all default false).
+
+Methods: `IsUnlocked(AbilityId)`, `Unlock(AbilityId)`, `Lock(AbilityId)`, `SetUnlocked(AbilityId, bool)`, `ResetToDefaults()`.
+
+Event: `AbilityChanged(AbilityId, bool)` — fired by `SetUnlocked` only when the value actually changes. Scene objects (e.g. `AbilityGate`) subscribe to this event to react at runtime without polling.
+
+### Unlock flag model
+- **Dash** uses `dashUnlocked`. Covers both ground dash and air dash — there are no separate `groundDashUnlocked` or `airDashUnlocked` flags.
+- **Wall-slide and wall-jump** share `wallClingUnlocked`. There are no separate `wallSlideUnlocked` or `wallJumpUnlocked` flags.
+- Sprint, WallLatch, DoubleJump, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
+
+### AbilityPickup (`Assets/_Project/Scripts/World/AbilityPickup.cs`)
+MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId ability`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` on trigger. TODO: integrate with save/world-state system.
+
+### AbilityGate (`Assets/_Project/Scripts/World/AbilityGate.cs`)
+MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId requiredAbility`, `GameObject blocker`, `Collider2D blockerCollider`. Subscribes to `AbilityChanged` in `OnEnable`; unsubscribes in `OnDisable`. Exposes `Refresh()` — call manually after `ResetToDefaults()` if needed at runtime.
 
 ---
 
@@ -31,7 +61,7 @@ No ability-unlock system exists yet. The following are planned or in progress:
 - Store unlocked ability flags on a `PlayerAbilityState` ScriptableObject.
 - Each Action class checks the relevant flag in its `CanStart` condition before proceeding.
 - `HeroConfig` holds per-ability tuning values; the unlock flag is separate from tuning.
-- Always-available abilities (dash, wall-slide) can be represented in the same system if desired — simply default the relevant flag to true. Unlock state should remain data-driven regardless.
+- Always-available abilities (dash, wall-slide) are represented in the same system defaulted to true so they can be gated later if scope changes.
 
 ### Sprint
 Sprint is a movement modifier, not an action — it adjusts grounded move speed while held.
@@ -53,7 +83,7 @@ Standard wall jump is the quick, responsive traversal option. It should feel imm
 - The velocity application belongs in a new `HeroMotor.StartWallJump(int wallDirection)` method.
 - A `wallJumping` flag should be written to `HeroStateBlackboard` so `HeroWallSlideAction` and other actions can react to it.
 - Animation: play `HeroAnimationLibrary.wallJump` (clip slot already exists).
-- Gate: check `PlayerAbilityState.wallJumpUnlocked` before allowing.
+- Gate: check `PlayerAbilityState.wallClingUnlocked` before allowing (shared with wall-slide).
 
 ### Wall Latch / Aimed Wall Launch
 Wall latch is the more deliberate, skill-based complement to standard wall jump. It is not a replacement — both behaviours coexist, with wall jump as the quick option and wall latch as the expressive one.
@@ -96,7 +126,7 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 - `HeroMotor` — receives velocity commands and movement modifier signals
 - `HeroStateBlackboard` — shared action state flags
 - `HeroConfig` — per-ability tuning values
-- `PlayerAbilityState` (TODO) — unlock flags SO
+- `PlayerAbilityState` — unlock flags SO (implemented; asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`)
 - `PlayerResourceState` (TODO) — castable resource tracking; required by Spirit Cast
 - Projectile prefab / projectile data assets (TODO) — used by Spirit Cast; behaviour lives on the prefab, not in the cast action
 

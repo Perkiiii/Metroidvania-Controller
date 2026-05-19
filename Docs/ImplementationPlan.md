@@ -91,9 +91,13 @@ These two come together because neither is meaningful without the other — a co
 
 **Goal:** Gated traversal abilities can be unlocked and the gate is data-driven.
 
-- [ ] Create `PlayerAbilityState` SO at `Assets/_Project/ScriptableObjects/World/PlayerAbilityState.asset`.
-- [ ] Gate dash, wall-slide, and wall-jump behind flags (defaulted true) to establish the unlock pattern.
-- [x] Implement wall-jump (`HeroWallJumpAction`). See `Docs/FeatureSpecs/Abilities.md`. (Done — no ability gate yet; requires `PlayerAbilityState` SO)
+- [x] Create `PlayerAbilityState` script (`Assets/_Project/Scripts/Hero/Core/PlayerAbilityState.cs`). (Done — asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` must be created manually in Unity Editor via CreateAssetMenu and wired into HeroController Inspector field.)
+- [x] Create `AbilityId` enum (`Assets/_Project/Scripts/Hero/Core/AbilityId.cs`). (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast)
+- [x] Gate dash behind `PlayerAbilityState.dashUnlocked` (covers ground and air — no separate flags). (Done)
+- [x] Gate wall-slide and wall-jump behind shared `PlayerAbilityState.wallClingUnlocked` (no separate flags). (Done)
+- [x] Implement `AbilityPickup` MonoBehaviour (`Assets/_Project/Scripts/World/AbilityPickup.cs`). (Done — save/world-state integration is a TODO)
+- [x] Implement `AbilityGate` MonoBehaviour (`Assets/_Project/Scripts/World/AbilityGate.cs`). (Done — reacts to `PlayerAbilityState.AbilityChanged` event at runtime)
+- [x] Implement wall-jump (`HeroWallJumpAction`). See `Docs/FeatureSpecs/Abilities.md`. (Done — gated behind `wallClingUnlocked`)
 - [ ] Implement wall-latch / aimed wall launch (`HeroWallLatchAction`).
 - [ ] Implement sprint (`HeroSprintAction`).
 - [ ] Author a gate (locked door / ability gate) in the test level that requires an unlocked ability to pass.

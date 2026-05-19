@@ -7,6 +7,7 @@ public sealed class HeroWallSlideAction
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
     private readonly HeroAudioController audio;
+    private readonly PlayerAbilityState abilityState;
     private bool wasWallSliding;
 
     public HeroWallSlideAction(
@@ -14,13 +15,15 @@ public sealed class HeroWallSlideAction
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
-        HeroAudioController heroAudio)
+        HeroAudioController heroAudio,
+        PlayerAbilityState abilityState)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
         audio = heroAudio;
+        this.abilityState = abilityState;
     }
 
     public void FixedTick()
@@ -49,6 +52,9 @@ public sealed class HeroWallSlideAction
 
     private bool CanEnterWallSlide()
     {
+        if (abilityState == null || !abilityState.wallClingUnlocked)
+            return false;
+
         return HasWallSlidePhysicalConditions() && IsPressingIntoWall();
     }
 
