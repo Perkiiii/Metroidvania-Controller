@@ -17,7 +17,7 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroStateBlackboard blackboard;
     private HeroInputReader input;
     private HeroMotor motor;
-    private HeroAudioController audio;
+    private HeroAudioController heroAudio;
 
     private HeroJumpAction jump;
     private HeroDashAction dash;
@@ -38,13 +38,13 @@ public sealed class HeroActionController : MonoBehaviour
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
-        audio = heroAudio;
+        this.heroAudio = heroAudio;
 
-        jump = new HeroJumpAction(config, blackboard, input, heroMotor, audio);
-        dash = new HeroDashAction(config, blackboard, input, heroMotor, audio);
-        attack = new HeroAttackAction(config, blackboard, input, heroMotor, audio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
-        wallSlide = new HeroWallSlideAction(config, blackboard, input, heroMotor, audio);
-        wallJump = new HeroWallJumpAction(config, blackboard, input, heroMotor, audio);
+        jump = new HeroJumpAction(config, blackboard, input, heroMotor, this.heroAudio);
+        dash = new HeroDashAction(config, blackboard, input, heroMotor, this.heroAudio);
+        attack = new HeroAttackAction(config, blackboard, input, heroMotor, this.heroAudio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
+        wallSlide = new HeroWallSlideAction(config, blackboard, input, heroMotor, this.heroAudio);
+        wallJump = new HeroWallJumpAction(config, blackboard, input, heroMotor, this.heroAudio);
     }
 
     public void Tick()

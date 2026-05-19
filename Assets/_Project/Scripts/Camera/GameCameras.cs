@@ -31,6 +31,7 @@ public sealed class GameCameras : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        DisableExternalAudioListeners();
 
         if (shakeCues == null && !TryGetComponent(out shakeCues))
             shakeCues = gameObject.AddComponent<CameraShakeCueService>();
@@ -51,6 +52,7 @@ public sealed class GameCameras : MonoBehaviour
         CameraEventService.ShakeRequested += OnCameraShakeRequested;
         CameraEventService.ShakeCancelRequested += OnCameraShakeCancelRequested;
         CameraEventService.FreezeRequested += OnCameraFreezeRequested;
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDisable()
@@ -63,6 +65,7 @@ public sealed class GameCameras : MonoBehaviour
         CameraEventService.ShakeRequested -= OnCameraShakeRequested;
         CameraEventService.ShakeCancelRequested -= OnCameraShakeCancelRequested;
         CameraEventService.FreezeRequested -= OnCameraFreezeRequested;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private void Start()
@@ -92,8 +95,49 @@ public sealed class GameCameras : MonoBehaviour
 
     private void OnSceneInit(Scene scene)
     {
+        DisableExternalAudioListeners();
         cameraTarget?.SceneInit();
         cameraController?.SceneInit();
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        DisableExternalAudioListeners();
+    }
+
+    private void DisableExternalAudioListeners()
+    {
+        AudioListener[] listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        bool hasOwnEnabledListener = false;
+
+        for (int i = 0; i < listeners.Length; i++)
+        {
+            AudioListener listener = listeners[i];
+            if (listener != null && listener.enabled && IsListenerInOwnHierarchy(listener))
+            {
+                hasOwnEnabledListener = true;
+                break;
+            }
+        }
+
+        if (!hasOwnEnabledListener)
+        {
+            return;
+        }
+
+        for (int i = 0; i < listeners.Length; i++)
+        {
+            AudioListener listener = listeners[i];
+            if (listener != null && listener.enabled && !IsListenerInOwnHierarchy(listener))
+            {
+                listener.enabled = false;
+            }
+        }
+    }
+
+    private bool IsListenerInOwnHierarchy(AudioListener listener)
+    {
+        return listener != null && listener.transform.IsChildOf(transform);
     }
 
     private void OnCameraLockEntered(CameraLockArea area)

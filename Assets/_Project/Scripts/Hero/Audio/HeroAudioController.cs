@@ -67,10 +67,19 @@ public sealed class HeroAudioController : MonoBehaviour
     public void PlayLand() => PlaySource(land, landPitchRange);
     public void PlayDash() => PlaySource(dash, dashPitchRange);
     public void PlayWallJump() => PlaySource(wallJump, wallJumpPitchRange);
-    public void PlayWallSlide() => PlaySource(wallSlide, wallSlidePitchRange);
     public void PlayTakeDamage() => PlaySource(takeDamage, takeDamagePitchRange);
     public void PlayDeath() => PlaySource(death, deathPitchRange);
     public void PlayTerrainImpact() => PlaySource(terrainImpact, terrainImpactPitchRange);
+
+    public void PlayWallSlide()
+    {
+        if (wallSlide != null && wallSlide.isPlaying)
+        {
+            return;
+        }
+
+        PlaySource(wallSlide, wallSlidePitchRange);
+    }
 
     public void AnimEventFootstep()
     {

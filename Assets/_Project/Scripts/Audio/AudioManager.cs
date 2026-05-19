@@ -41,7 +41,7 @@ public sealed class AudioManager : MonoBehaviour
         }
 
         AudioSource source = GetOneShotSfxSource();
-        ConfigureSource(source, clip, pitchMin, pitchMax, volume, false);
+        ConfigureOneShotSfxSource(source, clip, pitchMin, pitchMax, volume);
         source.Play();
     }
 
@@ -121,19 +121,27 @@ public sealed class AudioManager : MonoBehaviour
         return source;
     }
 
-    private void ConfigureSource(
+    private void ConfigureOneShotSfxSource(
         AudioSource source,
         AudioClip clip,
         float pitchMin,
         float pitchMax,
-        float volume,
-        bool loop)
+        float volume)
     {
-        CopySfxSourceSettings(source);
+        if (source == null)
+        {
+            return;
+        }
+
+        float baseVolume = sfxSource != null ? sfxSource.volume : 1f;
+
+        source.playOnAwake = false;
+        source.outputAudioMixerGroup = sfxSource != null ? sfxSource.outputAudioMixerGroup : null;
+        source.spatialBlend = sfxSource != null ? sfxSource.spatialBlend : 0f;
         source.clip = clip;
-        source.loop = loop;
+        source.loop = false;
         source.pitch = Random.Range(Mathf.Min(pitchMin, pitchMax), Mathf.Max(pitchMin, pitchMax));
-        source.volume *= Mathf.Clamp01(volume);
+        source.volume = baseVolume * Mathf.Clamp01(volume);
     }
 
     private void CopySfxSourceSettings(AudioSource target)
