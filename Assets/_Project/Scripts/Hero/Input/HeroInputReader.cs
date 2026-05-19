@@ -11,6 +11,7 @@ public sealed class HeroInputReader : MonoBehaviour
     [SerializeField] private InputActionReference attackAction;
     [SerializeField] private InputActionReference dashAction;
     [SerializeField] private InputActionReference sprintAction;
+    [SerializeField] private InputActionReference interactAction;
 
     private HeroConfig config;
     private float jumpBufferTimer;
@@ -25,6 +26,7 @@ public sealed class HeroInputReader : MonoBehaviour
     public bool AttackHeld { get; private set; }
     public bool DashPressedThisFrame { get; private set; }
     public bool SprintHeld { get; private set; }
+    public bool InteractPressedThisFrame { get; private set; }
     public bool HasBufferedJump => jumpBufferTimer > 0f;
     public bool HasBufferedAttack => attackBufferTimer > 0f;
 
@@ -69,6 +71,7 @@ public sealed class HeroInputReader : MonoBehaviour
         AttackHeld = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
         DashPressedThisFrame = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
         SprintHeld = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
+        InteractPressedThisFrame = ReadPressedThisFrame(GetAction(interactAction, "Interact"), false);
         MoveVector = ReadMove();
 
         if (JumpPressedThisFrame)
@@ -226,6 +229,7 @@ public sealed class HeroInputReader : MonoBehaviour
         SetActionEnabled(GetAction(attackAction, "Attack"), enabled);
         SetActionEnabled(GetAction(dashAction, "Dash"), enabled);
         SetActionEnabled(GetAction(sprintAction, "Sprint"), enabled);
+        SetActionEnabled(GetAction(interactAction, "Interact"), enabled);
     }
 
     private InputAction GetAction(InputActionReference reference, string actionName)

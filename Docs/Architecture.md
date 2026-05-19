@@ -38,7 +38,14 @@ HeroController (MonoBehaviour — coordinator)
 ## Key Data Types
 
 ### HeroConfig (ScriptableObject)
-Central tuning asset at `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`. Contains all numeric parameters for movement, jump, gravity, dash, attack, wall-slide, sensors, and animation fade durations. All subsystems receive a reference at initialization.
+Core baseline tuning at `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`. Contains shared controller parameters: walk/run speeds, base jump, gravity, attack, downslash pogo, sensor probes, health/hurt, and animation fade durations. All subsystems receive a reference at initialization.
+
+### HeroAbilityConfig (ScriptableObject)
+Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`. Holds numeric parameters for dash, wall-slide, wall-jump, and double-jump. Wired into `HeroController` via a serialized Inspector field alongside `HeroConfig`. Absent from core movement logic — actions and the motor use it only for the ability-specific behaviours it governs.
+
+- **HeroConfig** = core baseline movement and combat config (always required)
+- **HeroAbilityConfig** = gated traversal ability tuning (dash, wall-slide, wall-jump, double-jump); abilities are disabled gracefully if missing
+- **PlayerAbilityState** = unlock flags only; no tuning values; wired via Inspector
 
 ### HeroStateBlackboard (MonoBehaviour)
 Single source of truth for the hero's runtime state. Written by Sensors, Motor, and Action classes; read by everything else, including AnimationController. Keeps subsystems decoupled — no direct references between Motor and ActionController, for example.
@@ -191,15 +198,15 @@ All world objects the player can interact with (checkpoints, NPCs, doors that re
 
 ```
 InteractableBase (MonoBehaviour)
-├── Priority   int     — higher value wins when multiple are in range
-├── IsDisabled bool    — deactivated interactables are skipped by the manager
-└── OnInteract()       — called by InteractManager when interact input is confirmed
+├── Priority   InteractPriority  — Low / Normal / High; higher wins when multiple are in range
+├── IsDisabled bool              — deactivated interactables are skipped by the manager
+└── Interact()                   — called by InteractManager when interact input is confirmed
 ```
 
 `InteractManager` (DontDestroyOnLoad singleton):
 - Maintains a priority-sorted list of `InteractableBase` instances in the hero's trigger range.
 - Shows / hides the interact prompt UI based on whether any valid interactable is active.
-- On interact input: calls `OnInteract()` on the highest-priority enabled interactable.
+- On interact input: calls `Interact()` on the highest-priority enabled interactable.
 
 Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` deregisters. Do not poll input or manage proximity inside individual interactable MonoBehaviours.
 
@@ -208,7 +215,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 ## Checkpoint and Respawn Markers
 
 **CheckpointInteractable** (extends `InteractableBase`):
-- `OnInteract()`: calls `SaveManager.Save()`, sets `SaveManager.ActiveRespawnMarker` to this checkpoint's linked `RespawnMarker`, plays an activation effect.
+- `Interact()`: sets `GameManager.ActiveRespawnMarker` to this checkpoint's linked `RespawnMarker` at runtime. Will call `SaveManager.Save()` once SaveManager exists (Milestone 4).
 - Does not call any method on `HeroController` or `HeroHealthComponent`.
 
 **HazardZone** (MonoBehaviour on a trigger collider):
@@ -273,7 +280,7 @@ ISaveTarget (interface, implemented by SOs)
 
 `SaveManager` must not reference any MonoBehaviour at save or load time. All live state that needs persisting must be mirrored into a registered SO implementing `ISaveTarget`.
 
-**Save triggers:** only `CheckpointInteractable.OnInteract` and the application quit handler on `SaveManager` itself call `SaveManager.Save()`. Never call it from inside a hero or enemy MonoBehaviour.
+**Save triggers:** only `CheckpointInteractable.Interact` and the application quit handler on `SaveManager` itself call `SaveManager.Save()`. Never call it from inside a hero or enemy MonoBehaviour.
 
 ---
 

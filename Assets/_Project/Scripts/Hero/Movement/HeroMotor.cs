@@ -4,6 +4,7 @@ using UnityEngine;
 public sealed class HeroMotor : MonoBehaviour
 {
     private HeroConfig config;
+    private HeroAbilityConfig abilityConfig;
     private HeroStateBlackboard blackboard;
     private Rigidbody2D body;
     private SpriteRenderer spriteRenderer;
@@ -23,12 +24,14 @@ public sealed class HeroMotor : MonoBehaviour
 
     public void Initialize(
         HeroConfig heroConfig,
+        HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         Rigidbody2D rigidbody,
         SpriteRenderer renderer,
         Transform visualRoot)
     {
         config = heroConfig;
+        abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         body = rigidbody;
         spriteRenderer = renderer;
@@ -167,7 +170,7 @@ public sealed class HeroMotor : MonoBehaviour
 
     public void BeginWallSlide()
     {
-        wallSlideInitialTimer = config != null ? config.wallSlideInitialHoldTime : 0f;
+        wallSlideInitialTimer = abilityConfig != null ? abilityConfig.wallSlideInitialHoldTime : 0f;
     }
 
     public void EndWallSlide()
@@ -187,12 +190,12 @@ public sealed class HeroMotor : MonoBehaviour
 
     public void SetDashVelocity(int direction)
     {
-        if (body == null || config == null)
+        if (body == null || abilityConfig == null)
         {
             return;
         }
 
-        body.linearVelocity = new Vector2(direction * config.dashSpeed, 0f);
+        body.linearVelocity = new Vector2(direction * abilityConfig.dashSpeed, 0f);
     }
 
     public void ApplyDownslashBounce()
@@ -216,7 +219,7 @@ public sealed class HeroMotor : MonoBehaviour
 
     public void StartWallJump(int wallDirection)
     {
-        if (body == null || config == null || blackboard == null || wallDirection == 0)
+        if (body == null || abilityConfig == null || blackboard == null || wallDirection == 0)
         {
             return;
         }
@@ -239,8 +242,31 @@ public sealed class HeroMotor : MonoBehaviour
         int awayDirection = -wallDirection;
         SetFacingDirection(awayDirection);
         body.linearVelocity = new Vector2(
-            awayDirection * config.wallJumpHorizontalSpeed,
-            config.wallJumpVerticalSpeed);
+            awayDirection * abilityConfig.wallJumpHorizontalSpeed,
+            abilityConfig.wallJumpVerticalSpeed);
+    }
+
+    public void StartDoubleJump(float verticalSpeed)
+    {
+        if (body == null || blackboard == null)
+        {
+            return;
+        }
+
+        jumpStepsElapsed = 1;
+        jumpedSteps = 1;
+        jumpReleasePending = false;
+
+        blackboard.jumping = true;
+        blackboard.jumpSustaining = false;
+        blackboard.grounded = false;
+        blackboard.actorState = HeroActorState.Airborne;
+        blackboard.rising = true;
+        blackboard.falling = false;
+        blackboard.jumpStepsElapsed = jumpStepsElapsed;
+        blackboard.jumpedSteps = jumpedSteps;
+
+        SetVerticalVelocity(verticalSpeed);
     }
 
     public void ResetJumpRuntime()
@@ -310,7 +336,7 @@ public sealed class HeroMotor : MonoBehaviour
 
     private void ApplyWallSlideVelocity(float fixedDeltaTime)
     {
-        if (!blackboard.wallSliding)
+        if (!blackboard.wallSliding || abilityConfig == null)
         {
             return;
         }
@@ -318,7 +344,7 @@ public sealed class HeroMotor : MonoBehaviour
         if (wallSlideInitialTimer > 0f)
         {
             wallSlideInitialTimer -= fixedDeltaTime;
-            float targetY = Mathf.Min(0f, config.wallSlideInitialSpeed);
+            float targetY = Mathf.Min(0f, abilityConfig.wallSlideInitialSpeed);
             float currentY = body.linearVelocity.y;
             // Cap fast downward contacts so the initial cling is felt even when entering at high fall speed.
             float cappedY = currentY < targetY ? targetY : currentY;
@@ -328,8 +354,8 @@ public sealed class HeroMotor : MonoBehaviour
 
         float y = Mathf.MoveTowards(
             body.linearVelocity.y,
-            config.wallSlideSpeed,
-            Mathf.Max(0f, config.wallSlideAcceleration) * fixedDeltaTime);
+            abilityConfig.wallSlideSpeed,
+            Mathf.Max(0f, abilityConfig.wallSlideAcceleration) * fixedDeltaTime);
 
         body.linearVelocity = new Vector2(body.linearVelocity.x, y);
     }

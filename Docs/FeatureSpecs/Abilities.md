@@ -10,7 +10,7 @@ Gated traversal and combat abilities that the player earns through progression. 
 
 ## Current State
 
-The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exists; dash and wall-cling are gated; pickup and gate scene objects are available.
+The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exists; dash and wall-cling are gated; pickup and gate scene objects are available. Traversal ability tuning lives in `HeroAbilityConfig`; unlock flags remain in `PlayerAbilityState`.
 
 | Ability | Status | Notes |
 |---|---|---|
@@ -19,8 +19,8 @@ The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exis
 | Wall-slide | **Gated** | `HeroWallSlideAction`; gate: `PlayerAbilityState.wallClingUnlocked` (default true) |
 | Wall-jump | **Gated** | `HeroWallJumpAction`; gate: `PlayerAbilityState.wallClingUnlocked` (shared with wall-slide) |
 | Wall latch / aimed wall launch | Planned | Hold jump to latch, aim, and launch off wall |
-| Spirit cast | Planned | Forward projectile ability |
-| Double-jump | Planned | — |
+| Spirit cast | Planned | Forward projectile ability; should use a separate spell/cast config, not `HeroAbilityConfig` |
+| Double-jump | **Implemented (First Pass)** | `HeroJumpAction`; gate: `PlayerAbilityState.doubleJumpUnlocked` (default false); one double jump per airtime; coyote jump takes priority |
 | Drift Cloak | Planned | — |
 | Directional attack variants | Partial | Up/Down/Side all present; gating not implemented |
 
@@ -116,7 +116,7 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 5. If the ability involves a new shared state that other actions need to react to (e.g. `wallJumping`, `wallLatched`), add a flag to `HeroStateBlackboard` and write it from the owning action class.
 6. If the ability spawns an entity (spirit cast), keep the spawn request in the action class and all spawned-entity behaviour in a separate component.
 7. Reserve an animation slot in `HeroAnimationLibrary` and add the clip.
-8. Add tuning values to `HeroConfig`; keep unlock flags on `PlayerAbilityState`.
+8. **Add tuning values to `HeroAbilityConfig`** (traversal) or `HeroConfig` (core shared movement/combat). Keep unlock flags on `PlayerAbilityState` only. Spirit Cast should use a separate spell/cast config — do not add cast tuning to `HeroAbilityConfig`.
 
 ---
 
@@ -125,8 +125,9 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 - `HeroActionController` — hosts and ticks all action instances
 - `HeroMotor` — receives velocity commands and movement modifier signals
 - `HeroStateBlackboard` — shared action state flags
-- `HeroConfig` — per-ability tuning values
-- `PlayerAbilityState` — unlock flags SO (implemented; asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`)
+- `HeroConfig` — core shared movement/combat tuning (walk/run, base jump, gravity, attack, pogo, sensors, health/hurt, animation fades)
+- `HeroAbilityConfig` — gated traversal ability tuning (dash, wall-slide, wall-jump, double-jump); asset at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`
+- `PlayerAbilityState` — unlock flags only (implemented; asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`); does not store any tuning values
 - `PlayerResourceState` (TODO) — castable resource tracking; required by Spirit Cast
 - Projectile prefab / projectile data assets (TODO) — used by Spirit Cast; behaviour lives on the prefab, not in the cast action
 

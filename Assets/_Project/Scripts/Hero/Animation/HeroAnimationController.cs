@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Animancer;
 using UnityEngine;
@@ -26,6 +27,8 @@ public sealed class HeroAnimationController : MonoBehaviour
     private HeroStateBlackboard blackboard;
     private HeroMotor motor;
     private HeroActionController actions;
+    public event Action DeathAnimationComplete;
+
     private LinearMixerState locomotionMixer;
     private AnimancerState activeAttackState;
     private VisualState currentVisualState;
@@ -60,7 +63,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         Vector2 velocity = motor.Velocity;
         if (blackboard.actorState == HeroActorState.Dead)
         {
-            PlayActionClip(animationLibrary.death, VisualState.Dead);
+            PlayDeathClip();
         }
         else if (blackboard.actorState == HeroActorState.Hurt)
         {
@@ -193,6 +196,29 @@ public sealed class HeroAnimationController : MonoBehaviour
 
         animancer.Play(clip, config.actionFadeDuration, FadeMode.FromStart);
         currentVisualState = state;
+    }
+
+    private void PlayDeathClip()
+    {
+        if (currentVisualState == VisualState.Dead)
+            return;
+
+        currentVisualState = VisualState.Dead;
+
+        if (animationLibrary.death == null)
+        {
+            Debug.LogWarning("[HeroAnimationController] Death clip is missing — firing DeathAnimationComplete immediately.");
+            DeathAnimationComplete?.Invoke();
+            return;
+        }
+
+        AnimancerState deathState = animancer.Play(animationLibrary.death, config.actionFadeDuration, FadeMode.FromStart);
+        deathState.Events(this).OnEnd = () =>
+        {
+            deathState.IsPlaying = false;       // Hold last frame; prevents time advancing past end
+            deathState.Events(this).OnEnd = null; // Clear handler so it doesn't re-fire every frame
+            DeathAnimationComplete?.Invoke();
+        };
     }
 
     private void PlayAttackClip(AnimationClip clip)

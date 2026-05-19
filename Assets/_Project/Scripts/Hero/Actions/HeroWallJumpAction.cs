@@ -1,6 +1,7 @@
 public sealed class HeroWallJumpAction
 {
     private readonly HeroConfig config;
+    private readonly HeroAbilityConfig abilityConfig;
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
@@ -11,6 +12,7 @@ public sealed class HeroWallJumpAction
 
     public HeroWallJumpAction(
         HeroConfig heroConfig,
+        HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
@@ -18,6 +20,7 @@ public sealed class HeroWallJumpAction
         PlayerAbilityState abilityState)
     {
         config = heroConfig;
+        abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
@@ -53,6 +56,9 @@ public sealed class HeroWallJumpAction
         if (abilityState == null || !abilityState.wallClingUnlocked)
             return false;
 
+        if (abilityConfig == null)
+            return false;
+
         return blackboard.wallSliding
             && !blackboard.controlLocked
             && !blackboard.inputBlocked
@@ -68,7 +74,7 @@ public sealed class HeroWallJumpAction
         input.ConsumeJumpBuffer();
         blackboard.wallSliding = false;
         blackboard.wallJumping = true;
-        relatchLockoutTimer = config.wallJumpRelatchLockout;
+        relatchLockoutTimer = abilityConfig.wallJumpRelatchLockout;
 
         audio?.PlayWallJump();
         motor.StartWallJump(wallDirection);

@@ -16,6 +16,13 @@ public sealed class GameManager : MonoBehaviour
     private HeroController _hero;
     private HeroHealthComponent _heroHealth;
 
+    // Temporary runtime-only respawn pointer.
+    // Future SaveManager should own persisted respawn marker keys and resolve
+    // live markers on scene init. This field is the seam it will replace (Milestone 4).
+    private RespawnMarker _activeRespawnMarker;
+
+    public void SetActiveRespawnMarker(RespawnMarker marker) => _activeRespawnMarker = marker;
+
     private void Awake()
     {
         if (Instance != null)
@@ -97,10 +104,22 @@ public sealed class GameManager : MonoBehaviour
         if (GameCameras.Instance != null)
             yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
 
-        // Teleport hero to nearest respawn marker
-        Vector3 respawnPos = FindNearestRespawnMarkerPosition();
-        if (_hero != null)
-            _hero.transform.position = respawnPos;
+        // Use the active respawn marker when set; fall back to nearest marker in scene.
+        // TODO: SaveManager (Milestone 4) will replace _activeRespawnMarker with a
+        //       persisted marker key resolved to a live scene object on load.
+        if (_activeRespawnMarker != null)
+        {
+            if (_hero != null)
+            {
+                _hero.transform.position = _activeRespawnMarker.RespawnPosition;
+                _hero.ForceFacingDirection(_activeRespawnMarker.FacingDirection);
+            }
+        }
+        else
+        {
+            if (_hero != null)
+                _hero.transform.position = FindNearestRespawnMarkerPosition();
+        }
 
         if (_heroHealth != null)
             _heroHealth.RestoreFullHealth();

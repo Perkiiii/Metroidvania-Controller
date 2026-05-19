@@ -20,8 +20,8 @@ MonoBehaviour:
   airDeceleration: 40
   horizontalInputDeadZone: 0.3
   requireSprintForRun: 0
-  jumpSpeed: 16
-  maxJumpSustainSteps: 6
+  jumpSpeed: 14
+  maxJumpSustainSteps: 2
   minJumpReleaseSteps: 0
   jumpCutVelocityMultiplier: 0.35
   coyoteTime: 0.08
@@ -34,9 +34,6 @@ MonoBehaviour:
   referenceGravityY: -29.8
   apexVelocityThreshold: 1
   maxFallSpeed: 15
-  dashSpeed: 18
-  dashDuration: 0.22
-  dashCooldown: 0.45
   attackCooldown: 0.4
   attackRecovery: 0.22
   altAttackResetTime: 1
@@ -54,15 +51,6 @@ MonoBehaviour:
   attackHitStopDuration: 0.04
   attackClashHitStopDuration: 0.05
   downslashBounceVelocity: 8
-  wallSlideSpeed: -3
-  wallSlideDeceleration: 0.7
-  wallSlideInputThreshold: 0.3
-  wallSlideInitialHoldTime: 0.25
-  wallSlideInitialSpeed: 0.1
-  wallSlideAcceleration: 16
-  wallJumpHorizontalSpeed: 10
-  wallJumpVerticalSpeed: 16
-  wallJumpRelatchLockout: 0.35
   terrainLayers:
     serializedVersion: 2
     m_Bits: 129

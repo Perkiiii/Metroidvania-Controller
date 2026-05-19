@@ -7,9 +7,10 @@
 
 ## Purpose
 
-This document records the HeroConfig values that produce the current validated movement feel. It exists so that future polish work, ability additions, or animation integration can be done without accidentally drifting the feel and losing the tuned baseline. If you need to change a value, read the notes below first, run the regression checklist after, and update this document if you keep the change.
+This document records the values that produce the current validated movement feel. It exists so that future polish work, ability additions, or animation integration can be done without accidentally drifting the feel and losing the tuned baseline. If you need to change a value, read the notes below first, run the regression checklist after, and update this document if you keep the change.
 
-The values here are a snapshot of `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`.
+Core movement values are a snapshot of `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`.
+Dash, wall-slide, wall-jump, and double-jump values live in `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`.
 
 ---
 
@@ -56,7 +57,7 @@ Standard input-assist values. Coyote lets the player jump just after walking off
 
 ---
 
-## Dash
+## Dash — HeroAbilityConfig
 
 ```
 dashSpeed:    18
@@ -102,7 +103,7 @@ Horizontal speed multiplied by this while attacking on the ground. 0.75 keeps mo
 
 ---
 
-## Wall Slide
+## Wall Slide — HeroAbilityConfig
 
 ```
 wallSlideInitialHoldTime:  0.25
@@ -125,7 +126,7 @@ Terminal slide velocity (downward). -3 is slow enough to give the player time to
 
 ---
 
-## Wall Jump
+## Wall Jump — HeroAbilityConfig
 
 ```
 wallJumpHorizontalSpeed:  10
@@ -140,6 +141,23 @@ The velocity impulse applied on wall jump. Horizontal is ~1.5× run speed, givin
 
 **`wallJumpRelatchLockout` (0.35s)**
 After a wall jump, `blackboard.wallJumping = true` for this duration, which blocks re-entering `wallSliding`. At 0.35s the player cannot re-grab the same wall until they have meaningfully moved away. The original value was 0.15s — too short to prevent repeated grabbing. Do not lower below 0.25s.
+
+---
+
+## Double Jump — HeroAbilityConfig
+
+```
+doubleJumpSpeed:           14
+resetDoubleJumpOnWallSlide: false
+```
+
+### Notes
+
+**`doubleJumpSpeed` (14)**
+Vertical velocity applied on a valid double jump. At 14 the double jump reaches slightly less height than a full ground jump (jumpSpeed 16 / 18 in HeroConfig). This is intentional — the double jump is a mid-air recovery tool, not a height extender. If you raise this above 16 the double jump becomes stronger than a ground jump; lower than 10 and it feels unreliable for clearing standard gaps.
+
+**`resetDoubleJumpOnWallSlide` (false)**
+When true, entering wall slide restores the double jump. Currently off — wall latch will serve the "reset on wall" use case once implemented. Do not enable until wall latch is in place or wall climbing becomes trivial.
 
 ---
 

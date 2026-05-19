@@ -25,7 +25,7 @@ MonoBehaviour:
   specialMoveLookAhead: 1.75
   lookAheadMoveSpeed: 6
   lookAheadIdleMoveSpeed: 1.2
-  stationaryLookAheadMultiplier: 0.2
+  stationaryLookAheadMultiplier: 1
   facingVelocityThreshold: 0.05
   dashVelocityThreshold: 5
   fallingVelocityThreshold: 0.25

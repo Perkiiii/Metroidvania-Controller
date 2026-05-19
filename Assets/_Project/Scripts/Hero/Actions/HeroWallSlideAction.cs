@@ -3,6 +3,7 @@ using UnityEngine;
 public sealed class HeroWallSlideAction
 {
     private readonly HeroConfig config;
+    private readonly HeroAbilityConfig abilityConfig;
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
@@ -12,6 +13,7 @@ public sealed class HeroWallSlideAction
 
     public HeroWallSlideAction(
         HeroConfig heroConfig,
+        HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
@@ -19,6 +21,7 @@ public sealed class HeroWallSlideAction
         PlayerAbilityState abilityState)
     {
         config = heroConfig;
+        abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
@@ -55,6 +58,9 @@ public sealed class HeroWallSlideAction
         if (abilityState == null || !abilityState.wallClingUnlocked)
             return false;
 
+        if (abilityConfig == null)
+            return false;
+
         return HasWallSlidePhysicalConditions() && IsPressingIntoWall();
     }
 
@@ -77,14 +83,14 @@ public sealed class HeroWallSlideAction
     private bool IsPressingIntoWall()
     {
         float moveX = input.MoveVector.x;
-        return Mathf.Abs(moveX) >= config.wallSlideInputThreshold
+        return Mathf.Abs(moveX) >= abilityConfig.wallSlideInputThreshold
             && Mathf.Sign(moveX) == blackboard.FacingDirection;
     }
 
     private bool IsPressingAwayFromWall()
     {
         float moveX = input.MoveVector.x;
-        return Mathf.Abs(moveX) >= config.wallSlideInputThreshold
+        return Mathf.Abs(moveX) >= abilityConfig.wallSlideInputThreshold
             && Mathf.Sign(moveX) == -blackboard.FacingDirection;
     }
 }

@@ -1298,6 +1298,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HeroController
   config: {fileID: 11400000, guid: 08f87e0cf1253a549846aeb016d92202, type: 2}
+  abilityConfig: {fileID: 11400000, guid: eb3ba5082fa88d7449e201bd518c9dfa, type: 2}
   animationLibrary: {fileID: 11400000, guid: 4b4d865263be9644e9d7ba018c804137, type: 2}
   abilityState: {fileID: 11400000, guid: 124b34d0890feaf40bab9ab174f421c4, type: 2}
   spriteRoot: {fileID: 8379539586560624462}

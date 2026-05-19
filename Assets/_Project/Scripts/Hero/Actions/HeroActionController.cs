@@ -21,6 +21,7 @@ public sealed class HeroActionController : MonoBehaviour
     [SerializeField, Min(0.1f)] private float attackFailSafeTimeout = 1f;
 
     private HeroConfig config;
+    private HeroAbilityConfig abilityConfig;
     private HeroStateBlackboard blackboard;
     private HeroInputReader input;
     private HeroMotor motor;
@@ -37,6 +38,7 @@ public sealed class HeroActionController : MonoBehaviour
 
     public void Initialize(
         HeroConfig heroConfig,
+        HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
@@ -44,17 +46,18 @@ public sealed class HeroActionController : MonoBehaviour
         PlayerAbilityState abilityState)
     {
         config = heroConfig;
+        abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
         this.heroAudio = heroAudio;
         this.abilityState = abilityState;
 
-        jump = new HeroJumpAction(config, blackboard, input, heroMotor, this.heroAudio);
-        dash = new HeroDashAction(config, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        jump = new HeroJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        dash = new HeroDashAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
         attack = new HeroAttackAction(config, blackboard, input, heroMotor, this.heroAudio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
-        wallSlide = new HeroWallSlideAction(config, blackboard, input, heroMotor, this.heroAudio, abilityState);
-        wallJump = new HeroWallJumpAction(config, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        wallSlide = new HeroWallSlideAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        wallJump = new HeroWallJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
     }
 
     public void Tick()

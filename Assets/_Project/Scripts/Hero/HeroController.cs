@@ -10,6 +10,7 @@ public class HeroController : MonoBehaviour
 {
     [Header("Data")]
     [SerializeField] private HeroConfig config;
+    [SerializeField] private HeroAbilityConfig abilityConfig;
     [SerializeField] private HeroAnimationLibrary animationLibrary;
     [SerializeField] private PlayerAbilityState abilityState;
     [SerializeField] private Transform spriteRoot;
@@ -17,6 +18,8 @@ public class HeroController : MonoBehaviour
     private readonly HashSet<object> controlLocks = new HashSet<object>();
 
     private Coroutine hurtRoutine;
+    private Coroutine deathFallbackRoutine;
+    private bool respawnTriggered;
 
     private HeroStateBlackboard blackboard;
     private HeroInputReader inputReader;
@@ -102,10 +105,18 @@ public class HeroController : MonoBehaviour
     public void ResetAfterRespawn()
     {
         blackboard.actorState = HeroActorState.Airborne;
-        blackboard.recoiling  = false;
+        blackboard.recoiling = false;
+        body.bodyType = RigidbodyType2D.Dynamic;
+        bodyCollider.enabled = true;
         motor.SetNormalMovementSuppressed(false);
         controlLocks.Clear();
         blackboard.controlLocked = false;
+        respawnTriggered = false;
+        if (deathFallbackRoutine != null)
+        {
+            StopCoroutine(deathFallbackRoutine);
+            deathFallbackRoutine = null;
+        }
     }
 
     private void ResolveDependencies()
@@ -161,17 +172,23 @@ public class HeroController : MonoBehaviour
 
     private void InitializeSystems()
     {
+        if (abilityConfig == null)
+        {
+            Debug.LogError("[HeroController] HeroAbilityConfig is not assigned. Gated traversal abilities (dash, wall-slide, wall-jump, double-jump) will be disabled.", this);
+        }
+
         inputReader.Initialize(config);
         sensors.Initialize(config, blackboard, body, bodyCollider);
-        motor.Initialize(config, blackboard, body, spriteRenderer, spriteRoot);
+        motor.Initialize(config, abilityConfig, blackboard, body, spriteRenderer, spriteRoot);
         audioController.Initialize(config, blackboard);
-        actions.Initialize(config, blackboard, inputReader, motor, audioController, abilityState);
+        actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, audioController, abilityState);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
         cameraSignals.Initialize(blackboard, inputReader);
 
         health.OnDamaged += HandleDamaged;
         health.OnDeath += HandleDeath;
+        animations.DeathAnimationComplete += OnDeathAnimationComplete;
     }
 
     private void CheckLanding()
@@ -203,14 +220,49 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Dead;
         AddControlLock(this);
+        body.linearVelocity = Vector2.zero;
+        body.bodyType = RigidbodyType2D.Kinematic;
+        bodyCollider.enabled = false;
         audioController.PlayDeath();
+
+        respawnTriggered = false;
+        deathFallbackRoutine = StartCoroutine(DeathFallbackRoutine());
+        // Respawn is triggered by OnDeathAnimationComplete (Animancer end event on death clip).
+        // DeathFallbackRoutine fires if the end event is missed or the clip is missing.
+    }
+
+    private void OnDeathAnimationComplete()
+    {
+        TriggerRespawn();
+    }
+
+    private void TriggerRespawn()
+    {
+        if (respawnTriggered) return;
+        respawnTriggered = true;
+
+        if (deathFallbackRoutine != null)
+        {
+            StopCoroutine(deathFallbackRoutine);
+            deathFallbackRoutine = null;
+        }
+
         if (GameManager.Instance != null) GameManager.Instance.BeginRespawnSequence();
+    }
+
+    private IEnumerator DeathFallbackRoutine()
+    {
+        yield return new WaitForSecondsRealtime(config.deathRespawnFallbackDelay);
+        Debug.LogWarning("[HeroController] Death fallback triggered — animation end event may have been missed.");
+        TriggerRespawn();
+        deathFallbackRoutine = null;
     }
 
     private IEnumerator HurtRecoveryRoutine()
     {
         yield return new WaitForSeconds(config.hurtStunDuration);
         blackboard.recoiling = false;
+        blackboard.actorState = HeroActorState.Airborne;
         motor.SetNormalMovementSuppressed(false);
         RemoveControlLock(this);
         hurtRoutine = null;

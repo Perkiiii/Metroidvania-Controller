@@ -3,6 +3,7 @@ using UnityEngine;
 public sealed class HeroDashAction
 {
     private readonly HeroConfig config;
+    private readonly HeroAbilityConfig abilityConfig;
     private readonly HeroStateBlackboard blackboard;
     private readonly HeroInputReader input;
     private readonly HeroMotor motor;
@@ -16,6 +17,7 @@ public sealed class HeroDashAction
 
     public HeroDashAction(
         HeroConfig heroConfig,
+        HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
@@ -23,6 +25,7 @@ public sealed class HeroDashAction
         PlayerAbilityState abilityState)
     {
         config = heroConfig;
+        abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
@@ -71,6 +74,11 @@ public sealed class HeroDashAction
             return false;
         }
 
+        if (abilityConfig == null)
+        {
+            return false;
+        }
+
         if (blackboard.controlLocked || blackboard.inputBlocked || blackboard.dashing || blackboard.attacking || blackboard.attackRecovering)
         {
             return false;
@@ -104,8 +112,8 @@ public sealed class HeroDashAction
 
         blackboard.dashing = true;
         blackboard.wallSliding = false;
-        dashTimer = config.dashDuration;
-        cooldownTimer = config.dashCooldown;
+        dashTimer = abilityConfig.dashDuration;
+        cooldownTimer = abilityConfig.dashCooldown;
 
         audio?.PlayDash();
         motor.StopJumpSustain();
