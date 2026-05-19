@@ -1,5 +1,7 @@
 # Feature Spec — Enemy AI
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 Enemy perception, decision-making, movement, and reaction to hero attacks.
@@ -108,16 +110,16 @@ Not implemented yet.
 
 ## State Machine States
 
-The current Mushroom behaviour is a patrol/turn loop with hurt/recoil/death suppression. Chase and attack states are still future work.
+The current Mushroom behaviour is a patrol/turn loop with hurt/recoil/death suppression. Chase and attack states are still future work (planned for full `EnemyBehaviour` implementation in Milestone 2).
 
-| State | Transitions |
-|---|---|
-| Idle | → Patrol (timer), → Chase (hero detected) |
-| Patrol | → Chase (hero detected) |
-| Chase | → Attack (in range), → Idle (lost hero) |
-| Attack | → Chase (attack complete), → Hurt (hit during attack) |
-| Hurt | → Chase (stun expired), → Dead (health ≤ 0) |
-| Dead | terminal — play death animation, spawn drops, disable |
+| State | Status | Transitions |
+|---|---|---|
+| Idle | Partial (timer-based turn only) | → Patrol (timer), → Chase (hero detected — **planned**) |
+| Patrol | Implemented (`MushroomEnemy` walk loop) | → Chase (hero detected — **planned**) |
+| Chase | **Planned** | → Attack (in range), → Idle (lost hero) |
+| Attack | **Planned** | → Chase (attack complete), → Hurt (hit during attack) |
+| Hurt | Implemented (via `EnemyRecoil`) | → Chase (stun expired), → Dead (health ≤ 0) |
+| Dead | Implemented | terminal — play death animation, destroy after delay |
 
 ---
 

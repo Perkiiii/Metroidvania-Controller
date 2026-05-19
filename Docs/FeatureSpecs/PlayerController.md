@@ -1,5 +1,7 @@
 # Feature Spec — Player Controller
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 `HeroController` is the root coordinator for the hero character. It owns nothing directly except the `HeroConfig` and `HeroAnimationLibrary` references; all logic lives in the subsystems it creates and ticks.

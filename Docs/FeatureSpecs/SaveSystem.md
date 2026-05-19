@@ -1,5 +1,7 @@
 # Feature Spec — Save System
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 Persist and restore game state across play sessions: player progress, unlocked abilities, visited rooms, and relevant world state (opened doors, defeated bosses, etc.).

@@ -1,5 +1,7 @@
 # Feature Spec — HUD
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 Display player-relevant runtime state (health, future: abilities, resources) without coupling to gameplay MonoBehaviours. Show and hide menus in response to game state changes.

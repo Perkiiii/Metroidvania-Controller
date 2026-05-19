@@ -1,5 +1,7 @@
 # Architecture — Metroidvania Controller
 
+**Last audited:** 2026-05-19
+
 ## Overview
 
 A 2.5D side-scrolling metroidvania built in Unity. Movement and physics are fully 2D (Rigidbody2D, Collider2D, Physics2D raycasts). Visuals add depth through layered sprites, URP lighting, and 2.5D presentation.
@@ -18,7 +20,8 @@ HeroController (MonoBehaviour — coordinator)
 │   ├── HeroJumpAction      (plain C# class)
 │   ├── HeroDashAction      (plain C# class)
 │   ├── HeroAttackAction    (plain C# class)
-│   └── HeroWallSlideAction (plain C# class)
+│   ├── HeroWallSlideAction (plain C# class)
+│   └── HeroWallJumpAction  (plain C# class)
 └── HeroAnimationController  Animancer playback driven by blackboard state
 ```
 
@@ -147,20 +150,23 @@ See `Docs/FeatureSpecs/Abilities.md` for the full per-ability spec.
 
 ## Enemy Architecture
 
-Each enemy is a self-contained scene object. The structure mirrors the hero's blackboard-and-action pattern but is simpler:
+Each enemy is a self-contained scene object. The structure mirrors the hero's blackboard-and-action pattern but is simpler.
+
+**Implemented (as of 2026-05-19):**
 
 ```
 EnemyController (MonoBehaviour — coordinator)
-├── EnemyConfig (SO)          movement speed, detection range, attack data, health
-├── EnemyStateBlackboard      alerted, attacking, hurt, recoiling, dead flags
-├── EnemyMotor                Rigidbody2D velocity control
-├── EnemyPerception           overlap / raycast detection; writes to blackboard
-├── EnemyBehaviour            C# state machine: Idle → Patrol → Chase → Attack → Hurt → Dead
-├── EnemyHealthComponent      implements IHeroAttackReceiver (and IHeroDownslashResponder if applicable)
+├── EnemyConfig (SO)          movement speed, knockback, stun, health, SFX
+├── EnemyStateBlackboard      hurt, recoiling, dead flags (alerted/attacking: planned)
+├── IEnemyBehaviour           interface; current impl: MushroomEnemy (patrol loop)
+├── EnemyHealthComponent      implements IHeroAttackReceiver and IHeroDownslashResponder
 ├── EnemyRecoil               hit freeze / knockback / stun recovery
+├── EnemyFeedbackController   enemy-local MMF hit, pogo, body-hit, and death players
 ├── DamageHero                data marker for a collider that can hurt the hero
 └── EnemyContactDamage        persistent body-touch damage behaviour
 ```
+
+**Planned (Milestone 2):** `EnemyMotor` (Rigidbody2D velocity control), `EnemyPerception` (overlap / raycast detection, writes `alerted` to blackboard), and a full `EnemyBehaviour` state machine (Idle → Patrol → Chase → Attack → Hurt → Dead). `EnemyController.cs` has explicit wiring stubs for these in its `Awake` comment.
 
 `EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. When called, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
 
@@ -218,6 +224,8 @@ Respawn marker string keys are what the save file persists. Each marker register
 4. **`Pause()` / `Unpause()`** — set `GameState.Paused`, add hero control lock, set `Time.timeScale = 0`. Unpause reverses all three in order. Nothing else in the project touches `Time.timeScale`.
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
+
+**Current deviation (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect) and `BeginRespawnSequence()` (same-scene respawn used until `SaveManager` is in place). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling to `HeroHealthComponent` that will be replaced when `SaveManager` owns health restoration on load. These are acknowledged deviations, not intended architecture; see `Docs/ImplementationPlan.md` Known Technical Debt.
 
 ---
 

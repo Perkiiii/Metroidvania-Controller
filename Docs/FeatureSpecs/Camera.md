@@ -1,4 +1,6 @@
-# Feature Spec - Camera
+# Feature Spec — Camera
+
+**Last audited:** 2026-05-19
 
 ## Responsibilities
 
@@ -67,7 +69,7 @@ Per frame, `CameraController.LateUpdate`:
 6. Clamps to the active bounds volume and top-priority lock area.
 7. Smooths manual look offsets back toward zero when input is released.
 
-`CameraTarget` owns modes (`FollowHero`, `LockZone`, `Free`), look-ahead, dash offset, offset areas, vertical framing, and fall catcher behaviour. `CameraController` owns viewport-aware clamping, look input, freezes, positioning, final camera smoothing, and public camera modes (`Follow`, `Locked`, `Frozen`, `Free`).
+`CameraTarget` owns modes (`FollowHero`, `LockZone`, `Free`), look-ahead, dash offset, offset areas, vertical framing, and fall catcher behaviour. `HeroCameraSignalBridge` owns manual look eligibility and hold timing, while `CameraController` owns viewport-aware clamping, applying look input, freezes, positioning, final camera smoothing, and public camera modes (`Follow`, `Locked`, `Frozen`, `Free`).
 
 `CameraInfoCache` caches camera position, aspect, and world half-extents once per frame after the controller moves. Other systems can query `CameraInfoCache.WorldRect`, `HalfWidth`, and `HalfHeight` without recalculating projection math.
 

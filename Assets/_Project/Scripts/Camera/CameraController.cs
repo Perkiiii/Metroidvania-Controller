@@ -43,6 +43,8 @@ public sealed class CameraController : MonoBehaviour
         }
     }
     public CameraLockArea CurrentLockArea => GetActiveLockArea();
+    public float LookInputThreshold => config != null ? config.lookInputThreshold : 0.5f;
+    public float ManualLookHoldDelay => config != null ? config.manualLookHoldDelay : 2f;
 
     private readonly List<CameraBoundsVolume> boundsStack = new List<CameraBoundsVolume>();
     private readonly List<CameraLockArea> lockStack = new List<CameraLockArea>();
@@ -145,14 +147,13 @@ public sealed class CameraController : MonoBehaviour
 
     public void SetLookInput(float verticalInput)
     {
-        float threshold = config != null ? config.lookInputThreshold : 0.5f;
-        if (Mathf.Abs(verticalInput) < threshold)
+        if (Mathf.Approximately(verticalInput, 0f))
         {
             lookOffsetTarget = 0f;
             return;
         }
 
-        float amount = config != null ? config.lookInputOffset : 6f;
+        float amount = config != null ? config.lookInputOffset : 4.5f;
         lookOffsetTarget = Mathf.Sign(verticalInput) * amount;
         lookSlowTimer = config != null ? config.lookInputSlowTime : 0.35f;
     }
@@ -359,13 +360,17 @@ public sealed class CameraController : MonoBehaviour
             lookSlowTimer -= Time.deltaTime;
             targetDampY = config != null ? config.lookInputDampTimeY : 0.35f;
         }
+        else if (cameraTarget.IsFastFalling)
+        {
+            targetDampY = config != null ? config.cameraDampTimeYFastFalling : 0.12f;
+        }
         else if (cameraTarget.IsFalling)
         {
-            targetDampY = config != null ? config.cameraDampTimeYFalling : 0.24f;
+            targetDampY = config != null ? config.cameraDampTimeYFalling : 0.18f;
         }
         else if (cameraTarget.IsRising)
         {
-            targetDampY = config != null ? config.cameraDampTimeYRising : 0.38f;
+            targetDampY = config != null ? config.cameraDampTimeYRising : 0.28f;
         }
         else
         {

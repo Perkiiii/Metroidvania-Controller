@@ -1,4 +1,6 @@
-# Feature Spec - Audio
+# Feature Spec — Audio
+
+**Last audited:** 2026-05-19
 
 ## Responsibilities
 

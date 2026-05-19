@@ -1,5 +1,7 @@
 # Feature Spec — Abilities
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 Gated traversal and combat abilities that the player earns through progression. Abilities extend the hero's move set without modifying core controller logic. The baseline movement — run, jump, wall-slide — should stay fast and readable; abilities layer expressiveness and depth on top of that foundation.
@@ -15,7 +17,7 @@ No ability-unlock system exists yet. The following are planned or in progress:
 | Dash | Implemented (always available) | `HeroDashAction`; no unlock gate yet |
 | Sprint | Planned | Hold input to increase grounded move speed |
 | Wall-slide | Implemented (always available) | `HeroWallSlideAction` |
-| Wall-jump | Planned | Standard wall jump while sliding and pressing away from wall |
+| Wall-jump | **Implemented** | `HeroWallJumpAction`; wired in `HeroActionController`; no unlock gate yet (PlayerAbilityState not created) |
 | Wall latch / aimed wall launch | Planned | Hold jump to latch, aim, and launch off wall |
 | Spirit cast | Planned | Forward projectile ability |
 | Air dash / double-jump | Not started | — |

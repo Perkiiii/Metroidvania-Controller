@@ -272,7 +272,7 @@ public sealed class HeroAttackAction
             return HeroAttackDirection.Up;
         }
 
-        if (input.MoveVector.y <= -config.attackDirectionThreshold)
+        if (input.MoveVector.y <= -config.attackDirectionThreshold && !blackboard.grounded)
         {
             return HeroAttackDirection.Down;
         }

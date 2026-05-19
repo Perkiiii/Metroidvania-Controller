@@ -12,38 +12,42 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75a0224bf4300354898fe90466dc487b, type: 3}
   m_Name: CameraConfig
   m_EditorClassIdentifier: 
-  targetDampTimeNormal: 0.35
-  targetDampTimeSlow: 0.15
-  targetDampTimeSlower: 0.45
+  targetDampTimeNormal: 0.22
+  targetDampTimeSlow: 0.12
+  targetDampTimeSlower: 0.35
   slowTime: 0.5
   shortSlowTime: 0.25
-  snapDistance: 0.15
-  xLookAhead: 0.16
-  dashLookAhead: 2.51
-  fallLookAhead: 1.25
-  sprintLookAhead: 1.25
-  specialMoveLookAhead: 2.5
-  lookAheadMoveSpeed: 4
+  snapDistance: 0.1
+  xLookAhead: 0.35
+  dashLookAhead: 2.15
+  fallLookAhead: 0.4
+  sprintLookAhead: 0.75
+  specialMoveLookAhead: 1.75
+  lookAheadMoveSpeed: 6
+  lookAheadIdleMoveSpeed: 1.2
+  stationaryLookAheadMultiplier: 0.2
   facingVelocityThreshold: 0.05
   dashVelocityThreshold: 5
   fallingVelocityThreshold: 0.25
   risingVelocityThreshold: 0.25
   fastFallVelocityThreshold: -6
-  baseVerticalOffset: 1
-  fastFallVerticalOffset: -1.5
-  verticalOffsetMoveSpeed: 5
-  fallCatchAccel: 80
-  fallCatchMax: 25
+  baseVerticalOffset: 0.85
+  fastFallVerticalOffset: -0.75
+  verticalOffsetMoveSpeed: 7
+  fallCatchAccel: 90
+  fallCatchMax: 24
   maxCombinedOffsetAreaMagnitude: 6
-  cameraDampTimeNormal: 0.32
+  cameraDampTimeNormal: 0.18
   cameraDampTimeSlow: 0.15
-  cameraDampTimeYGrounded: 0.32
-  cameraDampTimeYRising: 0.38
-  cameraDampTimeYFalling: 0.24
+  cameraDampTimeYGrounded: 0.18
+  cameraDampTimeYRising: 0.12
+  cameraDampTimeYFalling: 0.1
+  cameraDampTimeYFastFalling: 0.07
   cameraDampTimeYMin: 0.03
-  maxVelocity: 65
-  lookInputOffset: 6
+  maxVelocity: 90
+  lookInputOffset: 4
   lookInputThreshold: 0.5
+  manualLookHoldDelay: 0.5
   lookInputSlowTime: 0.35
   lookInputDampTimeY: 0.35
   lookInputMoveSpeed: 7

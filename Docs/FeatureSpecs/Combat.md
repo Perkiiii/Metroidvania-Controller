@@ -1,5 +1,7 @@
 # Feature Spec — Combat
 
+**Last audited:** 2026-05-19
+
 ## Responsibilities
 
 Melee combat for the hero: swing initiation, directional hit detection, VFX/SFX activation, hit delivery to targets, and clash detection.

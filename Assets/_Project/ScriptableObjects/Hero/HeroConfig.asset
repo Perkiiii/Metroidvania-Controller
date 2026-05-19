@@ -21,24 +21,24 @@ MonoBehaviour:
   horizontalInputDeadZone: 0.3
   requireSprintForRun: 0
   jumpSpeed: 16
-  maxJumpSustainSteps: 1
+  maxJumpSustainSteps: 6
   minJumpReleaseSteps: 0
   jumpCutVelocityMultiplier: 0.35
   coyoteTime: 0.08
   jumpBufferTime: 0.1
   baseGravityScale: 0.79
   riseGravityScale: 0.79
-  apexGravityScale: 0.79
-  fallGravityScale: 0.79
+  apexGravityScale: 0.55
+  fallGravityScale: 1.4
   normalizeGravityToReference: 1
   referenceGravityY: -29.8
   apexVelocityThreshold: 1
   maxFallSpeed: 15
   dashSpeed: 18
-  dashDuration: 0.4
-  dashCooldown: 0.86
+  dashDuration: 0.22
+  dashCooldown: 0.45
   attackCooldown: 0.4
-  attackRecovery: 0.25
+  attackRecovery: 0.22
   altAttackResetTime: 1
   attackDamage: 1
   maxHitsPerSwing: 16
@@ -68,7 +68,7 @@ MonoBehaviour:
   wallSlideAcceleration: 16
   wallJumpHorizontalSpeed: 10
   wallJumpVerticalSpeed: 16
-  wallJumpRelatchLockout: 0.15
+  wallJumpRelatchLockout: 0.35
   terrainLayers:
     serializedVersion: 2
     m_Bits: 129

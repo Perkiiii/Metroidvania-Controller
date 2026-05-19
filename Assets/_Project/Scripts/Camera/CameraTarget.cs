@@ -349,9 +349,32 @@ public sealed class CameraTarget : MonoBehaviour
 
     private void UpdateLookAhead()
     {
+        if (ignoreXOffset)
+        {
+            float cancelSpeed = config != null ? config.lookAheadMoveSpeed : 6f;
+            xOffset = Mathf.MoveTowards(xOffset, 0f, cancelSpeed * Time.deltaTime);
+            return;
+        }
+
         float lead = IsFalling ? fallLookAhead : xLookAhead;
-        float target = ignoreXOffset ? 0f : facingDirection * lead;
-        float speed = config != null ? config.lookAheadMoveSpeed : 4f;
+        float movingThreshold = config != null ? config.facingVelocityThreshold * 3f : 0.15f;
+        bool movingHorizontally = Mathf.Abs(inferredVelocity.x) > movingThreshold;
+
+        float target;
+        float speed;
+
+        if (movingHorizontally)
+        {
+            target = Mathf.Sign(inferredVelocity.x) * lead;
+            speed = config != null ? config.lookAheadMoveSpeed : 6f;
+        }
+        else
+        {
+            float multiplier = config != null ? config.stationaryLookAheadMultiplier : 0.3f;
+            target = facingDirection * lead * multiplier;
+            speed = config != null ? config.lookAheadIdleMoveSpeed : 1.5f;
+        }
+
         xOffset = Mathf.MoveTowards(xOffset, target, speed * Time.deltaTime);
     }
 
@@ -370,7 +393,17 @@ public sealed class CameraTarget : MonoBehaviour
 
     private void UpdateVerticalOffset()
     {
-        float targetOffset = IsFalling ? fastFallVerticalOffset : baseVerticalOffset;
+        float targetOffset = baseVerticalOffset;
+
+        if (IsFastFalling)
+        {
+            targetOffset = fastFallVerticalOffset;
+        }
+        else if (IsFalling)
+        {
+            targetOffset = Mathf.Lerp(baseVerticalOffset, fastFallVerticalOffset, 0.45f);
+        }
+
         float speed = config != null ? config.verticalOffsetMoveSpeed : 5f;
         currentVerticalOffset = Mathf.MoveTowards(currentVerticalOffset, targetOffset, speed * Time.deltaTime);
     }
