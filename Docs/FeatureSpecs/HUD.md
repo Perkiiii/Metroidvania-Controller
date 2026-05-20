@@ -45,8 +45,8 @@ UIRoot (Canvas, Screen Space — Overlay or Camera mode with UICamera)
 
 `HealthDisplay` (MonoBehaviour on the `HealthDisplay` GameObject):
 
-- Subscribes to `HeroHealthComponent.OnDamaged` and `HeroHealthComponent.OnDeath` at scene init via `GameManager.SceneInit`.
-- On `OnDamaged`: update the visual representation to reflect `currentHealth / maxHealth`.
+- Subscribes to `HeroHealthComponent.OnHealthChanged` and `HeroHealthComponent.OnDeath` at scene init via `GameManager.SceneInit`.
+- On `OnHealthChanged`: update the visual representation to reflect `currentHealth / maxHealth`.
 - On `OnDeath`: hide or grey out the display.
 - Does not hold a frame-to-frame reference to `HeroHealthComponent`. Subscribes once at `SceneInit`, unsubscribes on scene unload.
 

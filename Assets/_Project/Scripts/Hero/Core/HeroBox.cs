@@ -59,6 +59,35 @@ public sealed class HeroBox : MonoBehaviour
         health?.TriggerHazardDeath();
     }
 
+    public void HandleHazard(HazardContact contact)
+    {
+        ClearPendingDamage();
+
+        if (GameManager.Instance != null && GameManager.Instance.IsRespawnOrRecoveryInProgress)
+        {
+            return;
+        }
+
+        if (contact.RecoveryMode == HazardRecoveryMode.InstantDeath)
+        {
+            health?.TriggerHazardDeath();
+            return;
+        }
+
+        if (health == null)
+        {
+            return;
+        }
+
+        DamageResult result = health.TakeHazardDamage(contact.Damage, contact.Source);
+        if (result.WasIgnored || result.IsFatal)
+        {
+            return;
+        }
+
+        GameManager.Instance?.BeginHazardRecoverySequence(contact.RespawnMarker);
+    }
+
     private void ClearPendingDamage()
     {
         hasPendingDamage = false;

@@ -119,21 +119,22 @@ HeroController
 └── HeroHealthComponent
     ├── maxHealth, currentHealth    (tuned in HeroConfig)
     ├── IsInvincible                (reference-counted by source object, not a raw timer)
+    ├── OnHealthChanged (event)     → neutral UI/state notification
     ├── OnDamaged (event)           → hurt animation, knockback, i-frames
     └── OnDeath   (event)           → death sequence
 ```
 
 **Normal damage flow:**
-1. An enemy attack or hazard calls `HeroHealthComponent.TakeDamage(amount, iFrameSource)`.
+1. An enemy attack calls `HeroHealthComponent.TakeDamage(amount, iFrameSource)`.
 2. If not invincible: subtract health, grant i-frames keyed to `iFrameSource`, fire `OnDamaged`.
 3. `HeroController` subscribes to `OnDamaged` → writes `HeroActorState.Hurt` to the blackboard, applies knockback via `HeroMotor`, adds a control lock for the stun duration.
 4. If health ≤ 0: fire `OnDeath`; transition to `HeroActorState.Dead` and begin respawn.
 
-**Hazard death:** instant-kill hazards (pits, kill zones) call `HeroHealthComponent.TriggerHazardDeath()`, which fires `OnDeath` immediately regardless of current health or invincibility.
+**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards go through `GameManager.BeginHazardRecoverySequence()` for fade, local reposition, camera snap, and hero reset without restoring health.
 
 **Respawn markers:**
 - `RespawnMarker` — scene object placed at save points and room entries. Set as the active normal-death respawn point when a checkpoint is activated or when a room with a default marker is entered.
-- `HazardRespawnMarker` — scene object placed near pits or kill zones. `HazardZone` specifies which marker to use. The active pointer is stored on `SaveManager`, not on `HeroController`.
+- `HazardRespawnMarker` — scene object placed near recoverable hazards. `HazardZone` can reference one directly as its local recovery point. Trigger-updated active hazard markers are deferred; if added later, the live active pointer belongs on `GameManager`, not `HeroController` or `SaveManager`.
 
 ---
 
@@ -219,8 +220,10 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 - Does not call any method on `HeroController` or `HeroHealthComponent`.
 
 **HazardZone** (MonoBehaviour on a trigger collider):
-- `OnTriggerEnter2D` with the hero: calls `HeroHealthComponent.TriggerHazardDeath()`.
-- `activeHazardRespawnMarkerKey` in `PlayerSaveData` is reserved for a future `HazardRespawnMarker` type (Milestone 2). Pit deaths currently use the last activated normal checkpoint.
+- `OnTriggerEnter2D` with the hero: sends a `HazardContact` to `HeroBox`.
+- `InstantDeath` hazards use the existing full death path.
+- `RecoverLocal` hazards subtract hazard damage, preserve reduced health, and ask `GameManager` to recover the hero at the assigned `HazardRespawnMarker` when health remains above zero.
+- `activeHazardRespawnMarkerKey` in `PlayerSaveData` remains reserved for future trigger-updated hazard marker persistence. The first-pass runtime path does not depend on `SaveManager`.
 
 **TransitionPoint** (planned — Milestone 1): Before initiating the load, `TransitionPoint` will call `GameManager.SetActiveRespawnMarker` with its linked `RespawnMarker`. This means if the player dies immediately after crossing into a new room, they respawn at the door rather than the previous checkpoint. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) are independent.
 
@@ -244,7 +247,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
 
-**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect) and `BeginRespawnSequence()` (same-scene respawn). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
+**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect), `BeginRespawnSequence()` (same-scene full respawn), and `BeginHazardRecoverySequence()` (same-scene local hazard recovery). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
 
 ---
 
@@ -335,7 +338,7 @@ HUD and menus run on a dedicated Canvas with a separate `UICamera` (orthographic
 ```
 UIRoot (Canvas, UICamera)
 ├── HUD
-│   ├── HealthDisplay     — subscribes to HeroHealthComponent.OnDamaged / OnDeath
+│   ├── HealthDisplay     — subscribes to HeroHealthComponent.OnHealthChanged / OnDeath
 │   └── [reserved slots]  — ability indicators, resource bars; empty GameObjects, filled later
 └── Menus
     ├── PauseMenu         — shown/hidden by GameManager.Pause() / Unpause()
@@ -343,7 +346,7 @@ UIRoot (Canvas, UICamera)
 ```
 
 Key separation rules:
-- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` subscribes to `HeroHealthComponent.OnDamaged` and `OnDeath` at scene init via `GameManager.SceneInit`. It must not call `GetComponent<HeroHealthComponent>()` per-frame or hold a direct MonoBehaviour reference to query each frame.
+- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` subscribes to `HeroHealthComponent.OnHealthChanged` and `OnDeath` at scene init via `GameManager.SceneInit`. It must not call `GetComponent<HeroHealthComponent>()` per-frame or hold a direct MonoBehaviour reference to query each frame.
 - **Pause is owned by `GameManager`.** The pause menu calls `GameManager.Pause()` / `Unpause()`; it does not set `Time.timeScale` directly.
 - **Save/load UI goes through `UIFlowController`.** No UI MonoBehaviour calls `SaveManager.Save()` or `LoadSceneAsync` directly.
 - **Reserve slots, populate later.** Author the full Canvas hierarchy in the first HUD pass; leave placeholder GameObjects for elements not yet implemented. Adding new HUD elements later must not require structural Canvas changes.

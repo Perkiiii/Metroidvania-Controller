@@ -44,7 +44,8 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 |---|---|
 | `WorldStateRegistry` SO (visited rooms, defeated enemies, open doors) | Milestone 4 |
 | Multi-slot save selection UI | Milestone 5 |
-| `HazardRespawnMarker` save key integration | Milestone 2 |
+| `HazardRespawnMarker` direct local recovery | Done |
+| `HazardRespawnMarker` save key integration | Future |
 | Scene-name-driven continue (`savedScene` instead of always `firstScene`) | Milestone 4 |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
 | `AbilityPickup` immediate autosave (design decision not yet made) | Milestone 4 |
@@ -151,7 +152,7 @@ public class PlayerSaveData
 {
     public string currentScene                = "";  // stamped by SaveManager.Save()
     public string activeRespawnMarkerKey      = "";  // RespawnMarker.Key of last activated checkpoint
-    public string activeHazardRespawnMarkerKey = ""; // stub for HazardRespawnMarker (Milestone 2)
+    public string activeHazardRespawnMarkerKey = ""; // reserved for future trigger-updated hazard marker persistence
 }
 
 // AbilitySaveData.cs — defaults MUST match PlayerAbilityState.ResetToDefaults()
@@ -309,7 +310,7 @@ GameManager.OnSceneLoaded()
 
 ### activeHazardRespawnMarkerKey
 
-Present in `PlayerSaveData` but not yet wired. The `HazardRespawnMarker` type does not exist yet. The field persists `""` until `HazardZone` and `HazardRespawnMarker` are implemented in Milestone 2.
+Present in `PlayerSaveData` but not wired into runtime recovery yet. `HazardRespawnMarker` now exists for direct scene authoring from `HazardZone`, but first-pass local hazard recovery does not read or write this save key. The field remains reserved for a future trigger-updated active hazard marker path.
 
 ---
 

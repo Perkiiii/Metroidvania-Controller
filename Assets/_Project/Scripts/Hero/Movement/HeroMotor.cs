@@ -188,6 +188,19 @@ public sealed class HeroMotor : MonoBehaviour
         body.linearVelocity = velocity;
     }
 
+    public void ResetMotion()
+    {
+        ResetJumpRuntime();
+        EndWallSlide();
+        SetGravitySuspended(false);
+        SetNormalMovementSuppressed(false);
+
+        if (body != null)
+        {
+            body.linearVelocity = Vector2.zero;
+        }
+    }
+
     public void SetDashVelocity(int direction)
     {
         if (body == null || abilityConfig == null)

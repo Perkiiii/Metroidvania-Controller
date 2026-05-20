@@ -104,19 +104,54 @@ public class HeroController : MonoBehaviour
 
     public void ResetAfterRespawn()
     {
-        blackboard.actorState = HeroActorState.Airborne;
-        blackboard.recoiling = false;
-        body.bodyType = RigidbodyType2D.Dynamic;
-        bodyCollider.enabled = true;
-        motor.SetNormalMovementSuppressed(false);
+        ResetTransientHeroState();
         controlLocks.Clear();
         blackboard.controlLocked = false;
         respawnTriggered = false;
+    }
+
+    public void ResetAfterHazardRecovery()
+    {
+        ResetTransientHeroState();
+        RemoveControlLock(this);
+        respawnTriggered = false;
+    }
+
+    private void ResetTransientHeroState()
+    {
+        if (hurtRoutine != null)
+        {
+            StopCoroutine(hurtRoutine);
+            hurtRoutine = null;
+        }
+
         if (deathFallbackRoutine != null)
         {
             StopCoroutine(deathFallbackRoutine);
             deathFallbackRoutine = null;
         }
+
+        actions.CancelAttack();
+        motor.ResetMotion();
+        body.bodyType = RigidbodyType2D.Dynamic;
+        bodyCollider.enabled = true;
+
+        blackboard.actorState = HeroActorState.Airborne;
+        blackboard.recoiling = false;
+        blackboard.dashing = false;
+        blackboard.attacking = false;
+        blackboard.attackRecovering = false;
+        blackboard.upAttacking = false;
+        blackboard.downAttacking = false;
+        blackboard.wallSliding = false;
+        blackboard.wallJumping = false;
+        blackboard.jumping = false;
+        blackboard.jumpSustaining = false;
+        blackboard.rising = false;
+        blackboard.falling = false;
+        blackboard.moving = false;
+        blackboard.desiredMoveX = 0f;
+        blackboard.velocity = Vector2.zero;
     }
 
     private void ResolveDependencies()

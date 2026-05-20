@@ -1,10 +1,13 @@
 using UnityEngine;
 
 // Place on a trigger Collider2D at the bottom of pits or kill zones.
-// Calls TriggerHazardDeath which bypasses health and i-frames entirely.
 [RequireComponent(typeof(Collider2D))]
 public sealed class HazardZone : MonoBehaviour
 {
+    [SerializeField] private HazardRecoveryMode recoveryMode = HazardRecoveryMode.InstantDeath;
+    [SerializeField, Min(1)] private int hazardDamage = 1;
+    [SerializeField] private HazardRespawnMarker fallbackRespawnMarker;
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         HeroBox heroBox = other.GetComponent<HeroBox>();
@@ -13,6 +16,6 @@ public sealed class HazardZone : MonoBehaviour
             return;
         }
 
-        heroBox.TriggerHazardDeath();
+        heroBox.HandleHazard(new HazardContact(hazardDamage, recoveryMode, fallbackRespawnMarker, this));
     }
 }

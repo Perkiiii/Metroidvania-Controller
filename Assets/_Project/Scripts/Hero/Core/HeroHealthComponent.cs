@@ -7,6 +7,7 @@ using UnityEngine;
 public sealed class HeroHealthComponent : MonoBehaviour
 {
     public event Action<int, Vector2> OnDamaged;
+    public event Action<int, int> OnHealthChanged;
     public event Action OnDeath;
 
     private HeroConfig config;
@@ -31,14 +32,18 @@ public sealed class HeroHealthComponent : MonoBehaviour
             return;
         }
 
-        currentHealth = Mathf.Max(0, currentHealth - amount);
+        DamageResult result = ApplyDamage(amount);
+        if (result.WasIgnored)
+        {
+            return;
+        }
 
         if (iFrameSource != null)
         {
             GrantIFrames(iFrameSource);
         }
 
-        if (currentHealth <= 0)
+        if (result.IsFatal)
         {
             OnDeath?.Invoke();
         }
@@ -48,10 +53,29 @@ public sealed class HeroHealthComponent : MonoBehaviour
         }
     }
 
+    public DamageResult TakeHazardDamage(int amount, object source)
+    {
+        _ = source;
+        DamageResult result = ApplyDamage(amount);
+        if (result.IsFatal)
+        {
+            OnDeath?.Invoke();
+        }
+
+        return result;
+    }
+
     // Bypasses health and invincibility — called by HazardZone on pit/kill-zone contact.
     public void TriggerHazardDeath()
     {
+        if (currentHealth <= 0)
+        {
+            return;
+        }
+
+        int previousHealth = currentHealth;
         currentHealth = 0;
+        NotifyHealthChanged(previousHealth);
         OnDeath?.Invoke();
     }
 
@@ -62,7 +86,32 @@ public sealed class HeroHealthComponent : MonoBehaviour
             return;
         }
 
+        int previousHealth = currentHealth;
         currentHealth = config.maxHealth;
+        NotifyHealthChanged(previousHealth);
+    }
+
+    private DamageResult ApplyDamage(int amount)
+    {
+        if (amount <= 0 || currentHealth <= 0)
+        {
+            return new DamageResult(currentHealth, currentHealth, 0, true);
+        }
+
+        int previousHealth = currentHealth;
+        currentHealth = Mathf.Max(0, currentHealth - amount);
+        NotifyHealthChanged(previousHealth);
+        return new DamageResult(previousHealth, currentHealth, previousHealth - currentHealth, false);
+    }
+
+    private void NotifyHealthChanged(int previousHealth)
+    {
+        if (previousHealth == currentHealth)
+        {
+            return;
+        }
+
+        OnHealthChanged?.Invoke(currentHealth, MaxHealth);
     }
 
     private void GrantIFrames(object source)

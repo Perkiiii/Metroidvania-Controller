@@ -18,6 +18,9 @@ public sealed class GameManager : MonoBehaviour
 
     private RespawnMarker _activeRespawnMarker;
     private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
+    private bool _respawnOrRecoveryInProgress;
+
+    public bool IsRespawnOrRecoveryInProgress => _respawnOrRecoveryInProgress;
 
     public void RequestSavedRespawnPlacementOnNextSceneLoad()
     {
@@ -156,6 +159,12 @@ public sealed class GameManager : MonoBehaviour
 
     public void BeginRespawnSequence()
     {
+        if (_respawnOrRecoveryInProgress)
+        {
+            return;
+        }
+
+        _respawnOrRecoveryInProgress = true;
         StartCoroutine(RespawnRoutine());
     }
 
@@ -197,6 +206,66 @@ public sealed class GameManager : MonoBehaviour
 
         if (GameCameras.Instance != null)
             yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+
+        _respawnOrRecoveryInProgress = false;
+    }
+
+    public void BeginHazardRecoverySequence(HazardRespawnMarker marker)
+    {
+        if (_respawnOrRecoveryInProgress)
+        {
+            return;
+        }
+
+        _respawnOrRecoveryInProgress = true;
+        StartCoroutine(HazardRecoveryRoutine(marker));
+    }
+
+    private IEnumerator HazardRecoveryRoutine(HazardRespawnMarker marker)
+    {
+        CameraShakeRequester.ShakeStop();
+
+        if (_hero != null)
+        {
+            _hero.AddControlLock(this);
+        }
+
+        if (GameCameras.Instance != null)
+            yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+
+        if (_hero != null)
+        {
+            if (marker != null)
+            {
+                _hero.transform.position = marker.RespawnPosition;
+                _hero.ForceFacingDirection(marker.FacingDirection);
+            }
+            else
+            {
+                Debug.LogWarning("[GameManager] Recoverable hazard had no HazardRespawnMarker assigned. Falling back to nearest normal RespawnMarker.");
+                _hero.transform.position = FindNearestRespawnMarkerPosition();
+            }
+
+            _hero.ResetAfterHazardRecovery();
+        }
+
+        if (GameCameras.Instance != null)
+        {
+            GameCameras.Instance.Target.SnapToHero();
+            GameCameras.Instance.Controller.SnapToTarget();
+        }
+
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        if (GameCameras.Instance != null)
+            yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+
+        if (_hero != null)
+        {
+            _hero.RemoveControlLock(this);
+        }
+
+        _respawnOrRecoveryInProgress = false;
     }
 
     private Vector3 FindNearestRespawnMarkerPosition()

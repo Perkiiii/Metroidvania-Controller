@@ -60,10 +60,10 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`. (Done)
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
 - [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry so the player respawns at the door they came through if they die in the new room.
-- [x] Implement `HazardZone` — calls `HeroHealthComponent.TriggerHazardDeath()` on hero contact. (Done)
+- [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)
 - [x] Implement `RespawnMarker` — full component with `Key` (string), `RespawnPosition`, and `FacingDirection`. (Done)
-- [ ] Implement `HazardRespawnMarker` — placed near pits; `HazardZone` references it; `GameManager.SetActiveHazardRespawnMarker` stores the key in `SaveManager`. (Deferred — pit deaths currently respawn at last normal checkpoint, which is acceptable behaviour.)
-- [x] Implement `HeroHealthComponent` — TakeDamage, TriggerHazardDeath, i-frames, OnDamaged / OnDeath events. (Done)
+- [x] Implement `HazardRespawnMarker` — placed near recoverable hazards and referenced directly by `HazardZone`. (Done; trigger-updated active hazard marker persistence remains deferred.)
+- [x] Implement `HeroHealthComponent` — TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnHealthChanged, OnDamaged / OnDeath events. (Done)
 - [x] Implement hero hurt response in `HeroController`. (Done)
 - [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses `_activeRespawnMarker` (resolved from `SaveManager.ActiveRespawnMarkerKey` on scene load) with nearest-marker fallback. (Done)
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
@@ -82,7 +82,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [ ] Implement full `EnemyBehaviour` state machine — Idle → Patrol → Chase → Attack → Hurt → Dead.
 - [x] Implement `InteractableBase` base class. (Done)
 - [x] Implement `CheckpointInteractable` — sets active runtime respawn marker via `GameManager.SetActiveRespawnMarker` (which propagates the key to `SaveManager`); calls `SaveManager.Save()` on activation. (Done)
-- [ ] Implement `HazardRespawnMarker` — wires `HazardZone` to `SaveManager.SetActiveHazardRespawnMarkerKey`. (Deferred from Milestone 1)
+- [ ] Implement trigger-updated active hazard respawn markers — optional follow-up that stores the live active marker on `GameManager`; save-key integration remains deferred.
 - [ ] Place a checkpoint and at least one enemy in the test level; validate the full loop: fight → die → respawn → fight.
 - [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule`. (Done)
 - [ ] Add basic action SFX (jump, land, dash, hurt) via `AudioManager.PlaySFX` in the relevant action classes.
@@ -159,11 +159,11 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **`TransitionPoint` not implemented.** Inter-room navigation requires it. `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry (entry-door respawn) and `GameManager.BeginSceneTransition`. Until it exists, the game is confined to a single scene.
 
-- **`HazardRespawnMarker` not implemented.** Pit deaths currently respawn at the last activated normal checkpoint (acceptable). `activeHazardRespawnMarkerKey` is already in `PlayerSaveData`, ready to wire. Implement in Milestone 2.
+- **Trigger-updated active hazard respawn markers are not implemented.** Direct `HazardZone` → `HazardRespawnMarker` local recovery is implemented. `activeHazardRespawnMarkerKey` is already in `PlayerSaveData`, but the first-pass runtime path intentionally does not read or write it.
 
 - **`AbilityPickup` world-state gap.** `AbilityPickup` unlocks the ability in the current session but the unlocked state only persists if the player reaches a checkpoint before quitting. Once `WorldStateRegistry` tracks `collectedPickupIds`, pickups can be suppressed on scene load if already collected.
 
-- **HUD / UI wiring not implemented.** `HeroHealthComponent` exposes `OnDamaged` / `OnDeath` events but `HealthDisplay` and HUD subscription are not yet in place.
+- **HUD / UI wiring not implemented.** `HeroHealthComponent` exposes neutral `OnHealthChanged` plus `OnDamaged` / `OnDeath`, but `HealthDisplay` and HUD subscription are not yet in place.
 
 - **Prefab / Inspector wiring.** `Bootstrap` now requires five prefab references (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`) and one string field (`firstScene`). `SaveManager` prefab requires the `PlayerAbilityState` asset in its `Ability State` field. Verify all in-editor after any prefab refactor.
 
