@@ -19,6 +19,9 @@ public sealed class GameManager : MonoBehaviour
     private RespawnMarker _activeRespawnMarker;
     private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
     private bool _respawnOrRecoveryInProgress;
+    // Cached on scene load after any initial hero placement. Used as emergency fallback when
+    // no RespawnMarker or HazardRespawnMarker exists, to avoid leaving the hero in the hazard.
+    private Vector3 _sceneFallbackPosition;
 
     public bool IsRespawnOrRecoveryInProgress => _respawnOrRecoveryInProgress;
 
@@ -99,6 +102,9 @@ public sealed class GameManager : MonoBehaviour
 
         ResolveActiveRespawnMarkerFromSave();
         PlaceHeroAtSavedRespawnIfRequested();
+
+        // Cache after any initial placement so the fallback is a known-safe starting position.
+        _sceneFallbackPosition = _hero != null ? _hero.transform.position : Vector3.zero;
     }
 
     private void ResolveActiveRespawnMarkerFromSave()
@@ -210,79 +216,112 @@ public sealed class GameManager : MonoBehaviour
         _respawnOrRecoveryInProgress = false;
     }
 
-    public void BeginHazardRecoverySequence(HazardRespawnMarker marker)
+    public void BeginHazardRecoverySequence(HazardContact contact)
     {
         if (_respawnOrRecoveryInProgress)
-        {
             return;
-        }
 
         _respawnOrRecoveryInProgress = true;
-        StartCoroutine(HazardRecoveryRoutine(marker));
+
+        // Block enemy contact damage for the full recovery window immediately, before the
+        // first coroutine yield, so no FixedUpdate flush can sneak damage through.
+        float iFrames = contact.RecoveryProfile != null ? contact.RecoveryProfile.RecoveryIFrameDuration : 0.75f;
+        if (_heroHealth != null && iFrames > 0f)
+            _heroHealth.GrantTemporaryInvincibility(this, iFrames);
+
+        StartCoroutine(HazardRecoveryRoutine(contact));
     }
 
-    private IEnumerator HazardRecoveryRoutine(HazardRespawnMarker marker)
+    private IEnumerator HazardRecoveryRoutine(HazardContact contact)
     {
-        CameraShakeRequester.ShakeStop();
+        HazardRecoveryProfile profile = contact.RecoveryProfile;
+        HazardRespawnMarker   marker  = contact.RespawnMarker;
+        float impactDelay     = profile != null ? profile.ImpactDelay     : 0.18f;
+        float blackScreenHold = profile != null ? profile.BlackScreenHold : 0.1f;
 
-        if (_hero != null)
+        bool controlLockAdded = false;
+        try
         {
-            _hero.AddControlLock(this);
-        }
-
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
-
-        if (_hero != null)
-        {
-            if (marker != null)
+            if (_hero != null)
             {
-                _hero.transform.position = marker.RespawnPosition;
-                _hero.ForceFacingDirection(marker.FacingDirection);
-            }
-            else
-            {
-                Debug.LogWarning("[GameManager] Recoverable hazard had no HazardRespawnMarker assigned. Falling back to nearest normal RespawnMarker.");
-                _hero.transform.position = FindNearestRespawnMarkerPosition();
+                _hero.AddControlLock(this);
+                controlLockAdded = true;
             }
 
-            _hero.ResetAfterHazardRecovery();
-        }
+            if (impactDelay > 0f)
+                yield return new WaitForSecondsRealtime(impactDelay);
 
-        if (GameCameras.Instance != null)
+            if (GameCameras.Instance != null)
+                yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+
+            CameraShakeRequester.ShakeStop();
+
+            if (_hero != null)
+            {
+                if (marker != null)
+                {
+                    _hero.transform.position = marker.RespawnPosition;
+                    _hero.ForceFacingDirection(marker.FacingDirection);
+                }
+                else
+                {
+                    Debug.LogWarning("[GameManager] Recoverable hazard had no HazardRespawnMarker assigned. Falling back to nearest RespawnMarker or cached scene entry position.");
+                    _hero.transform.position = FindNearestRespawnMarkerPosition();
+                }
+
+                _hero.ResetAfterHazardRecovery();
+            }
+
+            if (GameCameras.Instance != null)
+            {
+                GameCameras.Instance.Target.SnapToHero();
+                GameCameras.Instance.Controller.SnapToTarget();
+
+                if (blackScreenHold > 0f)
+                    yield return new WaitForSecondsRealtime(blackScreenHold);
+
+                yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+            }
+
+            if (controlLockAdded && _hero != null)
+            {
+                _hero.RemoveControlLock(this);
+                controlLockAdded = false;
+            }
+        }
+        finally
         {
-            GameCameras.Instance.Target.SnapToHero();
-            GameCameras.Instance.Controller.SnapToTarget();
+            // Guaranteed cleanup: runs on normal completion, StopCoroutine, or uncaught exception.
+            if (controlLockAdded && _hero != null)
+                _hero.RemoveControlLock(this);
+            _respawnOrRecoveryInProgress = false;
         }
-
-        yield return new WaitForSecondsRealtime(0.1f);
-
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
-
-        if (_hero != null)
-        {
-            _hero.RemoveControlLock(this);
-        }
-
-        _respawnOrRecoveryInProgress = false;
     }
 
     private Vector3 FindNearestRespawnMarkerPosition()
     {
-        if (_hero == null) return Vector3.zero;
-
         RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsSortMode.None);
-        if (markers.Length == 0) return _hero.transform.position;
+        if (markers.Length == 0)
+        {
+            Debug.LogError("[GameManager] No RespawnMarker found in scene. Falling back to cached scene entry position. Add at least one RespawnMarker to scenes with hazards.");
+            return _sceneFallbackPosition;
+        }
+
+        if (_hero == null)
+            return markers[0].RespawnPosition;
 
         RespawnMarker nearest = markers[0];
         float bestDist = Vector3.SqrMagnitude(markers[0].transform.position - _hero.transform.position);
         for (int i = 1; i < markers.Length; i++)
         {
             float d = Vector3.SqrMagnitude(markers[i].transform.position - _hero.transform.position);
-            if (d < bestDist) { bestDist = d; nearest = markers[i]; }
+            if (d < bestDist)
+            {
+                bestDist = d;
+                nearest = markers[i];
+            }
         }
-        return nearest.transform.position;
+        return nearest.RespawnPosition;
     }
 
     private void PositionHeroAtMarker(string markerTag)

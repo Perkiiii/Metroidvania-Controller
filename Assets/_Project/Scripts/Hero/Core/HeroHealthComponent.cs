@@ -8,6 +8,7 @@ public sealed class HeroHealthComponent : MonoBehaviour
 {
     public event Action<int, Vector2> OnDamaged;
     public event Action<int, int> OnHealthChanged;
+    public event Action<DamageResult> OnHazardDamaged;
     public event Action OnDeath;
 
     private HeroConfig config;
@@ -60,6 +61,10 @@ public sealed class HeroHealthComponent : MonoBehaviour
         if (result.IsFatal)
         {
             OnDeath?.Invoke();
+        }
+        else if (!result.WasIgnored)
+        {
+            OnHazardDamaged?.Invoke(result);
         }
 
         return result;
@@ -114,20 +119,33 @@ public sealed class HeroHealthComponent : MonoBehaviour
         OnHealthChanged?.Invoke(currentHealth, MaxHealth);
     }
 
-    private void GrantIFrames(object source)
+    // Grants invincibility for an explicit duration without requiring a damage hit.
+    // Used by GameManager during hazard recovery to block enemy contact damage.
+    public void GrantTemporaryInvincibility(object source, float duration)
     {
-        if (iFrameCoroutines.TryGetValue(source, out Coroutine existing) && existing != null)
-        {
-            StopCoroutine(existing);
-        }
-
-        iFrameSources.Add(source);
-        iFrameCoroutines[source] = StartCoroutine(IFrameRoutine(source));
+        if (source == null || duration <= 0f)
+            return;
+        GrantIFrames(source, duration);
     }
 
-    private IEnumerator IFrameRoutine(object source)
+    private void GrantIFrames(object source)
     {
-        yield return new WaitForSeconds(config.iFrameDuration);
+        GrantIFrames(source, config != null ? config.iFrameDuration : 0f);
+    }
+
+    private void GrantIFrames(object source, float duration)
+    {
+        if (duration <= 0f)
+            return;
+        if (iFrameCoroutines.TryGetValue(source, out Coroutine existing) && existing != null)
+            StopCoroutine(existing);
+        iFrameSources.Add(source);
+        iFrameCoroutines[source] = StartCoroutine(IFrameRoutine(source, duration));
+    }
+
+    private IEnumerator IFrameRoutine(object source, float duration)
+    {
+        yield return new WaitForSeconds(duration);
         iFrameSources.Remove(source);
         iFrameCoroutines.Remove(source);
     }

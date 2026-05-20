@@ -133,6 +133,7 @@ public class HeroController : MonoBehaviour
 
         actions.CancelAttack();
         motor.ResetMotion();
+        motor.SetNormalMovementSuppressed(false);
         body.bodyType = RigidbodyType2D.Dynamic;
         bodyCollider.enabled = true;
 
@@ -222,6 +223,7 @@ public class HeroController : MonoBehaviour
         cameraSignals.Initialize(blackboard, inputReader);
 
         health.OnDamaged += HandleDamaged;
+        health.OnHazardDamaged += HandleHazardDamaged;
         health.OnDeath += HandleDeath;
         animations.DeathAnimationComplete += OnDeathAnimationComplete;
     }
@@ -241,6 +243,7 @@ public class HeroController : MonoBehaviour
         actions.CancelAttack();
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
+        CameraShakeRequester.ShakeHit();
 
         Vector2 force = knockback == Vector2.zero ? DefaultKnockback() : knockback;
         motor.ApplyKnockback(force);
@@ -249,6 +252,15 @@ public class HeroController : MonoBehaviour
         AddControlLock(this);
         if (hurtRoutine != null) StopCoroutine(hurtRoutine);
         hurtRoutine = StartCoroutine(HurtRecoveryRoutine());
+    }
+
+    private void HandleHazardDamaged(DamageResult _)
+    {
+        blackboard.actorState = HeroActorState.Hurt;
+        actions.CancelAttack();
+        flasher?.FlashHit();
+        audioController.PlayTakeDamage();
+        CameraShakeRequester.ShakeHit();
     }
 
     private void HandleDeath()

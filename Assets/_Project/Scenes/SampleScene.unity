@@ -902,6 +902,7 @@ MonoBehaviour:
   recoveryMode: 1
   hazardDamage: 1
   fallbackRespawnMarker: {fileID: 1227266441}
+  recoveryProfile: {fileID: 11400000, guid: 51c406571108be1458347cd49ac96509, type: 2}
 --- !u!61 &820183906
 BoxCollider2D:
   m_ObjectHideFlags: 0

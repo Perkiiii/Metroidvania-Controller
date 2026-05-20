@@ -61,12 +61,11 @@ public sealed class HeroBox : MonoBehaviour
 
     public void HandleHazard(HazardContact contact)
     {
+        // Hazards take priority over same-step enemy/contact damage buffered for FixedUpdate.
         ClearPendingDamage();
 
         if (GameManager.Instance != null && GameManager.Instance.IsRespawnOrRecoveryInProgress)
-        {
             return;
-        }
 
         if (contact.RecoveryMode == HazardRecoveryMode.InstantDeath)
         {
@@ -74,18 +73,22 @@ public sealed class HeroBox : MonoBehaviour
             return;
         }
 
-        if (health == null)
+        // Guard before touching health: RecoverLocal requires GameManager to run the recovery
+        // sequence. Applying damage without recovery would leave the hero in a stuck Hurt state.
+        if (GameManager.Instance == null)
         {
+            Debug.LogWarning("[HeroBox] Recoverable hazard hit ignored — GameManager is missing. Ensure the boot scene is used; direct scene testing bypasses the boot flow.", this);
             return;
         }
+
+        if (health == null)
+            return;
 
         DamageResult result = health.TakeHazardDamage(contact.Damage, contact.Source);
         if (result.WasIgnored || result.IsFatal)
-        {
             return;
-        }
 
-        GameManager.Instance?.BeginHazardRecoverySequence(contact.RespawnMarker);
+        GameManager.Instance.BeginHazardRecoverySequence(contact);
     }
 
     private void ClearPendingDamage()
