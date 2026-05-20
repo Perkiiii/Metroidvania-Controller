@@ -5,6 +5,7 @@ using UnityEngine;
 public sealed class Bootstrap : MonoBehaviour
 {
     [SerializeField] private GameManager gameManagerPrefab;
+    [SerializeField] private SaveManager saveManagerPrefab;
     [SerializeField] private AudioManager audioManagerPrefab;
     [SerializeField] private GameCameras gameCamerasPrefab;
     [SerializeField] private InteractManager interactManagerPrefab;
@@ -15,14 +16,16 @@ public sealed class Bootstrap : MonoBehaviour
     private void Awake()
     {
         Instantiate(gameManagerPrefab);
+        Instantiate(saveManagerPrefab);
         Instantiate(audioManagerPrefab);
         if (gameCamerasPrefab != null) Instantiate(gameCamerasPrefab);
         if (interactManagerPrefab != null) Instantiate(interactManagerPrefab);
-        // SaveManager will be instantiated here in a later milestone.
     }
 
     private void Start()
     {
+        SaveManager.Instance.LoadOrCreate(0);
+        GameManager.Instance.RequestSavedRespawnPlacementOnNextSceneLoad();
         GameManager.Instance.BeginSceneTransition(firstScene);
     }
 }

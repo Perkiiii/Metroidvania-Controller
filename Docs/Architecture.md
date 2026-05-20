@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-05-20
 
 ## Overview
 
@@ -153,12 +153,12 @@ PlayerAbilityState (SO)
 ├── doubleJumpUnlocked  bool  (default false)
 ├── driftCloakUnlocked  bool  (default false)
 ├── spiritCastUnlocked  bool  (default false)
-└── AbilityChanged event — fired by SetUnlocked only when value changes; scene gates subscribe here
+└── AbilityChanged event — fired by SetUnlocked only when value changes; scene gates subscribe for runtime changes
 ```
 
-`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). At load time, `SaveManager` calls `ApplySaveData` on the SO to restore unlock flags.
+`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). It implements `ISaveTarget`: `GatherSaveData` copies the 7 flags into `AbilitySaveData`; `ApplySaveData` calls `SetUnlocked(AbilityId, bool)` for each flag so runtime subscribers receive `AbilityChanged` events when values change. Scene `AbilityGate` objects match already-loaded state because they call `Refresh()` in `OnEnable`. `SaveManager` holds a serialized reference to the asset and calls both methods at the correct points in the save/load lifecycle.
 
-`AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
+`AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) refreshes on enable, then subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
 
 `PlayerAbilityState` is wired into `HeroController` via a serialized Inspector field; `HeroActionController.Initialize` passes it to the action constructors. No `AssetDatabase` lookup is used.
 
@@ -215,24 +215,25 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 ## Checkpoint and Respawn Markers
 
 **CheckpointInteractable** (extends `InteractableBase`):
-- `Interact()`: sets `GameManager.ActiveRespawnMarker` to this checkpoint's linked `RespawnMarker` at runtime. Will call `SaveManager.Save()` once SaveManager exists (Milestone 4).
+- `Interact()`: calls `GameManager.SetActiveRespawnMarker(respawnMarker)`, which (a) stores the live reference for in-session respawn and (b) forwards `marker.Key` to `SaveManager.SetActiveRespawnMarkerKey`. Then calls `SaveManager.Save()` to persist immediately.
 - Does not call any method on `HeroController` or `HeroHealthComponent`.
 
 **HazardZone** (MonoBehaviour on a trigger collider):
-- `OnTriggerEnter2D` with the hero: calls `HeroHealthComponent.TriggerHazardDeath()` and sets `SaveManager.ActiveHazardRespawnMarker` to the zone's linked `HazardRespawnMarker`.
+- `OnTriggerEnter2D` with the hero: calls `HeroHealthComponent.TriggerHazardDeath()`.
+- `activeHazardRespawnMarkerKey` in `PlayerSaveData` is reserved for a future `HazardRespawnMarker` type (Milestone 2). Pit deaths currently use the last activated normal checkpoint.
 
-**TransitionPoint also sets the normal-death respawn marker on entry.** Before initiating the load, `TransitionPoint` sets `SaveManager.ActiveRespawnMarker` to its linked `RespawnMarker`. If the player dies immediately after crossing into a new room, they respawn at the door they just used rather than the last checkpoint in the previous room. The `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) are fully independent — both can be set simultaneously without conflict.
+**TransitionPoint** (planned — Milestone 1): Before initiating the load, `TransitionPoint` will call `GameManager.SetActiveRespawnMarker` with its linked `RespawnMarker`. This means if the player dies immediately after crossing into a new room, they respawn at the door rather than the previous checkpoint. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) are independent.
 
-Respawn marker string keys are what the save file persists. Each marker registers itself by key on scene load; `SaveManager` resolves the key to the live object after `SceneInit`.
+**Respawn marker persistence:** The save file stores the marker's string `Key`, not a live object reference. On every scene load, `GameManager.ResolveActiveRespawnMarkerFromSave()` scans `FindObjectsByType<RespawnMarker>` and matches by key, restoring `_activeRespawnMarker`. On boot/continue, `PlaceHeroAtSavedRespawnIfRequested()` moves the hero to the resolved marker position before the fade-in.
 
 ---
 
 ## Scene Transitions and Loading
 
-**TransitionPoint** (MonoBehaviour, extends `InteractableBase`):
-- Fields: `targetScene` (string), `isADoor` (bool), `entryMarkerTag` (string), linked `HazardRespawnMarker`.
-- On activation: calls `GameManager.BeginSceneTransition(targetScene, entryMarkerTag)`. Never calls `SceneManager.LoadSceneAsync` directly.
-- If `isADoor` is true, activation requires the interact input; otherwise a trigger `OnTriggerEnter2D` fires automatically.
+**TransitionPoint** (planned — Milestone 1):
+- Intended fields: `targetScene` (string), `isADoor` (bool), `entryMarkerTag` (string), linked entry `RespawnMarker`, and later hazard marker support.
+- Intended activation: call `GameManager.SetActiveRespawnMarker` for the entry marker, then `GameManager.BeginSceneTransition(targetScene, entryMarkerTag)`. It must never call `SceneManager.LoadSceneAsync` directly.
+- If `isADoor` is true, activation will require the interact input; otherwise a trigger `OnTriggerEnter2D` will fire automatically.
 
 **GameManager** (MonoBehaviour, DontDestroyOnLoad) — four responsibilities only. Do not add to these without a documented architectural reason:
 
@@ -243,20 +244,36 @@ Respawn marker string keys are what the save file persists. Each marker register
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
 
-**Current deviation (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect) and `BeginRespawnSequence()` (same-scene respawn used until `SaveManager` is in place). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling to `HeroHealthComponent` that will be replaced when `SaveManager` owns health restoration on load. These are acknowledged deviations, not intended architecture; see `Docs/ImplementationPlan.md` Known Technical Debt.
+**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect) and `BeginRespawnSequence()` (same-scene respawn). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
 
 ---
 
 ## Boot / Startup
 
-Build Index 0 is a dedicated boot scene containing only a `Bootstrap` MonoBehaviour. It initialises all persistent singletons in order, then loads the main menu:
+Build Index 0 is a dedicated boot scene containing only a `Bootstrap` MonoBehaviour. It initialises all persistent singletons in order, loads the save file, then loads the first gameplay scene.
 
 ```
-Bootstrap (MonoBehaviour in Boot scene, Build Index 0)
-  1. Instantiate and DontDestroyOnLoad: GameManager, SaveManager, AudioManager, InteractManager
-  2. SaveManager.LoadOrCreate()     — load save file; create fresh state if file is missing or corrupt
-  3. GameManager.LoadScene("MainMenu")
+Bootstrap.Awake() — instantiate and DontDestroyOnLoad in order:
+  1. GameManager
+  2. SaveManager
+  3. AudioManager
+  4. GameCameras      (null-guarded; optional)
+  5. InteractManager  (null-guarded; optional)
+
+Bootstrap.Start():
+  6. SaveManager.LoadOrCreate(0)
+       — deserialize file; if missing or corrupt: CreateFreshSave
+       — ApplySaveData() → PlayerAbilityState flags applied via ISaveTarget
+  7. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
+       — sets a single-use flag; consumed on the next OnSceneLoaded
+  8. GameManager.BeginSceneTransition(firstScene)
+       — fade out → LoadSceneAsync → OnSceneLoaded:
+             ResolveActiveRespawnMarkerFromSave()  (key → live RespawnMarker)
+             PlaceHeroAtSavedRespawnIfRequested()  (hero positioned at marker)
+       → camera snap → fade in
 ```
+
+`firstScene` is a serialized string field on `Bootstrap` (currently `"SampleScene"`). When a main menu scene exists, Boot should load the menu instead; the menu routes to `firstScene` on New Game or `savedScene` on Continue.
 
 Persistent singletons live only in the boot scene and carry across all subsequent loads via `DontDestroyOnLoad`. They must not be placed in gameplay or UI scenes.
 
@@ -266,21 +283,34 @@ Persistent singletons live only in the boot scene and carry across all subsequen
 
 See `Docs/FeatureSpecs/SaveSystem.md` for the full spec.
 
+**Foundation implemented (2026-05-20).** The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session respawn marker resolution, and hero placement on boot are all in place.
+
 **Structural boundary:**
 
 ```
 SaveManager (DontDestroyOnLoad)
-  ↓  CollectSaveData() / ApplySaveData()
+  ↓  GatherSaveData() / ApplySaveData()
   ↓
-ISaveTarget (interface, implemented by SOs)
-  ├── PlayerAbilityState.asset       unlock flags
-  ├── WorldStateRegistry.asset       room flags, defeated enemies, open doors (planned)
-  └── (additional domain SOs as needed)
+ISaveTarget (interface, implemented by persistent SOs)
+  ├── PlayerAbilityState.asset       7 ability unlock flags   [implemented]
+  └── WorldStateRegistry.asset       room flags, defeated enemies, open doors  [planned]
 ```
 
-`SaveManager` must not reference any MonoBehaviour at save or load time. All live state that needs persisting must be mirrored into a registered SO implementing `ISaveTarget`.
+`SaveManager` must not reference any `MonoBehaviour` at save or load time. All live state that needs persisting must be owned by a ScriptableObject implementing `ISaveTarget`. Scene-object identity is stored as string keys (e.g. `RespawnMarker.Key`), never as `UnityEngine.Object` references.
 
-**Save triggers:** only `CheckpointInteractable.Interact` and the application quit handler on `SaveManager` itself call `SaveManager.Save()`. Never call it from inside a hero or enemy MonoBehaviour.
+**Save triggers:**
+- `CheckpointInteractable.Interact()` — primary in-game save
+- `SaveManager.SaveOnQuit` via `Application.quitting` — configurable auto-save on exit
+
+Never call `SaveManager.Save()` from inside a hero or enemy `MonoBehaviour`.
+
+**Respawn key flow:**
+```
+SetActiveRespawnMarker(marker)           → _activeRespawnMarker (live, in-session)
+                                         → SaveManager.SetActiveRespawnMarkerKey(key)
+SaveManager.Save()                       → key written to save_slot0.json
+OnSceneLoaded → ResolveActiveRespawnMarkerFromSave()  → _activeRespawnMarker restored
+```
 
 ---
 
@@ -353,6 +383,6 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Camera | `Docs/FeatureSpecs/Camera.md` | 1 |
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 |
-| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | 4 |
+| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation done (M0); world-state and UI in M4–5 |
 | HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 5 |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 |

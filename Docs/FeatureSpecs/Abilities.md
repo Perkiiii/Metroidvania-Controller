@@ -1,6 +1,6 @@
 # Feature Spec — Abilities
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-05-20
 
 ## Responsibilities
 
@@ -42,16 +42,20 @@ Methods: `IsUnlocked(AbilityId)`, `Unlock(AbilityId)`, `Lock(AbilityId)`, `SetUn
 
 Event: `AbilityChanged(AbilityId, bool)` — fired by `SetUnlocked` only when the value actually changes. Scene objects (e.g. `AbilityGate`) subscribe to this event to react at runtime without polling.
 
+**Save integration:** `PlayerAbilityState` implements `ISaveTarget`. `GatherSaveData(SaveData)` copies the 7 bool fields into `data.abilities`. `ApplySaveData(SaveData)` calls `SetUnlocked(AbilityId, bool)` for each flag (never direct field assignment), so runtime subscribers receive `AbilityChanged` events when values change. Initial scene gates are correct after load because `AbilityGate.OnEnable()` calls `Refresh()` against the already-applied state. `SaveManager` holds a serialized reference to this asset and calls both methods at save/load time. `ResetToDefaults()` is intentionally excluded from the save pipeline — it does not fire events and is reserved for editor/debug resets only.
+
 ### Unlock flag model
 - **Dash** uses `dashUnlocked`. Covers both ground dash and air dash — there are no separate `groundDashUnlocked` or `airDashUnlocked` flags.
 - **Wall-slide and wall-jump** share `wallClingUnlocked`. There are no separate `wallSlideUnlocked` or `wallJumpUnlocked` flags.
 - Sprint, WallLatch, DoubleJump, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
 
 ### AbilityPickup (`Assets/_Project/Scripts/World/AbilityPickup.cs`)
-MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId ability`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` on trigger. TODO: integrate with save/world-state system.
+MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId ability`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` on trigger.
+
+**Save integration (deferred):** Unlocking an ability updates `PlayerAbilityState` immediately. The unlock persists across sessions only if the player activates a checkpoint (or quits while auto-save is enabled) after the pickup. Full world-state persistence (`collectedPickupIds` in `WorldSaveData`) is deferred to Milestone 4 when `WorldStateRegistry` is implemented. The design decision of whether ability pickups should force an immediate save is also deferred.
 
 ### AbilityGate (`Assets/_Project/Scripts/World/AbilityGate.cs`)
-MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId requiredAbility`, `GameObject blocker`, `Collider2D blockerCollider`. Subscribes to `AbilityChanged` in `OnEnable`; unsubscribes in `OnDisable`. Exposes `Refresh()` — call manually after `ResetToDefaults()` if needed at runtime.
+MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId requiredAbility`, `GameObject blocker`, `Collider2D blockerCollider`. Calls `Refresh()` in `OnEnable` so gates match already-loaded ability state, then subscribes to `AbilityChanged` for runtime unlock/lock changes; unsubscribes in `OnDisable`. Exposes `Refresh()` — call manually after `ResetToDefaults()` if needed at runtime.
 
 ---
 

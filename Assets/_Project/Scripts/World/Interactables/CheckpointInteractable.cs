@@ -13,7 +13,7 @@ public sealed class CheckpointInteractable : InteractableBase
         }
 
         GameManager.Instance?.SetActiveRespawnMarker(respawnMarker);
+        SaveManager.Instance?.Save();
         Debug.Log($"[CheckpointInteractable] Activated: {respawnMarker.Key}");
-        // TODO: Call SaveManager.Save() once SaveManager is implemented (Milestone 4).
     }
 }

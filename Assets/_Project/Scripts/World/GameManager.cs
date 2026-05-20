@@ -16,12 +16,19 @@ public sealed class GameManager : MonoBehaviour
     private HeroController _hero;
     private HeroHealthComponent _heroHealth;
 
-    // Temporary runtime-only respawn pointer.
-    // Future SaveManager should own persisted respawn marker keys and resolve
-    // live markers on scene init. This field is the seam it will replace (Milestone 4).
     private RespawnMarker _activeRespawnMarker;
+    private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
 
-    public void SetActiveRespawnMarker(RespawnMarker marker) => _activeRespawnMarker = marker;
+    public void RequestSavedRespawnPlacementOnNextSceneLoad()
+    {
+        _placeHeroAtSavedRespawnOnNextSceneLoad = true;
+    }
+
+    public void SetActiveRespawnMarker(RespawnMarker marker)
+    {
+        _activeRespawnMarker = marker;
+        SaveManager.Instance?.SetActiveRespawnMarkerKey(marker?.Key);
+    }
 
     private void Awake()
     {
@@ -86,6 +93,61 @@ public sealed class GameManager : MonoBehaviour
         // Cache the hero for this scene
         _hero       = FindFirstObjectByType<HeroController>();
         _heroHealth = _hero != null ? _hero.GetComponent<HeroHealthComponent>() : null;
+
+        ResolveActiveRespawnMarkerFromSave();
+        PlaceHeroAtSavedRespawnIfRequested();
+    }
+
+    private void ResolveActiveRespawnMarkerFromSave()
+    {
+        string key = SaveManager.Instance?.ActiveRespawnMarkerKey;
+        if (string.IsNullOrEmpty(key)) return;
+
+        RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsSortMode.None);
+        RespawnMarker match = null;
+
+        foreach (RespawnMarker marker in markers)
+        {
+            if (marker.Key != key) continue;
+
+            if (match != null)
+            {
+                Debug.LogWarning($"[GameManager] Multiple RespawnMarkers with key '{key}' found in scene '{SceneManager.GetActiveScene().name}'. Using first match.");
+                break;
+            }
+
+            match = marker;
+        }
+
+        if (match != null)
+        {
+            _activeRespawnMarker = match;
+            Debug.Log($"[GameManager] Restored active respawn marker: {key}");
+        }
+        else
+        {
+            Debug.LogWarning($"[GameManager] No RespawnMarker with key '{key}' found in scene '{SceneManager.GetActiveScene().name}'. In-session respawn will fall back to nearest marker.");
+        }
+    }
+
+    private void PlaceHeroAtSavedRespawnIfRequested()
+    {
+        if (!_placeHeroAtSavedRespawnOnNextSceneLoad) return;
+        _placeHeroAtSavedRespawnOnNextSceneLoad = false;
+
+        if (_activeRespawnMarker == null)
+        {
+            string key = SaveManager.Instance?.ActiveRespawnMarkerKey;
+            if (!string.IsNullOrEmpty(key))
+                Debug.LogWarning($"[GameManager] Cannot place hero at saved respawn marker '{key}' — marker was not resolved. Hero remains at authored position.");
+            return;
+        }
+
+        if (_hero == null) return;
+
+        _hero.transform.position = _activeRespawnMarker.RespawnPosition;
+        _hero.ForceFacingDirection(_activeRespawnMarker.FacingDirection);
+        Debug.Log($"[GameManager] Placed hero at saved respawn marker: {_activeRespawnMarker.Key}");
     }
 
     // -------------------------------------------------------------------------
@@ -105,8 +167,6 @@ public sealed class GameManager : MonoBehaviour
             yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
 
         // Use the active respawn marker when set; fall back to nearest marker in scene.
-        // TODO: SaveManager (Milestone 4) will replace _activeRespawnMarker with a
-        //       persisted marker key resolved to a live scene object on load.
         if (_activeRespawnMarker != null)
         {
             if (_hero != null)

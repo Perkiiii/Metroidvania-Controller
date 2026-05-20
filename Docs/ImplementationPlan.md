@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-05-19  
+**Last audited:** 2026-05-20  
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -14,13 +14,13 @@ This is a living document. Update when milestones complete or priorities shift.
 | Animancer-driven animation (locomotion, action states) | Done |
 | Input System integration (KB+Mouse, Gamepad) | Done |
 | ScriptableObject tuning pipeline | Done |
-| Boot scene / persistent infrastructure | Partial |
+| Boot scene / persistent infrastructure | Done |
 | Camera system | Done |
 | Enemy AI framework | Partial |
-| Interactables / checkpoints | Not started |
+| Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
-| Ability unlock system | Not started |
-| Save / load system | Not started |
+| Ability unlock system | Done |
+| Save / load system | Done (Milestone 0 foundation; world-state and UI deferred) |
 | Scene transitions | Partial |
 | UI (HUD, menus) | Not started |
 | Audio system | Partial |
@@ -39,14 +39,16 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 ## Milestone 0 — Persistent Infrastructure
 
-**Goal:** All persistent singletons exist and boot correctly before any gameplay scene loads.
+**Goal:** All persistent singletons exist and boot correctly before any gameplay scene loads.  
+**Status: Complete.**
 
 - [x] Create boot scene (Build Index 0) with a `Bootstrap` MonoBehaviour. (Boot.unity + `Bootstrap` exist)
-- [x] Implement `GameManager` — `GameState` enum, `SceneInit` event, `BeginSceneTransition`, `Pause` / `Unpause`. See `Docs/Architecture.md` — Scene Transitions. (Done; also has `HitStop` and `BeginRespawnSequence` — see Known Technical Debt)
+- [x] Implement `GameManager` — `GameState` enum, `SceneInit` event, `BeginSceneTransition`, `Pause` / `Unpause`. (Done; also has `HitStop` and `BeginRespawnSequence` — see Known Technical Debt)
 - [x] Implement `AudioManager` — `PlaySFX(AudioClip)` and `PlayMusic(AudioClip, bool loop)` only. DontDestroyOnLoad. (Done)
-- [ ] Implement `InteractManager` — priority-sorted interactable list, interact input routing. DontDestroyOnLoad.
-- [ ] Wire `Bootstrap`: instantiate and DontDestroyOnLoad all four managers in order; call `SaveManager.LoadOrCreate()`; then load a placeholder scene. (Partial — Bootstrap instantiates GameManager / AudioManager / GameCameras prefabs; SaveManager and InteractManager not present yet.)
-- [ ] Resolve the `HeroController.ResolveDependencies` AssetDatabase fallback — link SOs via Inspector instead.
+- [x] Implement `InteractManager` — priority-sorted interactable list, interact input routing. DontDestroyOnLoad. (Done)
+- [x] Implement `SaveManager` — persistent singleton; `LoadOrCreate`, `Save`, `CreateFreshSave`, `GetSaveStats`, `HasSave`, `DeleteSave`; `ISaveTarget` pipeline for ScriptableObjects; respawn key storage and resolution. DontDestroyOnLoad. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
+- [x] Wire `Bootstrap`: instantiates five managers in `Awake` (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`); calls `SaveManager.LoadOrCreate(0)`, `GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()`, and `GameManager.BeginSceneTransition(firstScene)` in `Start`. (Done)
+- [ ] Resolve `HeroController.ResolveDependencies` AssetDatabase fallback — link `HeroConfig` and `HeroAnimationLibrary` via Inspector instead. This masks missing prefab assignments in the editor; no runtime impact in builds.
 
 ---
 
@@ -54,15 +56,16 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 **Goal:** A functional room the hero can move through, with a working camera and room boundary.
 
-- [x] Implement `CameraController`, `CameraTarget`, `CameraBoundsVolume`, and `CameraLockArea` — smooth follow, room bounds, and lock zones. See `Docs/FeatureSpecs/Camera.md`.
-- [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
+- [x] Implement `CameraController`, `CameraTarget`, `CameraBoundsVolume`, and `CameraLockArea` — smooth follow, room bounds, and lock zones. (Done)
+- [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`. (Done)
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
-- [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` sets `SaveManager.ActiveRespawnMarker` on entry.
-- [x] Implement `HazardZone` (Done) and `RespawnMarker`. (`HazardZone` calls `HeroBox.TriggerHazardDeath`; `RespawnMarker` is now a full component with key, spawn position, and facing direction — SaveManager persistence pending Milestone 4.)
-- [ ] Implement `HazardRespawnMarker` — placed near pits; sets active hazard respawn marker. (Deferred — pit deaths currently respawn at last checkpoint, which is standard Metroidvania behaviour. Implement in Milestone 2.)
-- [x] Implement `HeroHealthComponent` — TakeDamage, TriggerHazardDeath, i-frames (reference-counted), OnDamaged / OnDeath events. (Done)
-- [x] Implement hero hurt response in `HeroController`: subscribe to OnDamaged → blackboard Hurt state, knockback, control lock. (Done — completed earlier; hurt animation fix and actorState reset also applied.)
-- [x] Implement basic respawn sequence on OnDeath: fade out, position at marker, fade in, restore control. (Done — `GameManager.BeginRespawnSequence` now uses the active `RespawnMarker` set by `CheckpointInteractable`, with nearest-marker fallback. Persistent active marker pending SaveManager, Milestone 4.)
+- [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry so the player respawns at the door they came through if they die in the new room.
+- [x] Implement `HazardZone` — calls `HeroHealthComponent.TriggerHazardDeath()` on hero contact. (Done)
+- [x] Implement `RespawnMarker` — full component with `Key` (string), `RespawnPosition`, and `FacingDirection`. (Done)
+- [ ] Implement `HazardRespawnMarker` — placed near pits; `HazardZone` references it; `GameManager.SetActiveHazardRespawnMarker` stores the key in `SaveManager`. (Deferred — pit deaths currently respawn at last normal checkpoint, which is acceptable behaviour.)
+- [x] Implement `HeroHealthComponent` — TakeDamage, TriggerHazardDeath, i-frames, OnDamaged / OnDeath events. (Done)
+- [x] Implement hero hurt response in `HeroController`. (Done)
+- [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses `_activeRespawnMarker` (resolved from `SaveManager.ActiveRespawnMarkerKey` on scene load) with nearest-marker fallback. (Done)
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
 
 ---
@@ -71,19 +74,18 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 **Goal:** At least one enemy the player can fight and kill; a checkpoint to respawn from.
 
-These two come together because neither is meaningful without the other — a combat loop requires both an enemy to fight and a recovery point.
-
-- [x] Implement `EnemyController`, `EnemyStateBlackboard`, `EnemyHealthComponent`, `EnemyRecoil`, `EnemyContactDamage`, `DamageHero`, `EnemyFeedbackController`, `IEnemyBehaviour`, and `MushroomEnemy` patrol behaviour. See `Docs/FeatureSpecs/EnemyAI.md`. (Done — `EnemyMotor`, `EnemyPerception`, and full state machine are still planned)
+- [x] Implement `EnemyController`, `EnemyStateBlackboard`, `EnemyHealthComponent`, `EnemyRecoil`, `EnemyContactDamage`, `DamageHero`, `EnemyFeedbackController`, `IEnemyBehaviour`, and `MushroomEnemy` patrol behaviour. (Done — `EnemyMotor`, `EnemyPerception`, and full state machine are still planned)
 - [x] Create `EnemyConfig` SO for the first enemy type. (`MushroomConfig.asset` exists)
 - [x] Implement `IHeroDownslashResponder` on the first enemy (`EnemyHealthComponent` implements it). (Done)
-- [ ] Implement `EnemyMotor` — Rigidbody2D velocity control for enemy movement behaviours.
+- [ ] Implement `EnemyMotor` — Rigidbody2D velocity control for enemy movement.
 - [ ] Implement `EnemyPerception` — overlap / raycast detection; writes `alerted` to blackboard.
 - [ ] Implement full `EnemyBehaviour` state machine — Idle → Patrol → Chase → Attack → Hurt → Dead.
-- [x] Implement `InteractableBase` base class (used by CheckpointInteractable and future interactables). (Done)
-- [x] Implement `CheckpointInteractable` — sets active runtime respawn marker via `GameManager`. (Done — `SaveManager.Save()` call deferred to Milestone 4.)
+- [x] Implement `InteractableBase` base class. (Done)
+- [x] Implement `CheckpointInteractable` — sets active runtime respawn marker via `GameManager.SetActiveRespawnMarker` (which propagates the key to `SaveManager`); calls `SaveManager.Save()` on activation. (Done)
+- [ ] Implement `HazardRespawnMarker` — wires `HazardZone` to `SaveManager.SetActiveHazardRespawnMarkerKey`. (Deferred from Milestone 1)
 - [ ] Place a checkpoint and at least one enemy in the test level; validate the full loop: fight → die → respawn → fight.
-- [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule` (AudioSource field removed). (Done)
-- [ ] Add basic action SFX (jump, land, dash, hurt) via `AudioManager.PlaySFX` calls in the relevant Action classes.
+- [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule`. (Done)
+- [ ] Add basic action SFX (jump, land, dash, hurt) via `AudioManager.PlaySFX` in the relevant action classes.
 
 ---
 
@@ -91,38 +93,49 @@ These two come together because neither is meaningful without the other — a co
 
 **Goal:** Gated traversal abilities can be unlocked and the gate is data-driven.
 
-- [x] Create `PlayerAbilityState` script (`Assets/_Project/Scripts/Hero/Core/PlayerAbilityState.cs`). (Done — asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` must be created manually in Unity Editor via CreateAssetMenu and wired into HeroController Inspector field.)
-- [x] Create `AbilityId` enum (`Assets/_Project/Scripts/Hero/Core/AbilityId.cs`). (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast)
-- [x] Create `HeroAbilityConfig` ScriptableObject (`Assets/_Project/Scripts/Hero/Core/HeroAbilityConfig.cs`). (Done — asset at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset` must be created in Unity Editor via Create > Hero > Hero Ability Config and wired into HeroController Inspector field. Copy tuning values from old HeroConfig: dashSpeed 18, dashDuration 0.22, dashCooldown 0.45, wallSlideInitialHoldTime 0.25, wallSlideInitialSpeed 0.1, wallSlideAcceleration 16, wallSlideSpeed -3, wallSlideInputThreshold 0.3, wallJumpHorizontalSpeed 10, wallJumpVerticalSpeed 16, wallJumpRelatchLockout 0.35, doubleJumpSpeed 14, resetDoubleJumpOnWallSlide false.)
-- [x] Gate dash behind `PlayerAbilityState.dashUnlocked` (covers ground and air — no separate flags). (Done)
-- [x] Gate wall-slide and wall-jump behind shared `PlayerAbilityState.wallClingUnlocked` (no separate flags). (Done)
-- [x] Implement `AbilityPickup` MonoBehaviour (`Assets/_Project/Scripts/World/AbilityPickup.cs`). (Done — save/world-state integration is a TODO)
-- [x] Implement `AbilityGate` MonoBehaviour (`Assets/_Project/Scripts/World/AbilityGate.cs`). (Done — reacts to `PlayerAbilityState.AbilityChanged` event at runtime)
-- [x] Implement wall-jump (`HeroWallJumpAction`). See `Docs/FeatureSpecs/Abilities.md`. (Done — gated behind `wallClingUnlocked`)
-- [x] Implement double-jump first pass (`HeroJumpAction`). (Done — gated behind `PlayerAbilityState.doubleJumpUnlocked`; one double jump per airtime; coyote jump takes priority; resets on landing; tuning in `HeroAbilityConfig.doubleJumpSpeed`)
+- [x] Create `PlayerAbilityState` ScriptableObject. (Done — asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`)
+- [x] Create `AbilityId` enum. (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast)
+- [x] Create `HeroAbilityConfig` ScriptableObject. (Done)
+- [x] Gate dash behind `PlayerAbilityState.dashUnlocked`. (Done)
+- [x] Gate wall-slide and wall-jump behind shared `PlayerAbilityState.wallClingUnlocked`. (Done)
+- [x] Implement `AbilityPickup` MonoBehaviour. (Done — save/world-state integration is a TODO: persist via `collectedPickupIds` in `WorldSaveData` once `WorldStateRegistry` exists)
+- [x] Implement `AbilityGate` MonoBehaviour. (Done — refreshes on enable for loaded state and reacts to `PlayerAbilityState.AbilityChanged` for runtime changes)
+- [x] Implement wall-jump (`HeroWallJumpAction`). (Done)
+- [x] Implement double-jump first pass (`HeroJumpAction`). (Done)
 - [ ] Implement wall-latch / aimed wall launch (`HeroWallLatchAction`).
 - [ ] Implement sprint (`HeroSprintAction`).
-- [ ] Author a gate (locked door / ability gate) in the test level that requires an unlocked ability to pass.
+- [ ] Author a gate in the test level that requires an unlocked ability to pass.
 
 ---
 
 ## Milestone 4 — Save System
 
-**Goal:** Progress persists across sessions.
+**Goal:** Progress persists across sessions.  
+**Status: Foundation complete (Milestone 0 pass). Remaining items are world-state and UX.**
 
-- [ ] Implement `SaveManager` and `ISaveTarget` interface. See `Docs/FeatureSpecs/SaveSystem.md`.
-- [ ] Implement save data classes: `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `MetaSaveData`.
-- [ ] Wire `PlayerAbilityState` and `WorldStateRegistry` as `ISaveTarget` implementors.
-- [ ] Validate save on checkpoint; reload preserves ability flags and respawn marker.
-- [ ] Handle missing / corrupt save file gracefully (fresh state, no crash).
+- [x] Implement `SaveManager` and `ISaveTarget` interface. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
+- [x] Implement save data classes: `MetaSaveData`, `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `SaveData`. (Done)
+- [x] Implement `SaveSerializer` (JsonUtility), `SaveFileStore` (synchronous + `.bak` backup), `SaveDataMigrator` (version 1 + null normalization), `SaveStats`. (Done)
+- [x] Wire `PlayerAbilityState` as `ISaveTarget` — ability flags persist and round-trip correctly. Verified: edit JSON → reload → `PlayerAbilityState` Inspector shows loaded values; `AbilityGate`s refresh to the loaded state. (Done)
+- [x] Checkpoint save trigger — `CheckpointInteractable.Interact()` calls `SaveManager.Save()`; `GameManager.SetActiveRespawnMarker` forwards key to `SaveManager` via null-conditional seam. (Done)
+- [x] Cross-session respawn marker resolution — `GameManager.ResolveActiveRespawnMarkerFromSave()` resolves saved key to live `RespawnMarker` on every `OnSceneLoaded`. (Done)
+- [x] Hero placement at saved position on boot/continue — `PlaceHeroAtSavedRespawnIfRequested()` single-use flag set by `Bootstrap`, consumed on first scene load. Camera snaps to correct position automatically via `TransitionRoutine`. (Done)
+- [x] Handle missing/corrupt save file gracefully — fresh state, no crash, clear console log. (Done)
+- [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
+- [ ] Implement `WorldStateRegistry` SO — visited rooms, defeated enemies, open doors, collected pickups; wire as `ISaveTarget`.
+- [ ] Scene-name-driven continue — `BeginSceneTransition(savedScene)` instead of always `firstScene`; route from a "Continue" button on the main menu.
+- [ ] `AbilityPickup` persistence — decide autosave policy; wire `collectedPickupIds` round-trip through `WorldStateRegistry`.
+- [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
 
 ---
 
 ## Milestone 5 — Polish Pass
 
-- [ ] HUD: health display wired to `HeroHealthComponent` events. See `Docs/FeatureSpecs/HUD.md`.
+- [ ] HUD: health display wired to `HeroHealthComponent` events.
 - [ ] Pause menu wired through `GameManager.Pause()` / `Unpause()`.
-- [ ] Main menu scene loaded from boot after a fresh start.
+- [ ] Main menu scene — loaded from boot on fresh start; "New Game" calls `SaveManager.CreateFreshSave(0)` and `BeginSceneTransition(firstScene)`; "Continue" calls `SaveManager.LoadOrCreate(0)` and `BeginSceneTransition(savedScene)`.
+- [ ] Save slot UI — show `SaveStats` (scene, play time, ability count) per slot; `SaveManager.GetSaveStats(slot)` for read-only previews.
+- [ ] Play-time accumulation — wire `MetaSaveData.playTimeSeconds` accumulator in `SaveManager.Update()`.
 - [ ] Full SFX pass: all hero actions, all enemy actions, UI sounds.
 - [ ] Music routing through `GameManager.BeginSceneTransition`.
 - [ ] Game feel: hit-pause, screen shake on landing/hit, particle VFX on impacts.
@@ -132,17 +145,26 @@ These two come together because neither is meaningful without the other — a co
 
 ## Known Technical Debt
 
-- `SampleScene` is the only scene; a proper first-level scene should replace it once the test level is authored in Milestone 1.
-- `HeroController.ResolveDependencies` falls back to editor-only `AssetDatabase` calls — resolve via Inspector wire-up in Milestone 0.
-- `GameManager` holds `_hero` and `_heroHealth` as cached fields and calls `_heroHealth.RestoreFullHealth()` from `BeginRespawnSequence`. This is a temporary coupling; health restoration on respawn should move into `SaveManager.ApplySaveData` once the save system exists. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when SaveManager is implemented.
-- `GameManager` holds a temporary `_activeRespawnMarker` field as a runtime seam. This will be replaced by `SaveManager.ActiveRespawnMarker` (Milestone 4) which persists the active marker key across sessions.
+- **`SampleScene` is the only scene.** A proper first-level scene should replace it once the test level is authored in Milestone 1. `Bootstrap.firstScene` is hardcoded to `"SampleScene"`.
+
+- **`HeroController.ResolveDependencies` AssetDatabase fallback.** Lines 126–131 and 138–142 fall back to editor-only `AssetDatabase.LoadAssetAtPath<>` calls for `HeroConfig` and `HeroAnimationLibrary`. This masks missing prefab Inspector assignments. Fix: wire both in the Hero prefab Inspector and remove the fallback blocks. Guard: `#if UNITY_EDITOR` ensures no runtime impact in builds, but the silent fallback makes it easy to ship without the prefab correctly wired.
+
+- **`GameManager` health coupling.** `BeginRespawnSequence()` calls `_heroHealth.RestoreFullHealth()` directly. This is a temporary coupling. Long-term, a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) should own current health, and `ApplySaveData` should restore health rather than `GameManager` calling into `HeroHealthComponent`. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when `PlayerHealthState` is implemented.
+
+- **Bootstrap always loads `firstScene`.** Once a main menu scene exists, `Bootstrap` should load the menu, which then routes to `firstScene` (New Game) or `savedScene` (Continue). The save system plumbing for this is already in place (`PlayerSaveData.currentScene` is written on every save).
+
+---
 
 ## Current Integration Risks
 
-- `RespawnMarker` is now a full component (key, spawn position, facing direction). Persistent active-marker wiring across sessions requires SaveManager (Milestone 4).
-- `InteractManager` is implemented and wired via Bootstrap. `SaveManager` is still missing — checkpoints activate the runtime marker but don't persist across sessions yet.
-- `HazardRespawnMarker` is not implemented — pit deaths currently respawn at the last activated checkpoint (acceptable behaviour; dedicated hazard markers are deferred to Milestone 2).
-- Runtime respawn uses `GameManager._activeRespawnMarker` (set by `CheckpointInteractable`) with a nearest-marker fallback. Persistent behaviour requires SaveManager.
-- Prefab / Inspector wiring risk: `Bootstrap` expects `GameManager`, `AudioManager`, and `GameCameras` prefabs to be configured in the Boot scene; the prefabs exist at `Assets/_Project/Prefabs/Managers/_GameManager.prefab`, `_AudioManager.prefab`, and `_GameCameras.prefab` but inspector hookups should be verified in-editor.
-- Engine/API compatibility: the code uses `FindObjectsByType` / `FindFirstObjectByType` (Unity 2023+). Building outside the Unity Editor (e.g., `dotnet build`) will fail due to missing Unity runtime assemblies — verify compilation inside the Unity Editor.
-- HUD / UI wiring is not implemented: `HeroHealthComponent` exposes events, but `HealthDisplay` and HUD subscription are not yet in place.
+- **`TransitionPoint` not implemented.** Inter-room navigation requires it. `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry (entry-door respawn) and `GameManager.BeginSceneTransition`. Until it exists, the game is confined to a single scene.
+
+- **`HazardRespawnMarker` not implemented.** Pit deaths currently respawn at the last activated normal checkpoint (acceptable). `activeHazardRespawnMarkerKey` is already in `PlayerSaveData`, ready to wire. Implement in Milestone 2.
+
+- **`AbilityPickup` world-state gap.** `AbilityPickup` unlocks the ability in the current session but the unlocked state only persists if the player reaches a checkpoint before quitting. Once `WorldStateRegistry` tracks `collectedPickupIds`, pickups can be suppressed on scene load if already collected.
+
+- **HUD / UI wiring not implemented.** `HeroHealthComponent` exposes `OnDamaged` / `OnDeath` events but `HealthDisplay` and HUD subscription are not yet in place.
+
+- **Prefab / Inspector wiring.** `Bootstrap` now requires five prefab references (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`) and one string field (`firstScene`). `SaveManager` prefab requires the `PlayerAbilityState` asset in its `Ability State` field. Verify all in-editor after any prefab refactor.
+
+- **Engine/API compatibility.** Code uses `FindObjectsByType` / `FindFirstObjectByType` (Unity 2023+). Building outside the Unity Editor (e.g. `dotnet build`) will fail due to missing Unity runtime assemblies — verify compilation inside the Unity Editor only.

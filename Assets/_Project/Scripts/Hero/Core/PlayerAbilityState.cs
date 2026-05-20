@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "Project/World/Player Ability State", fileName = "PlayerAbilityState")]
-public sealed class PlayerAbilityState : ScriptableObject
+public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
 {
     [Header("Core Traversal")]
     public bool dashUnlocked = true;
@@ -68,5 +68,32 @@ public sealed class PlayerAbilityState : ScriptableObject
         doubleJumpUnlocked = false;
         driftCloakUnlocked = false;
         spiritCastUnlocked = false;
+    }
+
+    public void GatherSaveData(SaveData data)
+    {
+        if (data == null) return;
+        if (data.abilities == null) data.abilities = new AbilitySaveData();
+
+        data.abilities.dashUnlocked       = dashUnlocked;
+        data.abilities.wallClingUnlocked  = wallClingUnlocked;
+        data.abilities.sprintUnlocked     = sprintUnlocked;
+        data.abilities.wallLatchUnlocked  = wallLatchUnlocked;
+        data.abilities.doubleJumpUnlocked = doubleJumpUnlocked;
+        data.abilities.driftCloakUnlocked = driftCloakUnlocked;
+        data.abilities.spiritCastUnlocked = spiritCastUnlocked;
+    }
+
+    public void ApplySaveData(SaveData data)
+    {
+        if (data?.abilities == null) return;
+
+        SetUnlocked(AbilityId.Dash,       data.abilities.dashUnlocked);
+        SetUnlocked(AbilityId.WallCling,  data.abilities.wallClingUnlocked);
+        SetUnlocked(AbilityId.Sprint,     data.abilities.sprintUnlocked);
+        SetUnlocked(AbilityId.WallLatch,  data.abilities.wallLatchUnlocked);
+        SetUnlocked(AbilityId.DoubleJump, data.abilities.doubleJumpUnlocked);
+        SetUnlocked(AbilityId.DriftCloak, data.abilities.driftCloakUnlocked);
+        SetUnlocked(AbilityId.SpiritCast, data.abilities.spiritCastUnlocked);
     }
 }
