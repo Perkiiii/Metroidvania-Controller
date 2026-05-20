@@ -29,8 +29,8 @@ HeroController (MonoBehaviour — coordinator)
 
 | Loop | Responsibilities |
 |---|---|
-| `Update` | `HeroInputReader.Tick` → `HeroActionController.Tick` (timers, attack/dash intent) |
-| `FixedUpdate` | `HeroSensors.FixedTick` → `HeroActionController.FixedTick` → `HeroMotor.FixedTick` |
+| `Update` | `HeroInputReader.Tick` → `HeroCameraSignalBridge.Tick` → `HeroActionController.Tick` (dash/attack timers, locomotion intent) → `HeroAudioController.Tick` (footstep/wall-slide state) |
+| `FixedUpdate` | `HeroSensors.FixedTick` → `CheckLanding` (fires land SFX on first grounded frame) → `HeroActionController.FixedTick` → `HeroMotor.FixedTick` |
 | `LateUpdate` | `HeroAnimationController.TickVisuals` |
 
 ---
@@ -121,6 +121,7 @@ HeroController
     ├── IsInvincible                (reference-counted by source object, not a raw timer)
     ├── OnHealthChanged (event)     → neutral UI/state notification
     ├── OnDamaged (event)           → hurt animation, knockback, i-frames
+    ├── OnHazardDamaged (event)     → hazard-only flash, audio, shake, hurt pose
     └── OnDeath   (event)           → death sequence
 ```
 
@@ -130,11 +131,11 @@ HeroController
 3. `HeroController` subscribes to `OnDamaged` → writes `HeroActorState.Hurt` to the blackboard, applies knockback via `HeroMotor`, adds a control lock for the stun duration.
 4. If health ≤ 0: fire `OnDeath`; transition to `HeroActorState.Dead` and begin respawn.
 
-**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards go through `GameManager.BeginHazardRecoverySequence()` for fade, local reposition, camera snap, and hero reset without restoring health.
+**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards fire `OnHazardDamaged` for feedback, then pass a `HazardContact` to `GameManager.BeginHazardRecoverySequence()` for an impact delay, fade, local reposition, camera snap, and hero reset without restoring health. `HeroBox.HandleHazard` intentionally discards any buffered normal/contact damage before processing the hazard — hazards take priority over same-step enemy hits buffered for `FixedUpdate`. `BeginHazardRecoverySequence` immediately grants temporary invincibility so enemy contact damage cannot reach the hero through a `FixedUpdate` flush during the recovery window. Hazard recovery tuning (impact delay, black-screen hold, i-frame duration) lives in `HazardRecoveryProfile` (SO), referenced by `HazardZone` and carried in `HazardContact` — `GameManager` is a sequence coordinator, not a tuning database. Key defaults: `ImpactDelay` 0.18 s (recommended 0.18–0.20 s), `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s; if no profile is assigned the code falls back to these values. Create a shared `HazardRecoveryProfile.asset` under `Assets/_Project/ScriptableObjects/World/` and assign it to each recoverable `HazardZone`. `GameManager` caches the hero's post-placement position on every scene load (`_sceneFallbackPosition`) as a last-resort fallback if no `RespawnMarker` or `HazardRespawnMarker` is found; scenes with recoverable hazards should always author at least one `RespawnMarker`.
 
 **Respawn markers:**
 - `RespawnMarker` — scene object placed at save points and room entries. Set as the active normal-death respawn point when a checkpoint is activated or when a room with a default marker is entered.
-- `HazardRespawnMarker` — scene object placed near recoverable hazards. `HazardZone` can reference one directly as its local recovery point. Trigger-updated active hazard markers are deferred; if added later, the live active pointer belongs on `GameManager`, not `HeroController` or `SaveManager`.
+- `HazardRespawnMarker` — scene object placed near recoverable hazards. `HazardZone` can reference one directly as its local recovery point. If unassigned, `GameManager` falls back to the nearest `RespawnMarker`, then the cached scene entry position. Author at least one `RespawnMarker` per scene that contains recoverable hazards. Trigger-updated active hazard markers are deferred; if added later, the live active pointer belongs on `GameManager`, not `HeroController` or `SaveManager`.
 
 ---
 
@@ -222,7 +223,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 **HazardZone** (MonoBehaviour on a trigger collider):
 - `OnTriggerEnter2D` with the hero: sends a `HazardContact` to `HeroBox`.
 - `InstantDeath` hazards use the existing full death path.
-- `RecoverLocal` hazards subtract hazard damage, preserve reduced health, and ask `GameManager` to recover the hero at the assigned `HazardRespawnMarker` when health remains above zero.
+- `RecoverLocal` hazards subtract hazard damage, preserve reduced health, and ask `GameManager` to recover the hero at the assigned `HazardRespawnMarker` when health remains above zero. A directly assigned `HazardRespawnMarker` is strongly recommended; `OnValidate` warns if missing, and runtime falls back to the nearest `RespawnMarker`, then the cached scene-entry position.
 - `activeHazardRespawnMarkerKey` in `PlayerSaveData` remains reserved for future trigger-updated hazard marker persistence. The first-pass runtime path does not depend on `SaveManager`.
 
 **TransitionPoint** (planned — Milestone 1): Before initiating the load, `TransitionPoint` will call `GameManager.SetActiveRespawnMarker` with its linked `RespawnMarker`. This means if the player dies immediately after crossing into a new room, they respawn at the door rather than the previous checkpoint. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) are independent.

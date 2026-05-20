@@ -64,7 +64,7 @@ MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId 
 ### Ability Unlock State
 - Store unlocked ability flags on a `PlayerAbilityState` ScriptableObject.
 - Each Action class checks the relevant flag in its `CanStart` condition before proceeding.
-- `HeroConfig` holds per-ability tuning values; the unlock flag is separate from tuning.
+- `HeroAbilityConfig` holds per-ability tuning values; the unlock flag is separate from tuning.
 - Always-available abilities (dash, wall-slide) are represented in the same system defaulted to true so they can be gated later if scope changes.
 
 ### Sprint

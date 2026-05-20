@@ -1,6 +1,6 @@
 # Feature Spec — Enemy AI
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-05-20
 
 ## Responsibilities
 
@@ -37,7 +37,7 @@ Enemy perception/chase/attack behaviours are still future work; the current Mush
 ```
 EnemyController (MonoBehaviour — per-enemy coordinator)
 ├── EnemyConfig (SO)          movement speed, detection range, attack data, health
-├── EnemyStateBlackboard      runtime flags (alerted, attacking, hurt, recoiling, dead)
+├── EnemyStateBlackboard      runtime flags: hurt, recoiling, dead (alerted, attacking: planned)
 ├── IEnemyBehaviour           current implementation: MushroomEnemy patrol behaviour
 ├── EnemyHealthComponent      MonoBehaviour; implements IHeroAttackReceiver
 ├── EnemyRecoil               MonoBehaviour; hit freeze / knockback / stun recovery

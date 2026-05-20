@@ -63,9 +63,18 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)
 - [x] Implement `RespawnMarker` — full component with `Key` (string), `RespawnPosition`, and `FacingDirection`. (Done)
 - [x] Implement `HazardRespawnMarker` — placed near recoverable hazards and referenced directly by `HazardZone`. (Done; trigger-updated active hazard marker persistence remains deferred.)
-- [x] Implement `HeroHealthComponent` — TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnHealthChanged, OnDamaged / OnDeath events. (Done)
+- [x] Implement `HeroHealthComponent` — TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnHealthChanged, OnDamaged, OnHazardDamaged / OnDeath events. (Done)
 - [x] Implement hero hurt response in `HeroController`. (Done)
 - [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses `_activeRespawnMarker` (resolved from `SaveManager.ActiveRespawnMarkerKey` on scene load) with nearest-marker fallback. (Done)
+- [x] Hazard recovery hardening pass (2026-05-20):
+  - `HeroHealthComponent.GrantTemporaryInvincibility(source, duration)` — public method for recovery i-frames; reuses existing i-frame infrastructure with an explicit duration.
+  - `HeroBox.HandleHazard` — null GameManager guard moved before `TakeHazardDamage` to prevent stuck Hurt state in test scenes.
+  - `GameManager.BeginHazardRecoverySequence` — grants recovery i-frames (default 0.75 s) immediately, before the first coroutine yield.
+  - `GameManager.HazardRecoveryRoutine` — hardened with `try/finally` to guarantee control lock removal and `_respawnOrRecoveryInProgress` reset even if a step throws.
+  - `GameManager.FindNearestRespawnMarkerPosition` — returns `nearest.RespawnPosition` (was `transform.position`); falls back to cached `_sceneFallbackPosition` if no `RespawnMarker` exists instead of the hero's current (hazard) position.
+  - `GameManager._sceneFallbackPosition` — cached on scene load after initial hero placement; prevents infinite hazard loops when no markers exist in the scene.
+  - `HazardRecoveryProfile` SO (`Assets/_Project/Scripts/World/HazardRecoveryProfile.cs`) — per-hazard tuning (`ImpactDelay` 0.18 s, `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s). Referenced by `HazardZone` and carried in `HazardContact`; `GameManager` reads values from the contact, keeping hazard tuning off `GameManager`. **Create the asset** at `Assets/_Project/ScriptableObjects/World/HazardRecoveryProfile.asset` and **assign it on each recoverable `HazardZone`**. If unassigned, built-in fallback values are used.
+  - `HazardZone` — `Tooltip`/`Header` attributes added; `OnValidate` warns when `RecoverLocal` has no `HazardRespawnMarker` or no `HazardRecoveryProfile` assigned (profile absence uses defaults, not an error).
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
 
 ---

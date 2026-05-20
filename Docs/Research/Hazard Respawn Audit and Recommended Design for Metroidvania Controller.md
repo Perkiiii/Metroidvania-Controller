@@ -1,5 +1,7 @@
 # Hazard Respawn Audit and Recommended Design for Metroidvania Controller
 
+> Historical / superseded note: this research audit predates the implemented local hazard recovery system. Statements below about the "current" hazard path refer to the older instant-death-only implementation. Current runtime behaviour is documented in `Docs/Architecture.md` and `Docs/ImplementationPlan.md`.
+
 ## Audit findings
 
 The current hazard path is a straight instant-death path. `HazardZone.OnTriggerEnter2D` looks for a `HeroBox` on the collider that entered the trigger and, if found, immediately calls `HeroBox.TriggerHazardDeath()`. `HeroBox.TriggerHazardDeath()` clears any pending buffered damage and forwards to `HeroHealthComponent.TriggerHazardDeath()`, which sets `currentHealth = 0` and fires `OnDeath` without checking invincibility or applying normal damage behaviour. fileciteturn6file0L3-L3 fileciteturn8file0L3-L3 fileciteturn9file0L3-L3

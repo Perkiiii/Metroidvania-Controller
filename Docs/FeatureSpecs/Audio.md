@@ -1,6 +1,6 @@
 # Feature Spec — Audio
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-05-20
 
 ## Responsibilities
 
@@ -70,7 +70,7 @@ Wall slide uses a dedicated local source and is stopped by `HeroAudioController`
 | Dash | `HeroDashAction` on dash start | `HeroAudioController.PlayDash()` |
 | Wall jump | `HeroWallJumpAction` on wall jump start | `HeroAudioController.PlayWallJump()` |
 | Wall slide | `HeroWallSlideAction` on slide entry | `HeroAudioController.PlayWallSlide()` |
-| Hurt | `HeroController` on `OnDamaged` | `HeroAudioController.PlayTakeDamage()` |
+| Hurt | `HeroController` on `OnDamaged` or `OnHazardDamaged` | `HeroAudioController.PlayTakeDamage()` |
 | Death | `HeroController` on `OnDeath` | `HeroAudioController.PlayDeath()` |
 | Footstep | Walk/run animation event | `HeroAudioController.AnimEventFootstep()` |
 | Terrain hit | `HeroAttackAction.EvaluateTerrainImpact()` | `HeroAudioController.PlayTerrainImpact()` |

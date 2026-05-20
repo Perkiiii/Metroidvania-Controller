@@ -1,6 +1,6 @@
 # Feature Spec — Player Controller
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-05-20
 
 ## Responsibilities
 
@@ -16,7 +16,7 @@ Subsystem responsibilities:
 | `HeroActionController` | Orchestrate action timing; delegate to action objects |
 | `HeroAnimationController` | Select and cross-fade animation clips based on blackboard |
 | `HeroStateBlackboard` | Shared runtime state — written by subsystems, read by all |
-| `HeroBox` | Explicit child hurtbox that routes enemy contact and hazards to `HeroHealthComponent` |
+| `HeroBox` | Explicit child hurtbox that routes enemy contact, instant-death hazards, and recoverable local hazard damage |
 
 ---
 
@@ -70,7 +70,7 @@ Subsystem responsibilities:
 ## Hero Hurtbox
 
 - `HeroHealthComponent` stays on the Hero root and owns health, i-frames, damage events, and death events.
-- `HeroBox` lives on the `Hero/Herobox` child and marks the collider that can receive enemy contact damage and hazard death.
+- `HeroBox` lives on the `Hero/Herobox` child and marks the collider that can receive enemy contact damage, instant-death hazards, and recoverable local hazard damage.
 - Hero attack polygons, sensors, VFX, and other child colliders must not have `HeroBox`; they should not be treated as the hero body.
 
 ---
