@@ -128,6 +128,13 @@ public sealed class HeroHealthComponent : MonoBehaviour
         GrantIFrames(source, duration);
     }
 
+    public void GrantDefaultInvincibility(object source)
+    {
+        if (source == null)
+            return;
+        GrantIFrames(source);
+    }
+
     private void GrantIFrames(object source)
     {
         GrantIFrames(source, config != null ? config.iFrameDuration : 0f);

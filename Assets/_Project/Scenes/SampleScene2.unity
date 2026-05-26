@@ -544,6 +544,7 @@ GameObject:
   - component: {fileID: 165733236}
   - component: {fileID: 165733235}
   - component: {fileID: 165733234}
+  - component: {fileID: 165733237}
   m_Layer: 12
   m_Name: Checkpoint_C
   m_TagString: Untagged
@@ -628,6 +629,21 @@ Transform:
   - {fileID: 2080193053}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &165733237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 165733233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c14ba8c2340e9384a8d527f5937e714e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RespawnMarker
+  key: sample_checkpoint_c
+  spawnPoint: {fileID: 165733236}
+  facingRight: 1
 --- !u!1 &197833320
 GameObject:
   m_ObjectHideFlags: 0
@@ -670,6 +686,7 @@ MonoBehaviour:
   bottomThrowHorizontal: 6.5
   bottomThrowVertical: 8.9
   bottomThrowDuration: 0.1
+  bottomGateSpawnLift: 1.5
   entryMaxFallbackTime: 1.5
   isDoor: 0
   requireInteract: 0
@@ -1695,6 +1712,7 @@ MonoBehaviour:
   bottomThrowHorizontal: 8
   bottomThrowVertical: 14
   bottomThrowDuration: 0.25
+  bottomGateSpawnLift: 1.5
   entryMaxFallbackTime: 1.5
   isDoor: 0
   requireInteract: 0

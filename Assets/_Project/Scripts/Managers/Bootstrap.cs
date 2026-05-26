@@ -25,7 +25,8 @@ public sealed class Bootstrap : MonoBehaviour
     private void Start()
     {
         SaveManager.Instance.LoadOrCreate(0);
+        string startupScene = SaveManager.Instance.GetStartupScene(firstScene);
         GameManager.Instance.RequestSavedRespawnPlacementOnNextSceneLoad();
-        GameManager.Instance.BeginSceneTransition(firstScene);
+        GameManager.Instance.BeginSceneTransition(startupScene);
     }
 }

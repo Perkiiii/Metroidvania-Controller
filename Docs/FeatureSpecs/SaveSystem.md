@@ -1,6 +1,6 @@
 # Feature Spec — Save System
 
-**Last audited:** 2026-05-20
+**Last audited:** 2026-05-26
 
 ## Responsibilities
 
@@ -10,9 +10,9 @@ Persist and restore game state across play sessions: player progress, unlocked a
 
 ## Current State
 
-**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass).**
+**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass). Cross-scene checkpoint respawn and scene-name-driven boot continue were added on 2026-05-26.**
 
-The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session respawn marker resolution, and hero placement on initial load are all implemented and working.
+The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session / cross-scene respawn marker resolution, saved-scene startup routing, and hero placement on initial load are all implemented and working.
 
 ### What is implemented
 
@@ -27,7 +27,7 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `SaveStats` | `Scripts/Save/SaveStats.cs` | Done |
 | `SaveSerializer` (JsonUtility) | `Scripts/Save/SaveSerializer.cs` | Done |
 | `SaveFileStore` (sync + .bak) | `Scripts/Save/SaveFileStore.cs` | Done |
-| `SaveDataMigrator` (v1) | `Scripts/Save/SaveDataMigrator.cs` | Done |
+| `SaveDataMigrator` (v2) | `Scripts/Save/SaveDataMigrator.cs` | Done |
 | `SaveManager` persistent singleton | `Scripts/Save/SaveManager.cs` | Done |
 | `PlayerAbilityState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerAbilityState.cs` | Done |
 | Checkpoint save trigger | `Scripts/World/Interactables/CheckpointInteractable.cs` | Done |
@@ -46,7 +46,7 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | Multi-slot save selection UI | Milestone 5 |
 | `HazardRespawnMarker` direct local recovery | Done |
 | `HazardRespawnMarker` save key integration | Future |
-| Scene-name-driven continue (`savedScene` instead of always `firstScene`) | Milestone 4 |
+| Scene-name-driven boot continue (`activeRespawnSceneName` / `currentScene` instead of always `firstScene`) | Done |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
 | `AbilityPickup` immediate autosave (design decision not yet made) | Milestone 4 |
 | Full world-state persistence (item flags, room flags, door flags) | Milestone 4 |
@@ -77,8 +77,12 @@ Bootstrap.Start()
       → ApplySaveData()
           → PlayerAbilityState.ApplySaveData()    [ISaveTarget]
           → WorldStateRegistry.ApplySaveData()    [planned]
+  → SaveManager.GetStartupScene(firstScene)
+      → activeRespawnSceneName if set and loadable
+      → currentScene if set and loadable
+      → firstScene fallback
   → GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
-  → GameManager.BeginSceneTransition(firstScene)
+  → GameManager.BeginSceneTransition(startupScene)
       → [scene loads] → OnSceneLoaded()
           → ResolveActiveRespawnMarkerFromSave()  (key → live RespawnMarker)
           → PlaceHeroAtSavedRespawnIfRequested()  (move hero to marker)
@@ -91,7 +95,7 @@ Bootstrap.Start()
 SaveManager (MonoBehaviour — DontDestroyOnLoad)
 ├── SaveData (serializable root)
 │   ├── MetaSaveData        saveVersion, lastSavedUtc, playTimeSeconds
-│   ├── PlayerSaveData      currentScene, activeRespawnMarkerKey, activeHazardRespawnMarkerKey
+│   ├── PlayerSaveData      currentScene, activeRespawnSceneName, activeRespawnMarkerKey, activeHazardRespawnMarkerKey
 │   ├── AbilitySaveData     7 bool flags (mirrors PlayerAbilityState)
 │   └── WorldSaveData       collectedPickupIds list (stub; ready for expansion)
 ├── ISaveTarget (interface — implemented by persistent SOs)
@@ -141,7 +145,7 @@ public class SaveData
 [Serializable]
 public class MetaSaveData
 {
-    public int    saveVersion     = 1;   // bumped by SaveDataMigrator on schema change
+    public int    saveVersion     = 2;   // bumped by SaveDataMigrator on schema change
     public string lastSavedUtc    = "";  // DateTime.UtcNow.ToString("o") on every Save()
     public float  playTimeSeconds = 0f;  // stub — not yet accumulated; wire in Milestone 5
 }
@@ -151,6 +155,7 @@ public class MetaSaveData
 public class PlayerSaveData
 {
     public string currentScene                = "";  // stamped by SaveManager.Save()
+    public string activeRespawnSceneName      = "";  // scene name containing the last activated checkpoint marker
     public string activeRespawnMarkerKey      = "";  // RespawnMarker.Key of last activated checkpoint
     public string activeHazardRespawnMarkerKey = ""; // reserved for future trigger-updated hazard marker persistence
 }
@@ -181,8 +186,8 @@ public class WorldSaveData
 
 ```json
 {
-  "meta": { "saveVersion": 1, "lastSavedUtc": "2026-05-20T08:37:37Z", "playTimeSeconds": 0.0 },
-  "player": { "currentScene": "SampleScene", "activeRespawnMarkerKey": "checkpoint_a", "activeHazardRespawnMarkerKey": "" },
+  "meta": { "saveVersion": 2, "lastSavedUtc": "2026-05-20T08:37:37Z", "playTimeSeconds": 0.0 },
+  "player": { "currentScene": "SampleScene", "activeRespawnSceneName": "SampleScene", "activeRespawnMarkerKey": "checkpoint_a", "activeHazardRespawnMarkerKey": "" },
   "abilities": { "dashUnlocked": true, "wallClingUnlocked": true, "sprintUnlocked": false, "wallLatchUnlocked": false, "doubleJumpUnlocked": false, "driftCloakUnlocked": false, "spiritCastUnlocked": false },
   "world": { "collectedPickupIds": [] }
 }
@@ -261,10 +266,15 @@ Every application start runs through `Bootstrap.Start()`:
        → CreateFreshSave(0)
            → new SaveData() → Migrate → CurrentSave = fresh → ApplySaveData() → Write file
 
-2. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
+2. startupScene = SaveManager.GetStartupScene(firstScene)
+   ├─ activeRespawnSceneName if present + loadable
+   ├─ currentScene if present + loadable
+   └─ firstScene fallback
+
+3. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
    → sets _placeHeroAtSavedRespawnOnNextSceneLoad = true (single-use flag)
 
-3. GameManager.BeginSceneTransition(firstScene)
+4. GameManager.BeginSceneTransition(startupScene)
    → [fade out] → [LoadSceneAsync] → OnSceneLoaded():
        → ResolveActiveRespawnMarkerFromSave()
            scan FindObjectsByType<RespawnMarker>
@@ -283,7 +293,7 @@ The single-use flag `_placeHeroAtSavedRespawnOnNextSceneLoad` is consumed on the
 
 ## Respawn Marker Persistence
 
-The save file stores a **string key**, not a live scene object reference.
+The save file stores a **scene name + string key**, not a live scene object reference. `activeRespawnSceneName + activeRespawnMarkerKey` is the normal-death respawn destination. It is intentionally separate from any future death-drop/shade data, which should capture the death scene and death position before loading the checkpoint scene.
 
 ### On checkpoint activation
 
@@ -291,22 +301,24 @@ The save file stores a **string key**, not a live scene object reference.
 CheckpointInteractable.Interact()
   → GameManager.SetActiveRespawnMarker(marker)
       → _activeRespawnMarker = marker           (live ref — in-session respawn)
-      → SaveManager.SetActiveRespawnMarkerKey(marker.Key)  (persists to CurrentSave.player)
+      → SaveManager.SetActiveRespawnPoint(marker.SceneName, marker.Key)
   → SaveManager.Save()                          (writes full save to disk)
 ```
 
 ### On next session start
 
 ```
-SaveManager.LoadOrCreate()     reads key into CurrentSave.player.activeRespawnMarkerKey
+SaveManager.LoadOrCreate()     reads scene + key into CurrentSave.player
 GameManager.OnSceneLoaded()
   → ResolveActiveRespawnMarkerFromSave()
       key = SaveManager.ActiveRespawnMarkerKey  ("checkpoint_a")
-      scan scene RespawnMarkers by Key
+      if loaded scene matches SaveManager.ActiveRespawnSceneName, scan scene RespawnMarkers by Key
       assign _activeRespawnMarker = matched marker
   → PlaceHeroAtSavedRespawnIfRequested()
       move hero to _activeRespawnMarker.RespawnPosition
 ```
+
+On normal death, `GameManager.BeginRespawnSequence()` treats the saved scene + marker strings as source of truth. If the checkpoint scene is different from the death scene, `GameManager` loads the checkpoint scene, skips transition-gate entry motion, resolves the marker after the new hero is cached, restores health/state, rebinds the camera, and fades in. If no checkpoint was ever activated, same-scene fallback marker placement is used.
 
 ### activeHazardRespawnMarkerKey
 
@@ -321,6 +333,7 @@ Present in `PlayerSaveData` but not wired into runtime recovery yet. `HazardResp
 SaveData CurrentSave { get; }
 int      CurrentSlot { get; }
 string   ActiveRespawnMarkerKey { get; }
+string   ActiveRespawnSceneName { get; }
 string   ActiveHazardRespawnMarkerKey { get; }
 
 // Load / Create
@@ -335,9 +348,12 @@ void Save(int slot)
 bool      HasSave(int slot)
 void      DeleteSave(int slot)
 SaveStats GetSaveStats(int slot)      // reads file without applying state — for slot UI
+string    GetStartupScene(string fallbackScene)
 
 // Respawn keys (do not auto-save)
-void SetActiveRespawnMarkerKey(string key)
+void SetActiveRespawnPoint(string sceneName, string markerKey)
+void SetCurrentScene(string sceneName)
+void SetActiveRespawnMarkerKey(string key) // deprecated compatibility wrapper
 void SetActiveHazardRespawnMarkerKey(string key)
 ```
 
@@ -354,7 +370,7 @@ void SetActiveHazardRespawnMarkerKey(string key)
 | Write failure (IOException) | `SaveFileStore` logs error and returns false; `SaveManager` logs error, does not crash |
 | Duplicate `SaveManager` | `Destroy(gameObject)` in `Awake`, same as all other managers |
 | `abilityState` reference missing | Log warning, skip ability gather/apply, save/load of other data continues |
-| No matching `RespawnMarker` in scene | Log warning, hero stays at authored scene position |
+| No matching checkpoint `RespawnMarker` in the checkpoint scene | Log warning, use the first available `RespawnMarker`; if none exists, fall back to cached scene-entry position |
 | Multiple `RespawnMarker`s with same key | Use first match, log warning about duplicate keys |
 | `abilityState.ApplySaveData` gets null abilities | Guarded — migrator ensures this never reaches the call site, but the method checks defensively |
 
@@ -365,7 +381,7 @@ void SetActiveHazardRespawnMarkerKey(string key)
 ```csharp
 public static class SaveDataMigrator
 {
-    public const int CurrentSaveVersion = 1;
+    public const int CurrentSaveVersion = 2;
 
     public static void Migrate(SaveData data)
     {
@@ -378,9 +394,19 @@ public static class SaveDataMigrator
 
         // Null-normalize string fields
         data.player.currentScene                ??= "";
+        data.player.activeRespawnSceneName      ??= "";
         data.player.activeRespawnMarkerKey      ??= "";
         data.player.activeHazardRespawnMarkerKey ??= "";
         data.meta.lastSavedUtc                  ??= "";
+
+        if (originalVersion < 2
+            && string.IsNullOrEmpty(data.player.activeRespawnSceneName)
+            && !string.IsNullOrEmpty(data.player.activeRespawnMarkerKey))
+        {
+            // Best-effort v1 migration: testers should re-activate checkpoints
+            // if currentScene no longer matches the checkpoint scene.
+            data.player.activeRespawnSceneName = data.player.currentScene;
+        }
 
         data.meta.saveVersion = CurrentSaveVersion;
 
@@ -420,14 +446,14 @@ A `WorldStateRegistry` ScriptableObject implementing `ISaveTarget`. Tracks:
 ### Multi-slot saves
 The API is already slot-aware. `Save(int slot)`, `HasSave(int slot)`, `GetSaveStats(int slot)`, and `SaveFileStore.GetPath(int slot)` all accept any slot index. `save_slot{n}.json` naming is already in place. Adding multi-slot support requires only: a slot-selection UI that calls `LoadOrCreate(chosenSlot)` and `CreateFreshSave(chosenSlot)` at the right times.
 
-### Scene-name-driven continue
-`PlayerSaveData.currentScene` is written on every `Save()`. A "Continue" button on the main menu can call `GameManager.BeginSceneTransition(SaveManager.Instance.CurrentSave.player.currentScene)` instead of always loading `firstScene`. The existing respawn marker resolution and hero placement code will handle positioning correctly.
+### Scene-name-driven boot continue
+`Bootstrap.Start()` calls `SaveManager.GetStartupScene(firstScene)` after `LoadOrCreate()`. Startup prefers `activeRespawnSceneName` when present and loadable so checkpoint placement starts in the correct scene, then falls back to `currentScene`, then the serialized `firstScene`. A future main menu can reuse this query for Continue, while New Game should still call `CreateFreshSave()` and route to `firstScene`.
 
 ### Play-time accumulation
 `MetaSaveData.playTimeSeconds` is a stub at `0f`. Wire it by adding a `Time.unscaledDeltaTime` accumulator to `SaveManager.Update()` that increments while `GameManager.State == GameState.Playing`. Write the accumulated total into `CurrentSave.meta.playTimeSeconds` in `GatherSaveData()`.
 
 ### Save migration versioning
-When a schema change needs data patching, increment `SaveDataMigrator.CurrentSaveVersion` and add a version-gated block. Old saves migrate forward silently; saves from a future version that `Migrate()` does not understand are treated as corrupt and reset to fresh state.
+When a schema change needs data patching, increment `SaveDataMigrator.CurrentSaveVersion` and add a version-gated block. Version 2 adds `activeRespawnSceneName`; old saves migrate by copying `currentScene` only when a respawn marker key exists, which is best-effort and may require checkpoint re-activation if the old save's `currentScene` is not the checkpoint scene. Saves from a future version that `Migrate()` does not understand are treated as corrupt and reset to fresh state.
 
 ### Auto-save on scene transition
 Wire `SaveManager.Save()` into `GameManager.TransitionRoutine` before the `LoadSceneAsync` call. This creates a checkpoint-independent auto-save whenever the player moves between scenes, at the cost of slightly longer transition times.

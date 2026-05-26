@@ -15,6 +15,9 @@ public sealed class SaveManager : MonoBehaviour
     public string ActiveRespawnMarkerKey =>
         CurrentSave?.player?.activeRespawnMarkerKey ?? "";
 
+    public string ActiveRespawnSceneName =>
+        CurrentSave?.player?.activeRespawnSceneName ?? "";
+
     public string ActiveHazardRespawnMarkerKey =>
         CurrentSave?.player?.activeHazardRespawnMarkerKey ?? "";
 
@@ -146,14 +149,49 @@ public sealed class SaveManager : MonoBehaviour
         return SaveStats.FromSaveData(data);
     }
 
+    public string GetStartupScene(string fallbackScene)
+    {
+        string respawnScene = CurrentSave?.player?.activeRespawnSceneName ?? "";
+        if (!string.IsNullOrEmpty(respawnScene) && Application.CanStreamedLevelBeLoaded(respawnScene))
+        {
+            Debug.Log($"[SaveManager] Startup scene resolved from active respawn scene: {respawnScene}");
+            return respawnScene;
+        }
+
+        string currentScene = CurrentSave?.player?.currentScene ?? "";
+        if (!string.IsNullOrEmpty(currentScene) && Application.CanStreamedLevelBeLoaded(currentScene))
+        {
+            Debug.Log($"[SaveManager] Startup scene resolved from current scene: {currentScene}");
+            return currentScene;
+        }
+
+        Debug.Log($"[SaveManager] Startup scene using fallback: {fallbackScene}");
+        return fallbackScene;
+    }
+
     // -------------------------------------------------------------------------
     // Respawn keys
     // -------------------------------------------------------------------------
 
-    public void SetActiveRespawnMarkerKey(string key)
+    public void SetCurrentScene(string sceneName)
     {
         if (CurrentSave?.player == null) return;
-        CurrentSave.player.activeRespawnMarkerKey = key ?? "";
+        CurrentSave.player.currentScene = sceneName ?? "";
+    }
+
+    public void SetActiveRespawnPoint(string sceneName, string markerKey)
+    {
+        if (CurrentSave?.player == null) return;
+        CurrentSave.player.activeRespawnSceneName = sceneName ?? "";
+        CurrentSave.player.activeRespawnMarkerKey = markerKey ?? "";
+    }
+
+    public void SetActiveRespawnMarkerKey(string key)
+    {
+        // Compatibility only. This assumes the active scene is the marker's scene,
+        // so normal checkpoint code should use SetActiveRespawnPoint instead.
+        Debug.LogWarning("[SaveManager] SetActiveRespawnMarkerKey is deprecated. Use SetActiveRespawnPoint so scene and marker stay in sync.");
+        SetActiveRespawnPoint(SceneManager.GetActiveScene().name, key);
     }
 
     public void SetActiveHazardRespawnMarkerKey(string key)

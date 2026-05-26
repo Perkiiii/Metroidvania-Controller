@@ -47,7 +47,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Implement `AudioManager` — `PlaySFX(AudioClip)` and `PlayMusic(AudioClip, bool loop)` only. DontDestroyOnLoad. (Done)
 - [x] Implement `InteractManager` — priority-sorted interactable list, interact input routing. DontDestroyOnLoad. (Done)
 - [x] Implement `SaveManager` — persistent singleton; `LoadOrCreate`, `Save`, `CreateFreshSave`, `GetSaveStats`, `HasSave`, `DeleteSave`; `ISaveTarget` pipeline for ScriptableObjects; respawn key storage and resolution. DontDestroyOnLoad. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
-- [x] Wire `Bootstrap`: instantiates five managers in `Awake` (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`); calls `SaveManager.LoadOrCreate(0)`, `GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()`, and `GameManager.BeginSceneTransition(firstScene)` in `Start`. (Done)
+- [x] Wire `Bootstrap`: instantiates five managers in `Awake` (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`); calls `SaveManager.LoadOrCreate(0)`, resolves startup scene from save data, requests saved respawn placement, and starts the transition in `Start`. (Done)
 - [ ] Resolve `HeroController.ResolveDependencies` AssetDatabase fallback — link `HeroConfig` and `HeroAnimationLibrary` via Inspector instead. This masks missing prefab assignments in the editor; no runtime impact in builds.
 
 ---
@@ -65,7 +65,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Implement `HazardRespawnMarker` — placed near recoverable hazards and referenced directly by `HazardZone`. (Done; trigger-updated active hazard marker persistence remains deferred.)
 - [x] Implement `HeroHealthComponent` — TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnHealthChanged, OnDamaged, OnHazardDamaged / OnDeath events. (Done)
 - [x] Implement hero hurt response in `HeroController`. (Done)
-- [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses `_activeRespawnMarker` (resolved from `SaveManager.ActiveRespawnMarkerKey` on scene load) with nearest-marker fallback. (Done)
+- [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses the saved checkpoint scene + marker key as source of truth, supports cross-scene checkpoint respawn, and falls back to an authored marker in the loaded scene when needed. (Done)
 - [x] Hazard recovery hardening pass (2026-05-20):
   - `HeroHealthComponent.GrantTemporaryInvincibility(source, duration)` — public method for recovery i-frames; reuses existing i-frame infrastructure with an explicit duration.
   - `HeroBox.HandleHazard` — null GameManager guard moved before `TakeHazardDamage` to prevent stuck Hurt state in test scenes.
@@ -124,17 +124,19 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - [x] Implement `SaveManager` and `ISaveTarget` interface. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
 - [x] Implement save data classes: `MetaSaveData`, `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `SaveData`. (Done)
-- [x] Implement `SaveSerializer` (JsonUtility), `SaveFileStore` (synchronous + `.bak` backup), `SaveDataMigrator` (version 1 + null normalization), `SaveStats`. (Done)
+- [x] Implement `SaveSerializer` (JsonUtility), `SaveFileStore` (synchronous + `.bak` backup), `SaveDataMigrator` (version 2 + null normalization + respawn-scene migration), `SaveStats`. (Done)
 - [x] Wire `PlayerAbilityState` as `ISaveTarget` — ability flags persist and round-trip correctly. Verified: edit JSON → reload → `PlayerAbilityState` Inspector shows loaded values; `AbilityGate`s refresh to the loaded state. (Done)
-- [x] Checkpoint save trigger — `CheckpointInteractable.Interact()` calls `SaveManager.Save()`; `GameManager.SetActiveRespawnMarker` forwards key to `SaveManager` via null-conditional seam. (Done)
-- [x] Cross-session respawn marker resolution — `GameManager.ResolveActiveRespawnMarkerFromSave()` resolves saved key to live `RespawnMarker` on every `OnSceneLoaded`. (Done)
+- [x] Checkpoint save trigger — `CheckpointInteractable.Interact()` calls `SaveManager.Save()`; `GameManager.SetActiveRespawnMarker` forwards scene + marker key to `SaveManager` via an atomic plain-string seam. (Done)
+- [x] Cross-session / cross-scene respawn marker resolution — `GameManager.ResolveActiveRespawnMarkerFromSave()` resolves saved key only in the saved checkpoint scene; normal death can load that scene before placing the hero. (Done)
 - [x] Hero placement at saved position on boot/continue — `PlaceHeroAtSavedRespawnIfRequested()` single-use flag set by `Bootstrap`, consumed on first scene load. Camera snaps to correct position automatically via `TransitionRoutine`. (Done)
 - [x] Handle missing/corrupt save file gracefully — fresh state, no crash, clear console log. (Done)
 - [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
 - [ ] Implement `WorldStateRegistry` SO — visited rooms, defeated enemies, open doors, collected pickups; wire as `ISaveTarget`.
-- [ ] Scene-name-driven continue — `BeginSceneTransition(savedScene)` instead of always `firstScene`; route from a "Continue" button on the main menu.
+- [x] Scene-name-driven boot continue — `Bootstrap` now resolves startup scene from `activeRespawnSceneName`, then `currentScene`, then `firstScene`. (Done; main-menu Continue button still deferred.)
 - [ ] `AbilityPickup` persistence — decide autosave policy; wire `collectedPickupIds` round-trip through `WorldStateRegistry`.
 - [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
+
+**Future compatibility note:** Death-drop / shade / resource recovery is not part of this pass. When added, it should capture death scene + death position before `GameManager` loads the checkpoint scene; do not reuse `activeRespawnSceneName` for death-drop location.
 
 ---
 
@@ -142,7 +144,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - [ ] HUD: health display wired to `HeroHealthComponent` events.
 - [ ] Pause menu wired through `GameManager.Pause()` / `Unpause()`.
-- [ ] Main menu scene — loaded from boot on fresh start; "New Game" calls `SaveManager.CreateFreshSave(0)` and `BeginSceneTransition(firstScene)`; "Continue" calls `SaveManager.LoadOrCreate(0)` and `BeginSceneTransition(savedScene)`.
+- [ ] Main menu scene — loaded from boot on fresh start; "New Game" calls `SaveManager.CreateFreshSave(0)` and `BeginSceneTransition(firstScene)`; "Continue" calls `SaveManager.LoadOrCreate(0)` and `BeginSceneTransition(SaveManager.GetStartupScene(firstScene))`.
 - [ ] Save slot UI — show `SaveStats` (scene, play time, ability count) per slot; `SaveManager.GetSaveStats(slot)` for read-only previews.
 - [ ] Play-time accumulation — wire `MetaSaveData.playTimeSeconds` accumulator in `SaveManager.Update()`.
 - [ ] Full SFX pass: all hero actions, all enemy actions, UI sounds.
@@ -158,13 +160,13 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **`HeroController.ResolveDependencies` AssetDatabase fallback.** Lines 126–131 and 138–142 fall back to editor-only `AssetDatabase.LoadAssetAtPath<>` calls for `HeroConfig` and `HeroAnimationLibrary`. This masks missing prefab Inspector assignments. Fix: wire both in the Hero prefab Inspector and remove the fallback blocks. Guard: `#if UNITY_EDITOR` ensures no runtime impact in builds, but the silent fallback makes it easy to ship without the prefab correctly wired.
 
-- **`GameManager` health coupling.** `BeginRespawnSequence()` calls `_heroHealth.RestoreFullHealth()` directly. This is a temporary coupling. Long-term, a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) should own current health, and `ApplySaveData` should restore health rather than `GameManager` calling into `HeroHealthComponent`. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when `PlayerHealthState` is implemented.
+- **`GameManager` health coupling.** `BeginRespawnSequence()` calls `_heroHealth.RestoreFullHealth()` and grants default post-respawn i-frames directly. This is a temporary coupling. Long-term, a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) should own current health, and `ApplySaveData` should restore health rather than `GameManager` calling into `HeroHealthComponent`. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when `PlayerHealthState` is implemented.
 
-- **Bootstrap always loads `firstScene`.** Once a main menu scene exists, `Bootstrap` should load the menu, which then routes to `firstScene` (New Game) or `savedScene` (Continue). The save system plumbing for this is already in place (`PlayerSaveData.currentScene` is written on every save).
+- **Bootstrap still has no main-menu routing.** Boot now resolves a saved startup scene directly, but once a main menu exists, `Bootstrap` should load the menu; the menu should route to `firstScene` for New Game or the saved startup scene for Continue.
 
 - **`TransitionPoint` does not update active `RespawnMarker`.** By current design decision, dying after crossing a gate returns the hero to the last activated checkpoint, not to the entry door. The `linkedRespawnMarker` field on `TransitionPoint` is reserved for a future policy pass if entry-door respawn is desired. See `Docs/Architecture.md` § Checkpoint and Respawn Markers.
 
-- **`RespawnRoutine` and `HitStopRoutine` have no `try/finally` cleanup.** If an exception is thrown inside either coroutine, `_respawnOrRecoveryInProgress` or `Time.timeScale` could be left in a bad state. `HazardRecoveryRoutine` and `TransitionRoutine` already use `try/finally` — these two should be hardened to match.
+- **`HitStopRoutine` has no `try/finally` cleanup.** If an exception is thrown inside the coroutine, `Time.timeScale` could be left in a bad state. `TransitionRoutine`, `RespawnRoutine`, and `HazardRecoveryRoutine` use `try/finally` cleanup.
 
 ---
 

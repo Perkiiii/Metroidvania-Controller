@@ -397,7 +397,7 @@ MonoBehaviour:
   canvasGroup: {fileID: 5320861499589847152}
   defaultFadeOutDuration: 0.25
   defaultFadeInDuration: 1
-  startClear: 0
+  startClear: 1
 --- !u!114 &986420145539026629
 MonoBehaviour:
   m_ObjectHideFlags: 0

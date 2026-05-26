@@ -20,6 +20,9 @@ public sealed class GameManager : MonoBehaviour
     private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
     private bool _respawnOrRecoveryInProgress;
     private bool _isTransitioning;
+    private bool _hasPendingNormalDeathRespawn;
+    private string _pendingNormalDeathRespawnScene = "";
+    private string _pendingNormalDeathRespawnMarkerKey = "";
     // Cached on scene load after any initial hero placement. Used as emergency fallback when
     // no RespawnMarker or HazardRespawnMarker exists, to avoid leaving the hero in the hazard.
     private Vector3 _sceneFallbackPosition;
@@ -34,7 +37,8 @@ public sealed class GameManager : MonoBehaviour
     public void SetActiveRespawnMarker(RespawnMarker marker)
     {
         _activeRespawnMarker = marker;
-        SaveManager.Instance?.SetActiveRespawnMarkerKey(marker?.Key);
+        string sceneName = marker != null ? marker.gameObject.scene.name : "";
+        SaveManager.Instance?.SetActiveRespawnPoint(sceneName, marker?.Key);
     }
 
     private void Awake()
@@ -73,7 +77,7 @@ public sealed class GameManager : MonoBehaviour
             return false;
         }
 
-        if (!Application.CanStreamedLevelBeLoaded(targetScene))
+        if (!IsSceneLoadable(targetScene))
         {
             Debug.LogError($"[GameManager] Scene '{targetScene}' is not in Build Settings; rejected.");
             return false;
@@ -126,6 +130,23 @@ public sealed class GameManager : MonoBehaviour
 
             if (GameCameras.Instance != null)
                 GameCameras.Instance.SetBlack();
+
+            if (_hasPendingNormalDeathRespawn)
+            {
+                CompletePendingNormalDeathRespawn(targetScene);
+
+                if (GameCameras.Instance != null)
+                    GameCameras.Instance.RebindForSceneEntry();
+
+                yield return new WaitForSecondsRealtime(0.1f);
+
+                if (GameCameras.Instance != null)
+                    yield return StartCoroutine(GameCameras.Instance.FadeIn());
+
+                State = GameState.Playing;
+                completed = true;
+                yield break;
+            }
 
             // Phase A — placement: resolve destination gate, place hero, lock control.
             // Synchronous; happens behind the still-black screen.
@@ -200,6 +221,7 @@ public sealed class GameManager : MonoBehaviour
             if (!completed && (State == GameState.Loading || State == GameState.EnteringLevel || State == GameState.ExitingLevel))
                 State = GameState.Playing;
 
+            ClearPendingNormalDeathRespawn();
             _isTransitioning = false;
         }
     }
@@ -244,6 +266,13 @@ public sealed class GameManager : MonoBehaviour
         string key = SaveManager.Instance?.ActiveRespawnMarkerKey;
         if (string.IsNullOrEmpty(key)) return;
 
+        string respawnScene = SaveManager.Instance?.ActiveRespawnSceneName;
+        if (!string.IsNullOrEmpty(respawnScene) && respawnScene != SceneManager.GetActiveScene().name)
+        {
+            _activeRespawnMarker = null;
+            return;
+        }
+
         RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsSortMode.None);
         RespawnMarker match = null;
 
@@ -267,7 +296,7 @@ public sealed class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"[GameManager] No RespawnMarker with key '{key}' found in scene '{SceneManager.GetActiveScene().name}'. In-session respawn will fall back to nearest marker.");
+            Debug.LogWarning($"[GameManager] No RespawnMarker with key '{key}' found in checkpoint scene '{SceneManager.GetActiveScene().name}'. In-session respawn will use a fallback marker.");
         }
     }
 
@@ -279,7 +308,11 @@ public sealed class GameManager : MonoBehaviour
         if (_activeRespawnMarker == null)
         {
             string key = SaveManager.Instance?.ActiveRespawnMarkerKey;
-            if (!string.IsNullOrEmpty(key))
+            string respawnScene = SaveManager.Instance?.ActiveRespawnSceneName;
+            bool loadedCheckpointScene = string.IsNullOrEmpty(respawnScene)
+                || respawnScene == SceneManager.GetActiveScene().name;
+
+            if (!string.IsNullOrEmpty(key) && loadedCheckpointScene)
                 Debug.LogWarning($"[GameManager] Cannot place hero at saved respawn marker '{key}' — marker was not resolved. Hero remains at authored position.");
             return;
         }
@@ -292,60 +325,198 @@ public sealed class GameManager : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // Respawn (same scene)
+    // Respawn
     // -------------------------------------------------------------------------
 
     public void BeginRespawnSequence()
     {
-        if (_respawnOrRecoveryInProgress)
+        if (_respawnOrRecoveryInProgress || _isTransitioning)
         {
             return;
         }
 
         _respawnOrRecoveryInProgress = true;
+
+        string currentScene = SceneManager.GetActiveScene().name;
+        string respawnScene = SaveManager.Instance?.ActiveRespawnSceneName ?? "";
+        string markerKey = SaveManager.Instance?.ActiveRespawnMarkerKey ?? "";
+
+        if (string.IsNullOrEmpty(respawnScene))
+        {
+            respawnScene = currentScene;
+        }
+
+        if (respawnScene != currentScene)
+        {
+            if (IsSceneLoadable(respawnScene))
+            {
+                _hasPendingNormalDeathRespawn = true;
+                _pendingNormalDeathRespawnScene = respawnScene;
+                _pendingNormalDeathRespawnMarkerKey = markerKey;
+
+                if (BeginSceneTransition(respawnScene))
+                    return;
+
+                ClearPendingNormalDeathRespawn();
+                Debug.LogWarning($"[GameManager] Cross-scene respawn transition to '{respawnScene}' could not start. Falling back to current scene respawn.");
+            }
+            else
+            {
+                Debug.LogWarning($"[GameManager] Saved respawn scene '{respawnScene}' is not loadable. Falling back to current scene respawn.");
+            }
+        }
+
         StartCoroutine(RespawnRoutine());
     }
 
     private IEnumerator RespawnRoutine()
     {
-        CameraShakeRequester.ShakeStop();
-
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.FadeOut());
-
-        // Use the active respawn marker when set; fall back to nearest marker in scene.
-        if (_activeRespawnMarker != null)
+        bool completed = false;
+        try
         {
-            if (_hero != null)
+            CameraShakeRequester.ShakeStop();
+
+            if (GameCameras.Instance != null)
+                yield return StartCoroutine(GameCameras.Instance.FadeOut());
+
+            RespawnMarker marker = IsActiveRespawnInCurrentScene()
+                ? _activeRespawnMarker
+                : ResolveRespawnMarkerInLoadedScene(SaveManager.Instance?.ActiveRespawnMarkerKey);
+            if (marker == null)
+                marker = ResolveRespawnFallbackMarkerInLoadedScene();
+
+            ApplyNormalDeathRespawn(marker, SceneManager.GetActiveScene().name);
+
+            if (GameCameras.Instance != null)
             {
-                _hero.transform.position = _activeRespawnMarker.RespawnPosition;
-                _hero.ForceFacingDirection(_activeRespawnMarker.FacingDirection);
+                GameCameras.Instance.Target.SnapToHero();
+                GameCameras.Instance.Controller.SnapToTarget();
             }
+
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            if (GameCameras.Instance != null)
+                yield return StartCoroutine(GameCameras.Instance.FadeIn());
+
+            completed = true;
         }
-        else
+        finally
         {
-            if (_hero != null)
-                _hero.transform.position = FindNearestRespawnMarkerPosition();
+            _respawnOrRecoveryInProgress = false;
+            if (!completed && (State == GameState.Loading || State == GameState.EnteringLevel || State == GameState.ExitingLevel))
+                State = GameState.Playing;
+        }
+    }
+
+    private void CompletePendingNormalDeathRespawn(string loadedScene)
+    {
+        if (!string.IsNullOrEmpty(_pendingNormalDeathRespawnScene) && loadedScene != _pendingNormalDeathRespawnScene)
+        {
+            Debug.LogWarning($"[GameManager] Pending respawn expected scene '{_pendingNormalDeathRespawnScene}', but '{loadedScene}' loaded. Resolving in the loaded scene.");
+        }
+
+        string markerKey = _pendingNormalDeathRespawnMarkerKey;
+        RespawnMarker marker = ResolveRespawnMarkerInLoadedScene(markerKey);
+        if (marker == null && !string.IsNullOrEmpty(markerKey))
+        {
+            Debug.LogWarning($"[GameManager] RespawnMarker '{markerKey}' was not found in checkpoint scene '{loadedScene}'. Using first available RespawnMarker.");
+        }
+
+        if (marker == null)
+        {
+            marker = ResolveRespawnFallbackMarkerInLoadedScene();
+        }
+
+        ApplyNormalDeathRespawn(marker, loadedScene);
+    }
+
+    private void ApplyNormalDeathRespawn(RespawnMarker marker, string sceneName)
+    {
+        if (_hero != null)
+        {
+            if (marker != null)
+            {
+                _hero.transform.position = marker.RespawnPosition;
+                _hero.ForceFacingDirection(marker.FacingDirection);
+                _activeRespawnMarker = marker;
+                _sceneFallbackPosition = marker.RespawnPosition;
+            }
+            else
+            {
+                Debug.LogError($"[GameManager] No RespawnMarker found in scene '{sceneName}'. Falling back to cached scene entry position.");
+                _hero.transform.position = _sceneFallbackPosition;
+            }
+
         }
 
         if (_heroHealth != null)
+        {
             _heroHealth.RestoreFullHealth();
+            _heroHealth.GrantDefaultInvincibility(this);
+        }
 
         if (_hero != null)
             _hero.ResetAfterRespawn();
 
-        if (GameCameras.Instance != null)
+        SaveManager.Instance?.SetCurrentScene(sceneName);
+    }
+
+    private void ClearPendingNormalDeathRespawn()
+    {
+        _hasPendingNormalDeathRespawn = false;
+        _pendingNormalDeathRespawnScene = "";
+        _pendingNormalDeathRespawnMarkerKey = "";
+        if (_respawnOrRecoveryInProgress)
+            _respawnOrRecoveryInProgress = false;
+    }
+
+    private bool IsSceneLoadable(string sceneName)
+    {
+        return !string.IsNullOrEmpty(sceneName) && Application.CanStreamedLevelBeLoaded(sceneName);
+    }
+
+    private RespawnMarker ResolveRespawnMarkerInLoadedScene(string markerKey)
+    {
+        if (string.IsNullOrEmpty(markerKey))
+            return null;
+
+        RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        RespawnMarker match = null;
+        foreach (RespawnMarker marker in markers)
         {
-            GameCameras.Instance.Target.SnapToHero();
-            GameCameras.Instance.Controller.SnapToTarget();
+            if (marker == null || marker.Key != markerKey)
+                continue;
+
+            if (match != null)
+            {
+                Debug.LogWarning($"[GameManager] Multiple RespawnMarkers with key '{markerKey}' found in scene '{SceneManager.GetActiveScene().name}'. Using first match.");
+                break;
+            }
+
+            match = marker;
         }
 
-        yield return new WaitForSecondsRealtime(0.1f);
+        return match;
+    }
 
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.FadeIn());
+    private RespawnMarker ResolveRespawnFallbackMarkerInLoadedScene()
+    {
+        RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (markers.Length == 0)
+            return null;
+        return markers[0];
+    }
 
-        _respawnOrRecoveryInProgress = false;
+    private bool IsActiveRespawnInCurrentScene()
+    {
+        if (_activeRespawnMarker == null)
+            return false;
+
+        string key = SaveManager.Instance?.ActiveRespawnMarkerKey ?? "";
+        if (string.IsNullOrEmpty(key) || _activeRespawnMarker.Key != key)
+            return false;
+
+        return _activeRespawnMarker.gameObject.scene == SceneManager.GetActiveScene();
     }
 
     public void BeginHazardRecoverySequence(HazardContact contact)

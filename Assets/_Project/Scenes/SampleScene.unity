@@ -406,6 +406,7 @@ GameObject:
   - component: {fileID: 165733236}
   - component: {fileID: 165733235}
   - component: {fileID: 165733234}
+  - component: {fileID: 165733237}
   m_Layer: 12
   m_Name: Checkpoint_A
   m_TagString: Untagged
@@ -490,6 +491,21 @@ Transform:
   - {fileID: 2080193053}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &165733237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 165733233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c14ba8c2340e9384a8d527f5937e714e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RespawnMarker
+  key: sample_checkpoint_a
+  spawnPoint: {fileID: 165733236}
+  facingRight: 1
 --- !u!1001 &274049985
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2750,6 +2766,7 @@ GameObject:
   - component: {fileID: 1808597408}
   - component: {fileID: 1808597407}
   - component: {fileID: 1808597406}
+  - component: {fileID: 1808597409}
   m_Layer: 12
   m_Name: Checkpoint_B
   m_TagString: Untagged
@@ -2834,6 +2851,21 @@ Transform:
   - {fileID: 825995484}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1808597409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1808597405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c14ba8c2340e9384a8d527f5937e714e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RespawnMarker
+  key: sample_checkpoint_b
+  spawnPoint: {fileID: 1808597408}
+  facingRight: 1
 --- !u!1 &1823327994
 GameObject:
   m_ObjectHideFlags: 0

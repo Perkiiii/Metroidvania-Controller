@@ -218,7 +218,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 ## Checkpoint and Respawn Markers
 
 **CheckpointInteractable** (extends `InteractableBase`):
-- `Interact()`: calls `GameManager.SetActiveRespawnMarker(respawnMarker)`, which (a) stores the live reference for in-session respawn and (b) forwards `marker.Key` to `SaveManager.SetActiveRespawnMarkerKey`. Then calls `SaveManager.Save()` to persist immediately.
+- `Interact()`: calls `GameManager.SetActiveRespawnMarker(respawnMarker)`, which (a) stores the live reference for in-session respawn and (b) forwards the marker's scene name and `Key` to `SaveManager.SetActiveRespawnPoint`. Then calls `SaveManager.Save()` to persist immediately.
 - Does not call any method on `HeroController` or `HeroHealthComponent`.
 
 **HazardZone** (MonoBehaviour on a trigger collider):
@@ -229,7 +229,9 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 
 **TransitionPoint** (implemented — Milestone 1): `TransitionPoint` does **not** call `GameManager.SetActiveRespawnMarker`. By design decision, death after crossing a gate sends the hero back to the last activated checkpoint, not to the entry door. A serialized `linkedRespawnMarker` field exists on `TransitionPoint` and is auto-populated from a child `RespawnMarker` in `Awake`, but is not consumed at runtime in this pass. It is reserved for a future policy pass that may opt into entry-door respawn. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) remain independent.
 
-**Respawn marker persistence:** The save file stores the marker's string `Key`, not a live object reference. On every scene load, `GameManager.ResolveActiveRespawnMarkerFromSave()` scans `FindObjectsByType<RespawnMarker>` and matches by key, restoring `_activeRespawnMarker`. On boot/continue, `PlaceHeroAtSavedRespawnIfRequested()` moves the hero to the resolved marker position before the fade-in.
+**Respawn marker persistence:** The save file stores the checkpoint scene name plus marker string `Key`, not a live object reference. On scene load, `GameManager.ResolveActiveRespawnMarkerFromSave()` only resolves `_activeRespawnMarker` when the loaded scene matches `activeRespawnSceneName`; it intentionally does not warn when ordinary traversal loads a different scene. On boot/continue, `PlaceHeroAtSavedRespawnIfRequested()` moves the hero to the resolved marker position before the fade-in. On normal death in a different scene, `GameManager` runs a pending normal-death respawn transition: load checkpoint scene, skip `TransitionPoint` entry motion, resolve the saved marker or first available fallback marker, restore health/state, rebind the camera, and fade in.
+
+**Future death-drop note:** normal-death respawn destination (`activeRespawnSceneName + activeRespawnMarkerKey`) must stay separate from the eventual death-drop/shade location (`deathSceneName + deathPosition`). A future death-drop system should capture death scene + death position before loading the checkpoint scene.
 
 ---
 
@@ -281,12 +283,12 @@ Editor validation: `Tools/Project/Validate Transition Gate Links` scans enabled 
 
 1. **`GameState` enum** — `Playing`, `Paused`, `EnteringLevel`, `ExitingLevel`, `Loading`. Written only by GameManager methods, never from outside.
 2. **`SceneInit` event** — fired after every scene load, before the fade-in. Scene-local systems subscribe here rather than relying on `Awake` ordering.
-3. **`BeginSceneTransition(targetScene, entryGateKey)`** — validates `targetScene` (non-empty + in Build Settings), rejects re-entry while `_isTransitioning` is true, and returns whether the transition actually started. Actual flow: grant i-frames on outgoing hero → add control lock → fade out → `LoadSceneAsync` → `OnSceneLoaded` fires `SceneInit`, then caches the new hero and resolves saved respawn placement → resolve destination `TransitionPoint` by `gateKey` → place hero at destination gate or deterministic missing-gate fallback (`RespawnMarker`, then authored hero position) → refresh `_sceneFallbackPosition` → rebind camera → 0.1 s wait → fade in **and** per-gate entry motion start simultaneously → wait for both to complete → set `GameState.Playing`. Fade-in and entry motion are concurrent by design so the hero is already walking in from the gate as the screen reveals. `_isTransitioning` is always cleared in a `try/finally`, and transition-owned outgoing control locks are removed if the routine aborts before scene handoff.
+3. **`BeginSceneTransition(targetScene, entryGateKey)`** — validates `targetScene` (non-empty + in Build Settings), rejects re-entry while `_isTransitioning` is true, and returns whether the transition actually started. Actual flow: grant i-frames on outgoing hero → add control lock → fade out → `LoadSceneAsync` → `OnSceneLoaded` fires `SceneInit`, then caches the new hero and resolves saved respawn placement → if a pending normal-death respawn exists, place at the checkpoint marker and skip gate entry → otherwise resolve destination `TransitionPoint` by `gateKey` → place hero at destination gate or deterministic missing-gate fallback (`RespawnMarker`, then authored hero position) → refresh `_sceneFallbackPosition` → rebind camera → 0.1 s wait → fade in **and** per-gate entry motion start simultaneously → wait for both to complete → set `GameState.Playing`. Fade-in and entry motion are concurrent by design so the hero is already walking in from the gate as the screen reveals. `_isTransitioning` is always cleared in a `try/finally`, and transition-owned outgoing control locks are removed if the routine aborts before scene handoff.
 4. **`Pause()` / `Unpause()`** — set `GameState.Paused`, add hero control lock, set `Time.timeScale = 0`. Unpause reverses all three in order. Nothing else in the project touches `Time.timeScale`.
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
 
-**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect), `BeginRespawnSequence()` (same-scene full respawn), and `BeginHazardRecoverySequence()` (same-scene local hazard recovery). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
+**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect), `BeginRespawnSequence()` (normal-death respawn, including cross-scene checkpoint reload), and `BeginHazardRecoverySequence()` (same-scene local hazard recovery). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
 
 ---
 
@@ -306,16 +308,18 @@ Bootstrap.Start():
   6. SaveManager.LoadOrCreate(0)
        — deserialize file; if missing or corrupt: CreateFreshSave
        — ApplySaveData() → PlayerAbilityState flags applied via ISaveTarget
-  7. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
+  7. SaveManager.GetStartupScene(firstScene)
+       — activeRespawnSceneName if loadable, else currentScene if loadable, else firstScene
+  8. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
        — sets a single-use flag; consumed on the next OnSceneLoaded
-  8. GameManager.BeginSceneTransition(firstScene)
+  9. GameManager.BeginSceneTransition(startupScene)
        — fade out → LoadSceneAsync → OnSceneLoaded:
              ResolveActiveRespawnMarkerFromSave()  (key → live RespawnMarker)
              PlaceHeroAtSavedRespawnIfRequested()  (hero positioned at marker)
        → camera snap → fade in
 ```
 
-`firstScene` is a serialized string field on `Bootstrap` (currently `"SampleScene"`). When a main menu scene exists, Boot should load the menu instead; the menu routes to `firstScene` on New Game or `savedScene` on Continue.
+`firstScene` is a serialized string field on `Bootstrap` (currently `"SampleScene"`) and is now the fallback startup scene. When a main menu scene exists, Boot should load the menu instead; the menu routes to `firstScene` on New Game or `SaveManager.GetStartupScene(firstScene)` on Continue.
 
 Persistent singletons live only in the boot scene and carry across all subsequent loads via `DontDestroyOnLoad`. They must not be placed in gameplay or UI scenes.
 
@@ -325,7 +329,7 @@ Persistent singletons live only in the boot scene and carry across all subsequen
 
 See `Docs/FeatureSpecs/SaveSystem.md` for the full spec.
 
-**Foundation implemented (2026-05-20).** The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session respawn marker resolution, and hero placement on boot are all in place.
+**Foundation implemented (2026-05-20); checkpoint/boot continuation updated (2026-05-26).** The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session / cross-scene respawn marker resolution, saved-scene startup routing, and hero placement on boot are all in place.
 
 **Structural boundary:**
 
@@ -349,7 +353,7 @@ Never call `SaveManager.Save()` from inside a hero or enemy `MonoBehaviour`.
 **Respawn key flow:**
 ```
 SetActiveRespawnMarker(marker)           → _activeRespawnMarker (live, in-session)
-                                         → SaveManager.SetActiveRespawnMarkerKey(key)
+                                         → SaveManager.SetActiveRespawnPoint(sceneName, key)
 SaveManager.Save()                       → key written to save_slot0.json
 OnSceneLoaded → ResolveActiveRespawnMarkerFromSave()  → _activeRespawnMarker restored
 ```
