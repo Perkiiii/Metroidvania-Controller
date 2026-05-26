@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-05-20  
+**Last audited:** 2026-05-26
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -21,7 +21,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation; world-state and UI deferred) |
-| Scene transitions | Partial |
+| Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
 | UI (HUD, menus) | Not started |
 | Audio system | Partial |
 
@@ -59,7 +59,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Implement `CameraController`, `CameraTarget`, `CameraBoundsVolume`, and `CameraLockArea` — smooth follow, room bounds, and lock zones. (Done)
 - [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`. (Done)
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
-- [ ] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Include door variant (requires interact) and auto variant (trigger on entry). `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry so the player respawns at the door they came through if they die in the new room.
+- [x] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Includes auto-trigger (edge gates) and door variant (`DoorTransitionInteractable`, `requireInteract` toggle). Uses explicit `GateSide` enum; direction is never inferred from GameObject name. Per-gate entry tuning lives on the destination `TransitionPoint` (not `HeroConfig`). `HeroSceneEntry` owns all per-gate scripted motion (Left/Right run-in, Top gravity-driven drop, Bottom diagonal throw, Door stand). Door and auto-trigger activation share `TransitionPoint` validation, and scene-entry placement routes through `HeroMotor` (`TeleportTo` / collider-aware feet placement) rather than direct transform writes. Missing destination gates log an error and place the hero at a deterministic fallback (`RespawnMarker`, then authored position). Editor validation exists at `Tools/Project/Validate Transition Gate Links` for Build Settings scene gate links. **Design decision:** `TransitionPoint` does NOT call `GameManager.SetActiveRespawnMarker` — death after a gate crossing returns the player to the last activated checkpoint. `linkedRespawnMarker` is serialized and auto-populated from a child `RespawnMarker` but is reserved for a future policy pass.
 - [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)
 - [x] Implement `RespawnMarker` — full component with `Key` (string), `RespawnPosition`, and `FacingDirection`. (Done)
 - [x] Implement `HazardRespawnMarker` — placed near recoverable hazards and referenced directly by `HazardZone`. (Done; trigger-updated active hazard marker persistence remains deferred.)
@@ -73,7 +73,7 @@ These must happen before any milestone work begins. Both are preconditions for t
   - `GameManager.HazardRecoveryRoutine` — hardened with `try/finally` to guarantee control lock removal and `_respawnOrRecoveryInProgress` reset even if a step throws.
   - `GameManager.FindNearestRespawnMarkerPosition` — returns `nearest.RespawnPosition` (was `transform.position`); falls back to cached `_sceneFallbackPosition` if no `RespawnMarker` exists instead of the hero's current (hazard) position.
   - `GameManager._sceneFallbackPosition` — cached on scene load after initial hero placement; prevents infinite hazard loops when no markers exist in the scene.
-  - `HazardRecoveryProfile` SO (`Assets/_Project/Scripts/World/HazardRecoveryProfile.cs`) — per-hazard tuning (`ImpactDelay` 0.18 s, `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s). Referenced by `HazardZone` and carried in `HazardContact`; `GameManager` reads values from the contact, keeping hazard tuning off `GameManager`. **Create the asset** at `Assets/_Project/ScriptableObjects/World/HazardRecoveryProfile.asset` and **assign it on each recoverable `HazardZone`**. If unassigned, built-in fallback values are used.
+  - `HazardRecoveryProfile` SO (`Assets/_Project/Scripts/World/HazardRecoveryProfile.cs`) — per-hazard tuning (`ImpactDelay` 0.18 s, `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1, `FadeInDuration` −1). `FadeOutDuration` and `FadeInDuration` default to −1, meaning the camera's own defaults are used; set shorter values (0.35–0.45 s) for a snappier local recovery feel. Referenced by `HazardZone` and carried in `HazardContact`; `GameManager` reads values from the contact, keeping hazard tuning off `GameManager`. **Create the asset** at `Assets/_Project/ScriptableObjects/World/HazardRecoveryProfile.asset` and **assign it on each recoverable `HazardZone`**. If unassigned, built-in fallback values are used.
   - `HazardZone` — `Tooltip`/`Header` attributes added; `OnValidate` warns when `RecoverLocal` has no `HazardRespawnMarker` or no `HazardRecoveryProfile` assigned (profile absence uses defaults, not an error).
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
 
@@ -162,11 +162,13 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **Bootstrap always loads `firstScene`.** Once a main menu scene exists, `Bootstrap` should load the menu, which then routes to `firstScene` (New Game) or `savedScene` (Continue). The save system plumbing for this is already in place (`PlayerSaveData.currentScene` is written on every save).
 
+- **`TransitionPoint` does not update active `RespawnMarker`.** By current design decision, dying after crossing a gate returns the hero to the last activated checkpoint, not to the entry door. The `linkedRespawnMarker` field on `TransitionPoint` is reserved for a future policy pass if entry-door respawn is desired. See `Docs/Architecture.md` § Checkpoint and Respawn Markers.
+
+- **`RespawnRoutine` and `HitStopRoutine` have no `try/finally` cleanup.** If an exception is thrown inside either coroutine, `_respawnOrRecoveryInProgress` or `Time.timeScale` could be left in a bad state. `HazardRecoveryRoutine` and `TransitionRoutine` already use `try/finally` — these two should be hardened to match.
+
 ---
 
 ## Current Integration Risks
-
-- **`TransitionPoint` not implemented.** Inter-room navigation requires it. `TransitionPoint` should call `GameManager.SetActiveRespawnMarker` on entry (entry-door respawn) and `GameManager.BeginSceneTransition`. Until it exists, the game is confined to a single scene.
 
 - **Trigger-updated active hazard respawn markers are not implemented.** Direct `HazardZone` → `HazardRespawnMarker` local recovery is implemented. `activeHazardRespawnMarkerKey` is already in `PlayerSaveData`, but the first-pass runtime path intentionally does not read or write it.
 

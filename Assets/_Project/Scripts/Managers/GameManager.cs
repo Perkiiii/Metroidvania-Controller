@@ -59,32 +59,39 @@ public sealed class GameManager : MonoBehaviour
     // Scene transitions
     // -------------------------------------------------------------------------
 
-    public void BeginSceneTransition(string targetScene, string entryGateKey = "")
+    public bool BeginSceneTransition(string targetScene, string entryGateKey = "")
     {
         if (_isTransitioning)
         {
             Debug.LogWarning($"[GameManager] Ignoring BeginSceneTransition('{targetScene}') — a transition is already in progress.");
-            return;
+            return false;
         }
 
         if (string.IsNullOrEmpty(targetScene))
         {
             Debug.LogError("[GameManager] BeginSceneTransition called with empty targetScene; rejected.");
-            return;
+            return false;
         }
 
         if (!Application.CanStreamedLevelBeLoaded(targetScene))
         {
             Debug.LogError($"[GameManager] Scene '{targetScene}' is not in Build Settings; rejected.");
-            return;
+            return false;
         }
 
         _isTransitioning = true;
         StartCoroutine(TransitionRoutine(targetScene, entryGateKey));
+        return true;
     }
 
     private IEnumerator TransitionRoutine(string targetScene, string entryGateKey)
     {
+        HeroController lockedHero = null;
+        bool controlLockAdded = false;
+        HeroController fallbackLockedHero = null;
+        bool fallbackControlLockAdded = false;
+        bool completed = false;
+
         try
         {
             State = GameState.Loading;
@@ -92,17 +99,33 @@ public sealed class GameManager : MonoBehaviour
 
             // Lock the outgoing hero so input is ignored during fade-out, even though
             // the hero will be destroyed when the scene unloads.
-            if (_hero != null) _hero.AddControlLock(this);
+            if (_hero != null)
+            {
+                lockedHero = _hero;
+                lockedHero.AddControlLock(this);
+                controlLockAdded = true;
+            }
+
+            // Grant i-frames covering the fade-out + load + entry-motion window so
+            // an enemy or hazard hit on the same frame as the transition trigger
+            // cannot stall the sequence by routing through hurt / hazard recovery.
+            // Duration is intentionally generous; the timer expires harmlessly if
+            // the transition finishes early. The outgoing hero is destroyed mid-window
+            // when the scene unloads, so this only matters during fade-out.
+            if (_heroHealth != null) _heroHealth.GrantTemporaryInvincibility(this, 3f);
 
             if (GameCameras.Instance != null)
-                yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+                yield return StartCoroutine(GameCameras.Instance.FadeOut());
 
             AsyncOperation load = SceneManager.LoadSceneAsync(targetScene);
             while (!load.isDone)
                 yield return null;
-            // OnSceneLoaded fires SceneInit, repopulates _hero, resolves saved respawn marker.
+            // OnSceneLoaded fires SceneInit, then repopulates _hero and resolves saved respawn marker.
 
             State = GameState.EnteringLevel;
+
+            if (GameCameras.Instance != null)
+                GameCameras.Instance.SetBlack();
 
             // Phase A — placement: resolve destination gate, place hero, lock control.
             // Synchronous; happens behind the still-black screen.
@@ -111,10 +134,24 @@ public sealed class GameManager : MonoBehaviour
                 : null;
 
             if (dest == null && !string.IsNullOrEmpty(entryGateKey))
-                Debug.LogWarning($"[GameManager] No TransitionPoint with key '{entryGateKey}' found in '{SceneManager.GetActiveScene().name}'.");
+            {
+                Debug.LogError($"[GameManager] No TransitionPoint with key '{entryGateKey}' found in '{SceneManager.GetActiveScene().name}'. Using scene fallback placement.");
+                PlaceHeroAtMissingGateFallback(entryGateKey);
+                if (_hero != null)
+                {
+                    fallbackLockedHero = _hero;
+                    fallbackLockedHero.AddControlLock(this);
+                    fallbackControlLockAdded = true;
+                }
+            }
 
             if (dest != null && _hero != null)
+            {
                 _hero.BeginSceneEntryPlacement(dest);
+                // Refresh fallback so a post-entry hazard returns the hero to the
+                // gate-placed position, not the scene's authored hero position.
+                _sceneFallbackPosition = _hero.transform.position;
+            }
 
             // Rebind camera to the placed hero position.
             if (GameCameras.Instance != null)
@@ -122,11 +159,14 @@ public sealed class GameManager : MonoBehaviour
 
             yield return new WaitForSecondsRealtime(0.1f);
 
-            // Phase B — fade in so the entry motion is visible.
+            // Phase B+C — fade-in and entry motion start simultaneously so the scene
+            // is revealed while the hero is already walking in from the gate.
+            // We fire the fade non-blocking, run the motion to completion, then await
+            // the fade at the tail in case it outlasts the motion.
+            Coroutine entryFadeIn = null;
             if (GameCameras.Instance != null)
-                yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+                entryFadeIn = StartCoroutine(GameCameras.Instance.FadeIn());
 
-            // Phase C — play the scripted motion. Hero stays input-locked throughout.
             if (dest != null && _hero != null)
             {
                 _hero.BeginSceneEntryMotion(dest);
@@ -134,14 +174,54 @@ public sealed class GameManager : MonoBehaviour
                     yield return null;
             }
 
+            // Ensure the fade finishes even when entry motion is very short.
+            if (entryFadeIn != null)
+                yield return entryFadeIn;
+
+            if (fallbackControlLockAdded && fallbackLockedHero != null)
+            {
+                fallbackLockedHero.RemoveControlLock(this);
+                fallbackControlLockAdded = false;
+            }
+
             // Phase D — hand control back. HeroSceneEntry's finally has removed its own
             // control lock; GameManager promotes state to Playing.
             State = GameState.Playing;
+            completed = true;
         }
         finally
         {
+            if (!completed && controlLockAdded && lockedHero != null && lockedHero == _hero)
+                lockedHero.RemoveControlLock(this);
+
+            if (fallbackControlLockAdded && fallbackLockedHero != null)
+                fallbackLockedHero.RemoveControlLock(this);
+
+            if (!completed && (State == GameState.Loading || State == GameState.EnteringLevel || State == GameState.ExitingLevel))
+                State = GameState.Playing;
+
             _isTransitioning = false;
         }
+    }
+
+    private void PlaceHeroAtMissingGateFallback(string missingGateKey)
+    {
+        if (_hero == null)
+            return;
+
+        RespawnMarker[] markers = FindObjectsByType<RespawnMarker>(FindObjectsSortMode.InstanceID);
+        if (markers.Length > 0)
+        {
+            RespawnMarker marker = markers[0];
+            _hero.transform.position = marker.RespawnPosition;
+            _hero.ForceFacingDirection(marker.FacingDirection);
+            _sceneFallbackPosition = marker.RespawnPosition;
+            Debug.LogError($"[GameManager] Missing entry gate '{missingGateKey}'. Placed hero at fallback RespawnMarker '{marker.Key}'.", marker);
+            return;
+        }
+
+        _sceneFallbackPosition = _hero.transform.position;
+        Debug.LogError($"[GameManager] Missing entry gate '{missingGateKey}' and no RespawnMarker exists in scene '{SceneManager.GetActiveScene().name}'. Hero remains at authored scene position.");
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -231,7 +311,7 @@ public sealed class GameManager : MonoBehaviour
         CameraShakeRequester.ShakeStop();
 
         if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+            yield return StartCoroutine(GameCameras.Instance.FadeOut());
 
         // Use the active respawn marker when set; fall back to nearest marker in scene.
         if (_activeRespawnMarker != null)
@@ -263,7 +343,7 @@ public sealed class GameManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(0.1f);
 
         if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+            yield return StartCoroutine(GameCameras.Instance.FadeIn());
 
         _respawnOrRecoveryInProgress = false;
     }
@@ -290,6 +370,9 @@ public sealed class GameManager : MonoBehaviour
         HazardRespawnMarker   marker  = contact.RespawnMarker;
         float impactDelay     = profile != null ? profile.ImpactDelay     : 0.18f;
         float blackScreenHold = profile != null ? profile.BlackScreenHold : 0.1f;
+        // Negative = let CameraFade use its own default; override only when profile specifies a value.
+        float fadeOutDur      = profile != null ? profile.FadeOutDuration : -1f;
+        float fadeInDur       = profile != null ? profile.FadeInDuration  : -1f;
 
         bool controlLockAdded = false;
         try
@@ -304,7 +387,7 @@ public sealed class GameManager : MonoBehaviour
                 yield return new WaitForSecondsRealtime(impactDelay);
 
             if (GameCameras.Instance != null)
-                yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+                yield return StartCoroutine(GameCameras.Instance.FadeOut(fadeOutDur));
 
             CameraShakeRequester.ShakeStop();
 
@@ -332,7 +415,7 @@ public sealed class GameManager : MonoBehaviour
                 if (blackScreenHold > 0f)
                     yield return new WaitForSecondsRealtime(blackScreenHold);
 
-                yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+                yield return StartCoroutine(GameCameras.Instance.FadeIn(fadeInDur));
             }
 
             if (controlLockAdded && _hero != null)

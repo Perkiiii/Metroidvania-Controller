@@ -7,6 +7,7 @@ public sealed class HeroMotor : MonoBehaviour
     private HeroAbilityConfig abilityConfig;
     private HeroStateBlackboard blackboard;
     private Rigidbody2D body;
+    private Collider2D bodyCollider;
     private SpriteRenderer spriteRenderer;
     private Transform spriteRoot;
 
@@ -31,6 +32,7 @@ public sealed class HeroMotor : MonoBehaviour
         HeroAbilityConfig heroAbilityConfig,
         HeroStateBlackboard stateBlackboard,
         Rigidbody2D rigidbody,
+        Collider2D collider,
         SpriteRenderer renderer,
         Transform visualRoot)
     {
@@ -38,6 +40,7 @@ public sealed class HeroMotor : MonoBehaviour
         abilityConfig = heroAbilityConfig;
         blackboard = stateBlackboard;
         body = rigidbody;
+        bodyCollider = collider;
         spriteRenderer = renderer;
         spriteRoot = visualRoot;
 
@@ -192,6 +195,56 @@ public sealed class HeroMotor : MonoBehaviour
         body.linearVelocity = velocity;
     }
 
+    // Nudge the hero out of a gate or trigger by a world-space offset, optionally zeroing
+    // one or both velocity components so the hero doesn't immediately drift back in.
+    // Caller (TransitionPoint) computes the offset from collider bounds.
+    public void PushOut(Vector2 worldOffset, bool zeroVelocityX, bool zeroVelocityY)
+    {
+        if (body == null)
+        {
+            return;
+        }
+
+        if (zeroVelocityX || zeroVelocityY)
+        {
+            Vector2 v = body.linearVelocity;
+            if (zeroVelocityX) v.x = 0f;
+            if (zeroVelocityY) v.y = 0f;
+            body.linearVelocity = v;
+        }
+
+        body.position += worldOffset;
+    }
+
+    public void TeleportTo(Vector2 position, bool resetVelocity = true)
+    {
+        if (body == null)
+        {
+            transform.position = new Vector3(position.x, position.y, transform.position.z);
+            return;
+        }
+
+        if (resetVelocity)
+        {
+            body.linearVelocity = Vector2.zero;
+            if (blackboard != null)
+                blackboard.velocity = Vector2.zero;
+        }
+
+        body.position = position;
+    }
+
+    public Vector2 GetPositionWithFeetAt(Vector2 desiredPosition, float groundY, float skin = 0.02f)
+    {
+        if (body == null || bodyCollider == null)
+        {
+            return desiredPosition;
+        }
+
+        float feetOffset = body.position.y - bodyCollider.bounds.min.y;
+        return new Vector2(desiredPosition.x, groundY + Mathf.Max(0f, skin) + feetOffset);
+    }
+
     public void BeginScriptedEntry(bool zeroGravity)
     {
         scriptedEntryActive = true;
@@ -231,6 +284,16 @@ public sealed class HeroMotor : MonoBehaviour
         if (body != null)
         {
             body.linearVelocity = new Vector2(velocityX, body.linearVelocity.y);
+        }
+    }
+
+    public void SetScriptedVelocityX(float velocityX, float initialVelocityY)
+    {
+        scriptedVelocityTarget = new Vector2(velocityX, 0f);
+        scriptedLockY = false;
+        if (body != null)
+        {
+            body.linearVelocity = new Vector2(velocityX, initialVelocityY);
         }
     }
 

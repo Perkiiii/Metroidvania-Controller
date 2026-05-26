@@ -9,10 +9,13 @@ public sealed class HeroSceneEntry : MonoBehaviour
     private HeroMotor motor;
     private HeroStateBlackboard blackboard;
     private HeroConfig config;
+    private HeroHealthComponent health;
 
     private bool placementDone;
     private bool placementHadUnknownSide;
     private TransitionPoint activeDest;
+    private Coroutine motionRoutine;
+    private bool healthEventsSubscribed;
 
     public bool IsEnteringScene { get; private set; }
     public event Action EntryCompleted;
@@ -21,12 +24,61 @@ public sealed class HeroSceneEntry : MonoBehaviour
         HeroController controller,
         HeroMotor heroMotor,
         HeroStateBlackboard heroBlackboard,
-        HeroConfig heroConfig)
+        HeroConfig heroConfig,
+        HeroHealthComponent heroHealth)
     {
         heroController = controller;
         motor = heroMotor;
         blackboard = heroBlackboard;
         config = heroConfig;
+
+        if (healthEventsSubscribed && health != null)
+        {
+            health.OnDeath -= CancelMotionDueToDeath;
+            health.OnHazardDamaged -= CancelMotionDueToHazard;
+            healthEventsSubscribed = false;
+        }
+
+        health = heroHealth;
+
+        if (health != null)
+        {
+            health.OnDeath += CancelMotionDueToDeath;
+            health.OnHazardDamaged += CancelMotionDueToHazard;
+            healthEventsSubscribed = true;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (healthEventsSubscribed && health != null)
+        {
+            health.OnDeath -= CancelMotionDueToDeath;
+            health.OnHazardDamaged -= CancelMotionDueToHazard;
+            healthEventsSubscribed = false;
+        }
+    }
+
+    private void CancelMotionDueToDeath()
+    {
+        CancelMotionForExternalInterrupt();
+    }
+
+    private void CancelMotionDueToHazard(DamageResult _)
+    {
+        CancelMotionForExternalInterrupt();
+    }
+
+    // Stops the in-progress motion coroutine so the respawn / hazard recovery sequence
+    // can take over without fighting the scripted velocity. The coroutine's finally
+    // block guarantees motor + control-lock cleanup.
+    private void CancelMotionForExternalInterrupt()
+    {
+        if (motionRoutine == null) return;
+        StopCoroutine(motionRoutine);
+        motionRoutine = null;
+        // finally inside MotionRoutine runs as part of the IEnumerator disposal triggered
+        // by StopCoroutine, restoring motor + control lock state.
     }
 
     public void PrepareSceneEntry(TransitionPoint dest)
@@ -79,11 +131,13 @@ public sealed class HeroSceneEntry : MonoBehaviour
             motor.EndScriptedEntry();
             heroController.RemoveControlLock(this);
             placementDone = false;
+            placementHadUnknownSide = false;
+            activeDest = null;
             EntryCompleted?.Invoke();
             return;
         }
 
-        StartCoroutine(MotionRoutine(dest));
+        motionRoutine = StartCoroutine(MotionRoutine(dest));
     }
 
     private IEnumerator MotionRoutine(TransitionPoint dest)
@@ -104,6 +158,7 @@ public sealed class HeroSceneEntry : MonoBehaviour
         {
             motor.EndScriptedEntry();
             heroController.RemoveControlLock(this);
+            motionRoutine = null;
             IsEnteringScene = false;
             placementDone = false;
             placementHadUnknownSide = false;
@@ -128,21 +183,24 @@ public sealed class HeroSceneEntry : MonoBehaviour
 
     private IEnumerator TopDropEntry(TransitionPoint dest)
     {
-        motor.SetScriptedVelocity(new Vector2(0f, -dest.EntryDropSpeed));
+        motor.SetScriptedVelocityX(0f, -dest.EntryDropSpeed);
 
         float elapsed = 0f;
         float maxTime = dest.EntryMaxFallbackTime;
 
-        // Give sensors at least one fixed step to update grounded before testing it,
-        // so a stale `grounded == true` from the previous scene cannot short-circuit.
+        // Give sensors at least one fixed step to update grounded before testing it.
         yield return new WaitForFixedUpdate();
 
+        // Require an ungrounded observation before grounded can complete the entry,
+        // so a stale `grounded == true` (e.g. spawn position on geometry) cannot
+        // short-circuit the drop. Max-time fallback below still guards against hang.
+        bool sawUngrounded = false;
         while (elapsed < maxTime)
         {
-            if (blackboard != null && blackboard.grounded)
-            {
-                yield break;
-            }
+            bool grounded = blackboard != null && blackboard.grounded;
+            if (!grounded) sawUngrounded = true;
+            else if (sawUngrounded) yield break;
+
             elapsed += Time.deltaTime;
             yield return null;
         }
@@ -172,12 +230,17 @@ public sealed class HeroSceneEntry : MonoBehaviour
 
         yield return new WaitForFixedUpdate();
 
+        // Same sensor-safe guard as TopDropEntry: require an ungrounded observation
+        // before grounded can complete the entry. The phase-1 throw normally lifts
+        // the hero off the ground, but this protects against geometry that grounds
+        // the hero mid-throw or sensors that haven't refreshed yet.
+        bool sawUngrounded = false;
         while (elapsed < maxTime)
         {
-            if (blackboard != null && blackboard.grounded)
-            {
-                yield break;
-            }
+            bool grounded = blackboard != null && blackboard.grounded;
+            if (!grounded) sawUngrounded = true;
+            else if (sawUngrounded) yield break;
+
             elapsed += Time.deltaTime;
             yield return null;
         }
@@ -214,11 +277,20 @@ public sealed class HeroSceneEntry : MonoBehaviour
             case GateSide.Left:
             case GateSide.Right:
             case GateSide.Door:
-                spawn.y = FindGroundY(spawn.x, spawn.y);
+                if (TryFindGroundY(spawn.x, spawn.y, out float groundY))
+                {
+                    Vector2 groundedPosition = motor.GetPositionWithFeetAt(spawn, groundY);
+                    spawn.x = groundedPosition.x;
+                    spawn.y = groundedPosition.y;
+                }
                 break;
             case GateSide.Bottom:
-                // Match study: launch from 3 m above the gate so the diagonal throw has room.
-                spawn.y += 3f;
+                // Lift the spawn above the gate so (a) the hero doesn't immediately re-overlap
+                // this gate's trigger on the way down and (b) the diagonal throw has clearance.
+                // The lift amount is authored per-gate via TransitionPoint.bottomGateSpawnLift
+                // (default 1.5 m). The +3 m hardcoded constant the reference project uses was
+                // tuned for that game's scale; ours is per-gate-configurable.
+                spawn.y += dest.BottomGateSpawnLift;
                 break;
             case GateSide.Top:
             case GateSide.Unknown:
@@ -226,11 +298,12 @@ public sealed class HeroSceneEntry : MonoBehaviour
                 break;
         }
 
-        heroController.transform.position = spawn;
+        motor.TeleportTo(spawn);
     }
 
-    private float FindGroundY(float x, float startY)
+    private bool TryFindGroundY(float x, float startY, out float groundY)
     {
+        groundY = startY;
         LayerMask mask = config != null ? config.terrainLayers : (LayerMask)~0;
         const float castFromAbove = 1f;
         const float castDistance = 8f;
@@ -244,9 +317,10 @@ public sealed class HeroSceneEntry : MonoBehaviour
         if (hit.collider == null)
         {
             Debug.LogWarning($"[HeroSceneEntry] FindGroundY: no terrain below ({x:F2}, {startY:F2}). Using start Y.");
-            return startY;
+            return false;
         }
 
-        return hit.point.y;
+        groundY = hit.point.y;
+        return true;
     }
 }

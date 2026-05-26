@@ -115,6 +115,14 @@ public class HeroController : MonoBehaviour
 
     public bool IsEnteringScene => sceneEntry != null && sceneEntry.IsEnteringScene;
 
+    public void PushOutOfGate(Vector2 worldOffset, bool zeroVelocityX, bool zeroVelocityY)
+    {
+        if (motor != null) motor.PushOut(worldOffset, zeroVelocityX, zeroVelocityY);
+    }
+
+    public bool IsRecoiling => blackboard != null && blackboard.recoiling;
+    public bool IsControlLocked => blackboard != null && (blackboard.controlLocked || blackboard.inputBlocked);
+
     public void ResetAfterRespawn()
     {
         ResetTransientHeroState();
@@ -219,13 +227,13 @@ public class HeroController : MonoBehaviour
 
         inputReader.Initialize(config);
         sensors.Initialize(config, blackboard, body, bodyCollider);
-        motor.Initialize(config, abilityConfig, blackboard, body, spriteRenderer, spriteRoot);
+        motor.Initialize(config, abilityConfig, blackboard, body, bodyCollider, spriteRenderer, spriteRoot);
         audioController.Initialize(config, blackboard);
         actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, audioController, abilityState);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
         cameraSignals.Initialize(blackboard, inputReader);
-        sceneEntry.Initialize(this, motor, blackboard, config);
+        sceneEntry.Initialize(this, motor, blackboard, config, health);
 
         health.OnDamaged += HandleDamaged;
         health.OnHazardDamaged += HandleHazardDamaged;

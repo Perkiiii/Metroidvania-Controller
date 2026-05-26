@@ -9,6 +9,7 @@ public abstract class InteractableBase : MonoBehaviour
 
     public InteractPriority Priority => priority;
     public bool IsDisabled => isDisabled;
+    protected HeroController CurrentHero { get; private set; }
 
     // Override in subclass to offset the prompt above the object (future HUD use).
     public virtual Vector3 PromptPosition => transform.position;
@@ -19,24 +20,36 @@ public abstract class InteractableBase : MonoBehaviour
     {
         isDisabled = disabled;
         if (disabled)
+        {
+            CurrentHero = null;
             InteractManager.Instance?.Unregister(this);
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (isDisabled) return;
-        if (other.GetComponentInParent<HeroController>() != null)
-            InteractManager.Instance?.Register(this);
+        HeroController hero = other.GetComponentInParent<HeroController>();
+        if (hero == null) return;
+
+        CurrentHero = hero;
+        InteractManager.Instance?.Register(this);
     }
 
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (other.GetComponentInParent<HeroController>() != null)
+        HeroController hero = other.GetComponentInParent<HeroController>();
+        if (hero != null)
+        {
+            if (CurrentHero == hero)
+                CurrentHero = null;
             InteractManager.Instance?.Unregister(this);
+        }
     }
 
     private void OnDisable()
     {
+        CurrentHero = null;
         InteractManager.Instance?.Unregister(this);
     }
 }

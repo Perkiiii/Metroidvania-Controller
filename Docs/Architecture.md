@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-05-20
+**Last audited:** 2026-05-26
 
 ## Overview
 
@@ -22,7 +22,8 @@ HeroController (MonoBehaviour — coordinator)
 │   ├── HeroAttackAction    (plain C# class)
 │   ├── HeroWallSlideAction (plain C# class)
 │   └── HeroWallJumpAction  (plain C# class)
-└── HeroAnimationController  Animancer playback driven by blackboard state
+├── HeroAnimationController  Animancer playback driven by blackboard state
+└── HeroSceneEntry        scripted scene-entry motion coordinator (see Scene Transitions)
 ```
 
 ### Update order
@@ -131,10 +132,10 @@ HeroController
 3. `HeroController` subscribes to `OnDamaged` → writes `HeroActorState.Hurt` to the blackboard, applies knockback via `HeroMotor`, adds a control lock for the stun duration.
 4. If health ≤ 0: fire `OnDeath`; transition to `HeroActorState.Dead` and begin respawn.
 
-**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards fire `OnHazardDamaged` for feedback, then pass a `HazardContact` to `GameManager.BeginHazardRecoverySequence()` for an impact delay, fade, local reposition, camera snap, and hero reset without restoring health. `HeroBox.HandleHazard` intentionally discards any buffered normal/contact damage before processing the hazard — hazards take priority over same-step enemy hits buffered for `FixedUpdate`. `BeginHazardRecoverySequence` immediately grants temporary invincibility so enemy contact damage cannot reach the hero through a `FixedUpdate` flush during the recovery window. Hazard recovery tuning (impact delay, black-screen hold, i-frame duration) lives in `HazardRecoveryProfile` (SO), referenced by `HazardZone` and carried in `HazardContact` — `GameManager` is a sequence coordinator, not a tuning database. Key defaults: `ImpactDelay` 0.18 s (recommended 0.18–0.20 s), `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s; if no profile is assigned the code falls back to these values. Create a shared `HazardRecoveryProfile.asset` under `Assets/_Project/ScriptableObjects/World/` and assign it to each recoverable `HazardZone`. `GameManager` caches the hero's post-placement position on every scene load (`_sceneFallbackPosition`) as a last-resort fallback if no `RespawnMarker` or `HazardRespawnMarker` is found; scenes with recoverable hazards should always author at least one `RespawnMarker`.
+**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards fire `OnHazardDamaged` for feedback, then pass a `HazardContact` to `GameManager.BeginHazardRecoverySequence()` for an impact delay, fade, local reposition, camera snap, and hero reset without restoring health. `HeroBox.HandleHazard` intentionally discards any buffered normal/contact damage before processing the hazard — hazards take priority over same-step enemy hits buffered for `FixedUpdate`. `BeginHazardRecoverySequence` immediately grants temporary invincibility so enemy contact damage cannot reach the hero through a `FixedUpdate` flush during the recovery window. Hazard recovery tuning (impact delay, black-screen hold, fade durations, i-frame duration) lives in `HazardRecoveryProfile` (SO), referenced by `HazardZone` and carried in `HazardContact` — `GameManager` is a sequence coordinator, not a tuning database. Key defaults: `ImpactDelay` 0.18 s (recommended 0.18–0.20 s), `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1 (use camera default), `FadeInDuration` −1 (use camera default); if no profile is assigned the code falls back to these values. Set `FadeInDuration` to 0.35–0.45 s on a profile for a snappier local recovery feel relative to the longer scene-transition fade-in. Create a shared `HazardRecoveryProfile.asset` under `Assets/_Project/ScriptableObjects/World/` and assign it to each recoverable `HazardZone`. `GameManager` caches the hero's post-placement position on every scene load (`_sceneFallbackPosition`) as a last-resort fallback if no `RespawnMarker` or `HazardRespawnMarker` is found; scenes with recoverable hazards should always author at least one `RespawnMarker`.
 
 **Respawn markers:**
-- `RespawnMarker` — scene object placed at save points and room entries. Set as the active normal-death respawn point when a checkpoint is activated or when a room with a default marker is entered.
+- `RespawnMarker` — scene object placed at save points. Set as the active normal-death respawn point **only when a checkpoint is activated** (`CheckpointInteractable.Interact`). Crossing a `TransitionPoint` does **not** update the active respawn marker in the current pass — death after a gate crossing returns the hero to the last activated checkpoint, not to the door (see Scene Transitions for the deferred `linkedRespawnMarker` field).
 - `HazardRespawnMarker` — scene object placed near recoverable hazards. `HazardZone` can reference one directly as its local recovery point. If unassigned, `GameManager` falls back to the nearest `RespawnMarker`, then the cached scene entry position. Author at least one `RespawnMarker` per scene that contains recoverable hazards. Trigger-updated active hazard markers are deferred; if added later, the live active pointer belongs on `GameManager`, not `HeroController` or `SaveManager`.
 
 ---
@@ -226,7 +227,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 - `RecoverLocal` hazards subtract hazard damage, preserve reduced health, and ask `GameManager` to recover the hero at the assigned `HazardRespawnMarker` when health remains above zero. A directly assigned `HazardRespawnMarker` is strongly recommended; `OnValidate` warns if missing, and runtime falls back to the nearest `RespawnMarker`, then the cached scene-entry position.
 - `activeHazardRespawnMarkerKey` in `PlayerSaveData` remains reserved for future trigger-updated hazard marker persistence. The first-pass runtime path does not depend on `SaveManager`.
 
-**TransitionPoint** (planned — Milestone 1): Before initiating the load, `TransitionPoint` will call `GameManager.SetActiveRespawnMarker` with its linked `RespawnMarker`. This means if the player dies immediately after crossing into a new room, they respawn at the door rather than the previous checkpoint. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) are independent.
+**TransitionPoint** (implemented — Milestone 1): `TransitionPoint` does **not** call `GameManager.SetActiveRespawnMarker`. By design decision, death after crossing a gate sends the hero back to the last activated checkpoint, not to the entry door. A serialized `linkedRespawnMarker` field exists on `TransitionPoint` and is auto-populated from a child `RespawnMarker` in `Awake`, but is not consumed at runtime in this pass. It is reserved for a future policy pass that may opt into entry-door respawn. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) remain independent.
 
 **Respawn marker persistence:** The save file stores the marker's string `Key`, not a live object reference. On every scene load, `GameManager.ResolveActiveRespawnMarkerFromSave()` scans `FindObjectsByType<RespawnMarker>` and matches by key, restoring `_activeRespawnMarker`. On boot/continue, `PlaceHeroAtSavedRespawnIfRequested()` moves the hero to the resolved marker position before the fade-in.
 
@@ -234,16 +235,53 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 
 ## Scene Transitions and Loading
 
-**TransitionPoint** (planned — Milestone 1):
-- Intended fields: `targetScene` (string), `isADoor` (bool), `entryMarkerTag` (string), linked entry `RespawnMarker`, and later hazard marker support.
-- Intended activation: call `GameManager.SetActiveRespawnMarker` for the entry marker, then `GameManager.BeginSceneTransition(targetScene, entryMarkerTag)`. It must never call `SceneManager.LoadSceneAsync` directly.
-- If `isADoor` is true, activation will require the interact input; otherwise a trigger `OnTriggerEnter2D` will fire automatically.
+**TransitionPoint** (implemented — Milestone 1):
+
+`TransitionPoint` is a `MonoBehaviour` + `Collider2D` that serves as both a *source* gate (triggers a transition when the hero enters) and a *destination* gate (provides spawn position and entry-motion parameters when the hero arrives from another scene).
+
+Key serialized fields:
+
+| Field | Role |
+|---|---|
+| `gateKey` | Stable string ID; matched by the source gate's `entryGateKey`. Unique within a scene. |
+| `gateSide` | `GateSide` enum (Left, Right, Top, Bottom, Door, Unknown). Explicit; never inferred from GameObject name. |
+| `targetScene` | Destination scene name. Empty = destination-only gate. |
+| `entryGateKey` | `gateKey` of the destination gate in `targetScene`. |
+| `entryOffset` | World-space nudge added to the gate's position to produce the hero spawn point. |
+| `entryFacingOverride` | `EntryFacing` enum (None, ForceRight, ForceLeft). `None` means destination-hero default facing; it does NOT carry facing across scenes. |
+| Per-gate motion params | `entryRunInDuration`, `entryDropSpeed`, `bottomThrowHorizontal`, `bottomThrowVertical`, `bottomThrowDuration`, `bottomGateSpawnLift`, `entryMaxFallbackTime`. All are transition-entry values only; they do not affect `HeroConfig` movement tuning. |
+| `isDoor` / `requireInteract` | `isDoor` routes activation through `DoorTransitionInteractable` (extends `InteractableBase`). `requireInteract = false` makes the door auto-trigger. |
+| `linkedRespawnMarker` | Reserved for a future policy pass. Auto-populated from a child `RespawnMarker` in `Awake` if empty. Not consumed at runtime in the current pass. |
+
+Static registry: `TransitionPoint` maintains an `Active` list (populated in `OnEnable`, cleared in `OnDisable`). `FindByGateKey(string)` does an O(n) search and warns on duplicate keys. `GameManager` uses this after scene load to locate the destination gate without a `FindObjectsByType` call per transition.
+
+Activation rules:
+- Non-door, non-interact: `OnTriggerEnter2D` / `OnTriggerStay2D` route through `TransitionPoint`'s shared activation validation. `OnTriggerStay2D` remains a safety net for heroes already inside a trigger.
+- Door (`requireInteract = true`): `DoorTransitionInteractable.Interact()` routes back through `TransitionPoint.TryActivateFromInteract`, so doors share the same target-scene, entry-gate, game-state, local-guard, and hero-state validation as auto gates.
+- Door (`requireInteract = false`): `OnTriggerEnter2D` auto-fires; `DoorTransitionInteractable` disables itself in `Awake`.
+- Wrong-direction / invalid-state: auto-trigger gates nudge the hero out of the trigger using collider bounds math, zeroing the relevant velocity component, and routing through `HeroMotor.PushOut`. Door-interact gates reject the transition without directional push-back.
+
+**HeroSceneEntry** (implemented — Milestone 1):
+
+`HeroSceneEntry` is a sibling `MonoBehaviour` on the hero, initialized by `HeroController`, that owns all per-gate entry branching. `HeroController` exposes only thin pass-throughs (`BeginSceneEntryPlacement`, `BeginSceneEntryMotion`). No per-gate code lives in `HeroController`.
+
+Entry is split into two phases:
+1. **Placement** (synchronous, behind black screen): facing override, motor-owned spawn placement + collider-aware ground snap, control lock, `HeroMotor.BeginScriptedEntry`.
+2. **Motion** (coroutine, after fade-in so the player sees it): per-gate scripted movement until grounded or timeout, with `HeroMotor.EndScriptedEntry` + `RemoveControlLock` guaranteed in a `finally` block.
+
+Top entries place the hero at the destination gate, apply the authored downward entry speed once, then lock X while allowing gravity to drive the fall. Bottom entries keep their two-phase diagonal throw, then release gravity while locking X. Top and Bottom entries require observing `blackboard.grounded == false` at least once before a grounded landing can complete the entry, preventing stale sensor data from short-circuiting the motion.
+
+`HeroSceneEntry` subscribes to `HeroHealthComponent.OnDeath` and `OnHazardDamaged` and cancels the motion coroutine via `StopCoroutine` if either fires, so respawn / hazard recovery cannot fight scripted velocity.
+
+`HeroMotor` owns all `Rigidbody2D` velocity writes and scene-entry placement through the `BeginScriptedEntry / EndScriptedEntry / SetScriptedVelocity / SetScriptedVelocityX / PushOut / TeleportTo / GetPositionWithFeetAt` API. The scripted-entry mode re-applies the locked target velocity at the end of every `FixedTick` so locomotion, gravity, wall-slide, and fall-clamp cannot overwrite it.
+
+Editor validation: `Tools/Project/Validate Transition Gate Links` scans enabled Build Settings scenes and reports blank or duplicate `gateKey`s, source gates targeting scenes outside Build Settings, blank `entryGateKey`s, and target scenes that do not contain exactly one matching destination gate. This is editor-only validation, not a runtime gate database.
 
 **GameManager** (MonoBehaviour, DontDestroyOnLoad) — four responsibilities only. Do not add to these without a documented architectural reason:
 
 1. **`GameState` enum** — `Playing`, `Paused`, `EnteringLevel`, `ExitingLevel`, `Loading`. Written only by GameManager methods, never from outside.
 2. **`SceneInit` event** — fired after every scene load, before the fade-in. Scene-local systems subscribe here rather than relying on `Awake` ordering.
-3. **`BeginSceneTransition(targetScene, entryTag)`** — add control lock → screen fade out → `LoadSceneAsync` → fire `SceneInit` → position hero at entry marker → screen fade in → remove control lock.
+3. **`BeginSceneTransition(targetScene, entryGateKey)`** — validates `targetScene` (non-empty + in Build Settings), rejects re-entry while `_isTransitioning` is true, and returns whether the transition actually started. Actual flow: grant i-frames on outgoing hero → add control lock → fade out → `LoadSceneAsync` → `OnSceneLoaded` fires `SceneInit`, then caches the new hero and resolves saved respawn placement → resolve destination `TransitionPoint` by `gateKey` → place hero at destination gate or deterministic missing-gate fallback (`RespawnMarker`, then authored hero position) → refresh `_sceneFallbackPosition` → rebind camera → 0.1 s wait → fade in **and** per-gate entry motion start simultaneously → wait for both to complete → set `GameState.Playing`. Fade-in and entry motion are concurrent by design so the hero is already walking in from the gate as the screen reveals. `_isTransitioning` is always cleared in a `try/finally`, and transition-owned outgoing control locks are removed if the routine aborts before scene handoff.
 4. **`Pause()` / `Unpause()`** — set `GameState.Paused`, add hero control lock, set `Time.timeScale = 0`. Unpause reverses all three in order. Nothing else in the project touches `Time.timeScale`.
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
@@ -372,7 +410,7 @@ AudioManager.Instance.PlayMusic(AudioClip clip, bool loop = true)
 - Hero movement, hurt, death, footstep, and terrain-impact sounds call methods on `HeroAudioController`, which owns the `Hero/Sounds/*` child `AudioSource`s and is the only hero subsystem allowed to call `AudioSource.Play()` / `Stop()` directly.
 - `HeroAttackModule` calls `AudioManager.PlaySFX(slashClip, pitchMin, pitchMax)` on activation — not `AudioSource.Play()`.
 - Enemy, world, UI, and shared one-shots call `AudioManager.PlaySFX`.
-- `GameManager.BeginSceneTransition` calls `PlayMusic` for the incoming scene's music clip.
+- `GameManager.BeginSceneTransition` will call `PlayMusic` for the incoming scene's music clip — **deferred to Milestone 5**. No music routing through transitions is implemented yet.
 
 **Do not** call `AudioSource.Play()` directly from actions, enemies, world objects, or UI. Hero-local source playback belongs only in `HeroAudioController`; all other audio routing goes through `AudioManager` so that volume settings, mix groups, and interrupt logic can be added without touching call sites.
 
@@ -382,11 +420,12 @@ AudioManager.Instance.PlayMusic(AudioClip clip, bool loop = true)
 
 Status and sequencing: `Docs/ImplementationPlan.md`.
 
-| System | FeatureSpec | Milestone |
-|---|---|---|
-| Camera | `Docs/FeatureSpecs/Camera.md` | 1 |
-| Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 |
-| Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 |
-| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation done (M0); world-state and UI in M4–5 |
-| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 5 |
-| Audio | `Docs/FeatureSpecs/Audio.md` | 5 |
+| System | FeatureSpec | Milestone | Status |
+|---|---|---|---|
+| Camera | `Docs/FeatureSpecs/Camera.md` | 1 | Done |
+| Scene Transitions | — (described in this doc) | 1 | Done |
+| Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Partial |
+| Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
+| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation done (M0); world-state and UI in M4–5 | Partial |
+| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 5 | Not started |
+| Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |

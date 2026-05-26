@@ -20,15 +20,7 @@ public sealed class DoorTransitionInteractable : InteractableBase
             return;
         }
 
-        if (string.IsNullOrEmpty(transitionPoint.TargetScene))
-        {
-            Debug.LogWarning($"[DoorTransitionInteractable] '{name}' TransitionPoint has no targetScene.", this);
-            return;
-        }
-
-        if (GameManager.Instance == null) return;
-
-        GameManager.Instance.BeginSceneTransition(transitionPoint.TargetScene, transitionPoint.EntryGateKey);
+        transitionPoint.TryActivateFromInteract(CurrentHero);
     }
 
 #if UNITY_EDITOR

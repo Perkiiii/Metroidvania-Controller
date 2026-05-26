@@ -1,5 +1,7 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 
 public sealed class GameCameras : MonoBehaviour
 {
@@ -7,13 +9,14 @@ public sealed class GameCameras : MonoBehaviour
 
     [SerializeField] private CameraController cameraController;
     [SerializeField] private CameraTarget     cameraTarget;
-    [SerializeField] private CameraFade       cameraFade;
+    [FormerlySerializedAs("cameraFade")]
+    [SerializeField] private CameraFade       fade;
     [SerializeField] private CameraShakeCueService shakeCues;
     [SerializeField] private Camera           hudCamera;
 
     public CameraController Controller => cameraController;
     public CameraTarget     Target     => cameraTarget;
-    public CameraFade       Fade       => cameraFade;
+    public CameraFade       Fade       => fade;
     public CameraShakeCueService ShakeCues => shakeCues;
     public ICameraShakeService ShakeService => shakeCues;
     public Camera           HudCamera  => hudCamera;
@@ -107,6 +110,39 @@ public sealed class GameCameras : MonoBehaviour
         if (cameraController != null) cameraController.SnapToTarget();
     }
 
+    public IEnumerator FadeOut(float duration = -1f)
+    {
+        if (fade == null)
+        {
+            Debug.LogWarning("[GameCameras] FadeOut requested, but no CameraFade is assigned. Continuing without a screen fade.", this);
+            yield break;
+        }
+
+        yield return StartCoroutine(fade.FadeOut(duration));
+    }
+
+    public IEnumerator FadeIn(float duration = -1f)
+    {
+        if (fade == null)
+        {
+            Debug.LogWarning("[GameCameras] FadeIn requested, but no CameraFade is assigned. Continuing without a screen fade.", this);
+            yield break;
+        }
+
+        yield return StartCoroutine(fade.FadeIn(duration));
+    }
+
+    public void SetBlack()
+    {
+        if (fade == null)
+        {
+            Debug.LogWarning("[GameCameras] SetBlack requested, but no CameraFade is assigned. Continuing without a screen fade.", this);
+            return;
+        }
+
+        fade.SetBlack();
+    }
+
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         DisableExternalAudioListeners();
@@ -169,8 +205,9 @@ public sealed class GameCameras : MonoBehaviour
 
     private void OnCameraFadeRequested(CameraFadeRequest request)
     {
-        if (cameraFade == null)
+        if (fade == null)
         {
+            Debug.LogWarning("[GameCameras] Camera fade request ignored because no CameraFade is assigned.", this);
             return;
         }
 
@@ -180,8 +217,8 @@ public sealed class GameCameras : MonoBehaviour
         }
 
         fadeRoutine = StartCoroutine(request.Direction == CameraFadeDirection.Out
-            ? cameraFade.FadeOut(request.Duration)
-            : cameraFade.FadeIn(request.Duration));
+            ? fade.FadeOut(request.Duration)
+            : fade.FadeIn(request.Duration));
     }
 
     private void OnCameraShakeRequested(CameraShakeRequest request)
@@ -237,4 +274,12 @@ public sealed class GameCameras : MonoBehaviour
         cameraController?.StopFreeze(true);
         freezeRoutine = null;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (fade == null)
+            Debug.LogWarning("[GameCameras] No CameraFade assigned. Scene transitions will continue, but no screen fade will be shown.", this);
+    }
+#endif
 }

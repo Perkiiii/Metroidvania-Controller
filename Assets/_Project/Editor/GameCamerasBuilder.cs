@@ -71,6 +71,7 @@ public static class GameCamerasBuilder
         hudCamGO.transform.localPosition = hudCamPos;
 
         Camera hudCam = GetOrAddComponent<Camera>(hudCamGO);
+        hudCam.enabled          = false;
         hudCam.orthographic     = true;
         hudCam.orthographicSize = 8.71f;  // HK HUD camera value
         hudCam.clearFlags       = CameraClearFlags.Depth;
@@ -83,10 +84,11 @@ public static class GameCamerasBuilder
         // FadeCanvas  (child of root)
         // ---------------------------------------------------------------
         GameObject canvasGO = GetOrCreateChild(root, "FadeCanvas");
+        canvasGO.transform.localScale = Vector3.one;
 
         Canvas canvas = GetOrAddComponent<Canvas>(canvasGO);
-        canvas.renderMode    = RenderMode.ScreenSpaceCamera;
-        canvas.worldCamera   = hudCam;
+        canvas.renderMode    = RenderMode.ScreenSpaceOverlay;
+        canvas.worldCamera   = null;
         canvas.planeDistance = 1f;
         canvas.sortingOrder  = 999;
 
@@ -149,7 +151,7 @@ public static class GameCamerasBuilder
         SerializedObject so = new SerializedObject(gc);
         so.FindProperty("cameraController").objectReferenceValue = ctrl;
         so.FindProperty("cameraTarget").objectReferenceValue     = target;
-        so.FindProperty("cameraFade").objectReferenceValue       = fade;
+        so.FindProperty("fade").objectReferenceValue             = fade;
         so.FindProperty("shakeCues").objectReferenceValue        = shakeCues;
         so.FindProperty("hudCamera").objectReferenceValue        = hudCam;
         so.ApplyModifiedProperties();
@@ -167,7 +169,10 @@ public static class GameCamerasBuilder
     private static void WireCameraFade(CameraFade fade, CanvasGroup group)
     {
         SerializedObject so = new SerializedObject(fade);
-        so.FindProperty("fadeGroup").objectReferenceValue = group;
+        so.FindProperty("canvasGroup").objectReferenceValue = group;
+        so.FindProperty("defaultFadeOutDuration").floatValue = 0.25f;
+        so.FindProperty("defaultFadeInDuration").floatValue = 0.6f;
+        so.FindProperty("startClear").boolValue = true;
         so.ApplyModifiedProperties();
     }
 
