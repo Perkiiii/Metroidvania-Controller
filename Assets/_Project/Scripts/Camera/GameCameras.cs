@@ -100,6 +100,13 @@ public sealed class GameCameras : MonoBehaviour
         cameraController?.SceneInit();
     }
 
+    public void RebindForSceneEntry()
+    {
+        if (cameraController != null) cameraController.SceneInit();
+        if (cameraTarget != null)     cameraTarget.SnapToHero();
+        if (cameraController != null) cameraController.SnapToTarget();
+    }
+
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         DisableExternalAudioListeners();

@@ -130,21 +130,7 @@ public sealed class HeroAnimationController : MonoBehaviour
             return;
         }
 
-#if UNITY_EDITOR
-        animationLibrary = UnityEditor.AssetDatabase.LoadAssetAtPath<HeroAnimationLibrary>(
-            "Assets/_Project/ScriptableObjects/Hero/HeroAnimationLibrary.asset");
-        if (animationLibrary != null)
-        {
-            return;
-        }
-
-        animationLibrary = ScriptableObject.CreateInstance<HeroAnimationLibrary>();
-        animationLibrary.idle = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/HeroIdle.anim");
-        animationLibrary.walk = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/HeroWalk.anim");
-        animationLibrary.run = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/HeroRun.anim");
-        animationLibrary.jump = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/HeroJump.anim");
-        animationLibrary.fall = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/_Project/Animations/HeroFall.anim");
-#endif
+        Debug.LogError("[HeroAnimationController] HeroAnimationLibrary is not assigned. Assign it on HeroController or HeroAnimationController before play.", this);
     }
 
     private void AddLocomotionClip(AnimationClip clip, float threshold, List<float> thresholds)

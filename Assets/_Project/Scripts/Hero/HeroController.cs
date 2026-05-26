@@ -30,6 +30,7 @@ public class HeroController : MonoBehaviour
     private HeroHealthComponent health;
     private HeroCameraSignalBridge cameraSignals;
     private HeroAudioController audioController;
+    private HeroSceneEntry sceneEntry;
     private SpriteFlash flasher;
 
     private Rigidbody2D body;
@@ -102,6 +103,18 @@ public class HeroController : MonoBehaviour
         actions?.CancelAttack();
     }
 
+    public void BeginSceneEntryPlacement(TransitionPoint destinationGate)
+    {
+        if (sceneEntry != null) sceneEntry.PrepareSceneEntry(destinationGate);
+    }
+
+    public void BeginSceneEntryMotion(TransitionPoint destinationGate)
+    {
+        if (sceneEntry != null) sceneEntry.PlaySceneEntryMotion(destinationGate);
+    }
+
+    public bool IsEnteringScene => sceneEntry != null && sceneEntry.IsEnteringScene;
+
     public void ResetAfterRespawn()
     {
         ResetTransientHeroState();
@@ -159,22 +172,12 @@ public class HeroController : MonoBehaviour
     {
         if (config == null)
         {
-#if UNITY_EDITOR
-            config = UnityEditor.AssetDatabase.LoadAssetAtPath<HeroConfig>("Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset");
-#endif
-        }
-
-        if (config == null)
-        {
-            config = ScriptableObject.CreateInstance<HeroConfig>();
+            Debug.LogError("[HeroController] HeroConfig is not assigned. Assign Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset on the Hero prefab.", this);
         }
 
         if (animationLibrary == null)
         {
-#if UNITY_EDITOR
-            animationLibrary = UnityEditor.AssetDatabase.LoadAssetAtPath<HeroAnimationLibrary>(
-                "Assets/_Project/ScriptableObjects/Hero/HeroAnimationLibrary.asset");
-#endif
+            Debug.LogError("[HeroController] HeroAnimationLibrary is not assigned. Assign Assets/_Project/ScriptableObjects/Hero/HeroAnimationLibrary.asset on the Hero prefab.", this);
         }
 
         body = GetComponent<Rigidbody2D>();
@@ -203,6 +206,7 @@ public class HeroController : MonoBehaviour
         health = GetOrAdd<HeroHealthComponent>();
         cameraSignals = GetOrAdd<HeroCameraSignalBridge>();
         audioController = GetOrAdd<HeroAudioController>();
+        sceneEntry = GetOrAdd<HeroSceneEntry>();
         flasher = GetComponentInChildren<SpriteFlash>(true);
     }
 
@@ -221,6 +225,7 @@ public class HeroController : MonoBehaviour
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         health.Initialize(config);
         cameraSignals.Initialize(blackboard, inputReader);
+        sceneEntry.Initialize(this, motor, blackboard, config);
 
         health.OnDamaged += HandleDamaged;
         health.OnHazardDamaged += HandleHazardDamaged;

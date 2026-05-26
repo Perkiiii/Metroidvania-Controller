@@ -19,6 +19,7 @@ public sealed class GameManager : MonoBehaviour
     private RespawnMarker _activeRespawnMarker;
     private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
     private bool _respawnOrRecoveryInProgress;
+    private bool _isTransitioning;
     // Cached on scene load after any initial hero placement. Used as emergency fallback when
     // no RespawnMarker or HazardRespawnMarker exists, to avoid leaving the hero in the hazard.
     private Vector3 _sceneFallbackPosition;
@@ -58,38 +59,89 @@ public sealed class GameManager : MonoBehaviour
     // Scene transitions
     // -------------------------------------------------------------------------
 
-    public void BeginSceneTransition(string targetScene, string entryMarkerTag = "")
+    public void BeginSceneTransition(string targetScene, string entryGateKey = "")
     {
-        StartCoroutine(TransitionRoutine(targetScene, entryMarkerTag));
-    }
-
-    private IEnumerator TransitionRoutine(string targetScene, string entryMarkerTag)
-    {
-        State = GameState.Loading;
-        CameraShakeRequester.ShakeStop();
-
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
-
-        AsyncOperation load = SceneManager.LoadSceneAsync(targetScene);
-        while (!load.isDone)
-            yield return null;
-
-        // SceneInit fires inside OnSceneLoaded — camera and hero are repositioned there
-        PositionHeroAtMarker(entryMarkerTag);
-
-        if (GameCameras.Instance != null)
+        if (_isTransitioning)
         {
-            GameCameras.Instance.Target.SnapToHero();
-            GameCameras.Instance.Controller.SnapToTarget();
+            Debug.LogWarning($"[GameManager] Ignoring BeginSceneTransition('{targetScene}') — a transition is already in progress.");
+            return;
         }
 
-        yield return new WaitForSecondsRealtime(0.1f);
+        if (string.IsNullOrEmpty(targetScene))
+        {
+            Debug.LogError("[GameManager] BeginSceneTransition called with empty targetScene; rejected.");
+            return;
+        }
 
-        if (GameCameras.Instance != null)
-            yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+        if (!Application.CanStreamedLevelBeLoaded(targetScene))
+        {
+            Debug.LogError($"[GameManager] Scene '{targetScene}' is not in Build Settings; rejected.");
+            return;
+        }
 
-        State = GameState.Playing;
+        _isTransitioning = true;
+        StartCoroutine(TransitionRoutine(targetScene, entryGateKey));
+    }
+
+    private IEnumerator TransitionRoutine(string targetScene, string entryGateKey)
+    {
+        try
+        {
+            State = GameState.Loading;
+            CameraShakeRequester.ShakeStop();
+
+            // Lock the outgoing hero so input is ignored during fade-out, even though
+            // the hero will be destroyed when the scene unloads.
+            if (_hero != null) _hero.AddControlLock(this);
+
+            if (GameCameras.Instance != null)
+                yield return StartCoroutine(GameCameras.Instance.Fade.FadeOut());
+
+            AsyncOperation load = SceneManager.LoadSceneAsync(targetScene);
+            while (!load.isDone)
+                yield return null;
+            // OnSceneLoaded fires SceneInit, repopulates _hero, resolves saved respawn marker.
+
+            State = GameState.EnteringLevel;
+
+            // Phase A — placement: resolve destination gate, place hero, lock control.
+            // Synchronous; happens behind the still-black screen.
+            TransitionPoint dest = !string.IsNullOrEmpty(entryGateKey)
+                ? TransitionPoint.FindByGateKey(entryGateKey)
+                : null;
+
+            if (dest == null && !string.IsNullOrEmpty(entryGateKey))
+                Debug.LogWarning($"[GameManager] No TransitionPoint with key '{entryGateKey}' found in '{SceneManager.GetActiveScene().name}'.");
+
+            if (dest != null && _hero != null)
+                _hero.BeginSceneEntryPlacement(dest);
+
+            // Rebind camera to the placed hero position.
+            if (GameCameras.Instance != null)
+                GameCameras.Instance.RebindForSceneEntry();
+
+            yield return new WaitForSecondsRealtime(0.1f);
+
+            // Phase B — fade in so the entry motion is visible.
+            if (GameCameras.Instance != null)
+                yield return StartCoroutine(GameCameras.Instance.Fade.FadeIn());
+
+            // Phase C — play the scripted motion. Hero stays input-locked throughout.
+            if (dest != null && _hero != null)
+            {
+                _hero.BeginSceneEntryMotion(dest);
+                while (_hero != null && _hero.IsEnteringScene)
+                    yield return null;
+            }
+
+            // Phase D — hand control back. HeroSceneEntry's finally has removed its own
+            // control lock; GameManager promotes state to Playing.
+            State = GameState.Playing;
+        }
+        finally
+        {
+            _isTransitioning = false;
+        }
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -322,14 +374,6 @@ public sealed class GameManager : MonoBehaviour
             }
         }
         return nearest.RespawnPosition;
-    }
-
-    private void PositionHeroAtMarker(string markerTag)
-    {
-        if (string.IsNullOrEmpty(markerTag)) return;
-        GameObject marker = GameObject.FindWithTag(markerTag);
-        if (marker != null && _hero != null)
-            _hero.transform.position = marker.transform.position;
     }
 
     // -------------------------------------------------------------------------

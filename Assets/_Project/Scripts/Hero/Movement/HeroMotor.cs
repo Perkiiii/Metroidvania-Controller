@@ -20,6 +20,10 @@ public sealed class HeroMotor : MonoBehaviour
     private float savedGravityScale;
     private float wallSlideInitialTimer;
 
+    private bool scriptedEntryActive;
+    private Vector2 scriptedVelocityTarget;
+    private bool scriptedLockY;
+
     public Vector2 Velocity => body != null ? body.linearVelocity : Vector2.zero;
 
     public void Initialize(
@@ -188,6 +192,48 @@ public sealed class HeroMotor : MonoBehaviour
         body.linearVelocity = velocity;
     }
 
+    public void BeginScriptedEntry(bool zeroGravity)
+    {
+        scriptedEntryActive = true;
+        scriptedVelocityTarget = Vector2.zero;
+        scriptedLockY = true;
+        SetNormalMovementSuppressed(true);
+        if (zeroGravity)
+        {
+            SetGravitySuspended(true);
+        }
+        ResetJumpRuntime();
+    }
+
+    public void EndScriptedEntry()
+    {
+        scriptedEntryActive = false;
+        scriptedLockY = true;
+        scriptedVelocityTarget = Vector2.zero;
+        SetGravitySuspended(false);
+        SetNormalMovementSuppressed(false);
+    }
+
+    public void SetScriptedVelocity(Vector2 velocity)
+    {
+        scriptedVelocityTarget = velocity;
+        scriptedLockY = true;
+        if (body != null)
+        {
+            body.linearVelocity = velocity;
+        }
+    }
+
+    public void SetScriptedVelocityX(float velocityX)
+    {
+        scriptedVelocityTarget = new Vector2(velocityX, 0f);
+        scriptedLockY = false;
+        if (body != null)
+        {
+            body.linearVelocity = new Vector2(velocityX, body.linearVelocity.y);
+        }
+    }
+
     public void ResetMotion()
     {
         ResetJumpRuntime();
@@ -320,6 +366,18 @@ public sealed class HeroMotor : MonoBehaviour
         ApplyWallSlideVelocity(fixedDeltaTime);
         ClampFallSpeed();
         ApplyFacingVisuals();
+
+        if (scriptedEntryActive)
+        {
+            if (scriptedLockY)
+            {
+                body.linearVelocity = scriptedVelocityTarget;
+            }
+            else
+            {
+                body.linearVelocity = new Vector2(scriptedVelocityTarget.x, body.linearVelocity.y);
+            }
+        }
 
         blackboard.velocity = body.linearVelocity;
         blackboard.rising = body.linearVelocity.y > 0.01f;
