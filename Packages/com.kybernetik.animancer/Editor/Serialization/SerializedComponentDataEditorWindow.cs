@@ -41,7 +41,7 @@ namespace Animancer.Editor
                 var source = base.SourceObject;
 
                 if (source == null && _SourceGameObject != null)
-                    source = base.SourceObject = EditorUtility.InstanceIDToObject(_SourceComponentInstanceID) as TObject;
+                    source = base.SourceObject = EditorUtility.EntityIdToObject(_SourceComponentInstanceID) as TObject;
 
                 return source;
             }

@@ -60,7 +60,7 @@ namespace Animancer.Editor
             private void Initialize()
             {
                 if (_Object == null)
-                    _Object = EditorUtility.InstanceIDToObject(_InstanceID);
+                    _Object = EditorUtility.EntityIdToObject(_InstanceID);
                 else
                     _InstanceID = _Object.GetInstanceID();
             }

@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a9752b0c8e144801967e6897679604b, type: 3}
+  m_Name: vHierarchy Data
+  m_EditorClassIdentifier: VHierarchy::VHierarchy.VHierarchyData
+  sceneDatas_byGuid:
+    keys:
+    - 9b5e4b1128e97484eb163240a5574117
+    - 8c9cfa26abfee488c85f1582747f6a02
+    values:
+    - goDatas_byGlobalId:
+        keys:
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-433925806-0
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-4722012122128813788-584695758
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-183559699-0
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-2224048871189733559-2111434826
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-1006050081-0
+        - globalObjectIdString: GlobalObjectId_V1-2-9b5e4b1128e97484eb163240a5574117-1570171159-0
+        values:
+        - colorIndex: 0
+          iconNameOrGuid: PreMatCube
+          isIconRecursive: 0
+          isColorRecursive: 0
+        - colorIndex: 0
+          iconNameOrGuid: AvatarMask On Icon
+          isIconRecursive: 0
+          isColorRecursive: 0
+        - colorIndex: 0
+          iconNameOrGuid: PreMatCube
+          isIconRecursive: 0
+          isColorRecursive: 0
+        - colorIndex: 0
+          iconNameOrGuid: PreMatCube
+          isIconRecursive: 0
+          isColorRecursive: 0
+        - colorIndex: 0
+          iconNameOrGuid: Canvas Icon
+          isIconRecursive: 0
+          isColorRecursive: 0
+        - colorIndex: 0
+          iconNameOrGuid: DirectionalLight Icon
+          isIconRecursive: 0
+          isColorRecursive: 0
+    - goDatas_byGlobalId:
+        keys: []
+        values: []
+  bookmarks: []
+  bookmarkedScenePaths: []
