@@ -1,10 +1,11 @@
 # WGE Integration Strategy for Underbrew
 
-*Revised 2026-06-02. Updated after checking the actual World Graph Editor source. Earlier
-strategy notes treated WGE API details as unverified and recommended a companion binding
-component. The verified API changes that recommendation: `TransitionPoint` can directly inherit
-from `WorldGraphEditor.PassageBase` while Underbrew keeps ownership of runtime scene loading,
-spawn placement, save flow, camera, audio, and hero physics.*
+*Revised 2026-06-02. Updated after checking the actual World Graph Editor source from
+`Perkiiii/World-Graph-Editor-v1.2` on GitHub. Earlier strategy notes treated WGE API details as
+unverified and recommended a companion binding component. The verified API changes that
+recommendation: `TransitionPoint` can directly inherit from `WorldGraphEditor.PassageBase` while
+Underbrew keeps ownership of runtime scene loading, spawn placement, save flow, camera, audio, and
+hero physics.*
 
 ---
 
@@ -15,9 +16,10 @@ Underbrew's scene-transition architecture is deliberately narrow. Every transiti
 resolved by `TransitionPoint.FindByGateKey(key)`, and `HeroSceneEntry` owns spawn placement and entry
 motion by reading the resolved `TransitionPoint`.
 
-World Graph Editor (WGE) provides a useful graph-authoring layer through `WorldGraphContainer` and
-`PassageBase`. After checking the actual WGE source, `PassageBase` is safe enough for direct
-integration:
+World Graph Editor (WGE) provides the authoring layer Underbrew wants: a graph-backed port dropdown
+that automatically stores an assigned GUID and displays the target scene. In WGE's own `Passage2D`,
+that good authoring UX comes from `PassageBase`, not from `Passage2D`'s runtime traversal logic.
+After checking the actual WGE source, `PassageBase` is safe enough for direct integration:
 
 - It does **not** require `Traverse()`.
 - It does **not** call `TransitionManager`.
@@ -26,7 +28,9 @@ integration:
 - The only abstract method left for `TransitionPoint` is `GetSpawnPosition()`.
 
 The unsafe WGE runtime path lives in `Passage2D`, `TeleportBase` derivatives, and
-`TransitionManager`. Those should not be used by Underbrew gates.
+`TransitionManager`. Those should not be used by Underbrew gates. The goal is to reuse the
+`PassageBase` authoring workflow that makes `Passage2D` convenient, while rejecting
+`Passage2D`'s trigger-driven runtime transition behaviour.
 
 **Recommended integration:** refactor `TransitionPoint` directly to inherit `PassageBase`, use the
 selected WGE port GUID as the gate key when present, resolve graph data into
@@ -51,16 +55,39 @@ fields as fallback during migration.
 
 ---
 
+## GitHub Audit Findings
+
+The following details were verified against `Perkiiii/World-Graph-Editor-v1.2` on GitHub:
+
+- **`PassageBase` is the useful integration surface.** It owns `_assignedPort`, editor-only
+  `_assignedGuid`, editor-only `_targetScene`, `Refresh(RefreshContext)`, `GetGuid()`, and abstract
+  `GetSpawnPosition()`.
+- **`PortsDropdown` is build-safe after refresh/selection.** It serializes `_selectedGuid`; in builds,
+  `GetSelectedValue()` returns that serialized GUID directly. In the Editor, refresh/selection keeps
+  `_selectedGuid` synchronized with the selected display name.
+- **`Passage2D` is runtime-incompatible with Underbrew.** `OnTriggerEnter2D` calls `Traverse()`, and
+  `Traverse()` calls `TransitionManager.Instance.GoFrom(GetGuid(), true)`. That bypasses
+  `GameManager.BeginSceneTransition`.
+- **`TransitionManager` conflicts with Underbrew runtime ownership.** It loads scenes, finds WGE
+  transition components, calculates spawn positions, may instantiate a player, and invokes WGE
+  transition events.
+- **WGE editor tooling expects its manager prefab.** `TransitionComponentRefresher`, WGE validation,
+  overlays, and build preprocessing read the container through `Resources/TransitionManager.prefab`.
+  Keep that prefab for editor tooling, but disable runtime auto-load.
+
+---
+
 ## What WGE Provides
 
 | Category | Key systems | Notes |
 |---|---|---|
 | Graph authoring | `WorldGraphContainer` holds scene nodes and connection data. | Authoring happens in the WGE editor window. |
 | Port selection | `PassageBase` owns the selected port data, assigned GUID, target scene, and `GetGuid()`. | This is the part Underbrew should reuse directly. |
+| Port dropdown persistence | `PortsDropdown` serializes `_selectedGuid`. | After refresh/selection, GUID lookup works in builds. |
 | Runtime graph resolution | `WorldGraphContainer.CanPassTransition(sourceGuid, ignoreShortcuts, out status)` and `GetTransitionData(sourceGuid, false)`. | Use these to resolve source port GUID to target scene build index and target port GUID. |
 | Runtime transitions | `Passage2D`, `TeleportBase` derivatives, and `TransitionManager`. | Do **not** use for Underbrew runtime transitions. They conflict with `GameManager.BeginSceneTransition`. |
 | Spawn points | WGE spawn point components. | Do **not** use. Underbrew already owns spawn placement through `HeroSceneEntry`, `RespawnMarker`, and `TransitionPoint` entry data. |
-| Editor validation | WGE graph consistency tooling. | Useful alongside `TransitionGateLinkValidator`. |
+| Editor refresh/validation | WGE graph consistency tooling, `TransitionComponentRefresher`, and build preprocessing. | Useful alongside `TransitionGateLinkValidator`; expects WGE `Resources/TransitionManager.prefab` to exist with a container assigned. |
 
 ---
 
@@ -72,7 +99,7 @@ fields as fallback during migration.
 | Destination lookup | `TransitionPoint.FindByGateKey` | Must compare against `candidate.GateKey` so GUID-backed gates can be found. |
 | Spawn placement and entry motion | `HeroSceneEntry`, `TransitionPoint` entry fields | WGE never moves or spawns the hero. |
 | Hero physics | `HeroMotor` | WGE never writes hero velocity. |
-| Save and respawn | `SaveManager`, `RespawnMarker`, checkpoint and hazard flows | WGE data must not appear in save data in this first integration pass. |
+| Save and respawn | `SaveManager`, `RespawnMarker`, checkpoint and hazard flows | WGE data must not appear in save data in this first integration pass. `TransitionPoint.linkedRespawnMarker` remains reserved and is not consumed. |
 | Camera and audio | Existing Underbrew camera/audio systems | No WGE camera/audio integration. |
 
 ---
@@ -83,11 +110,15 @@ fields as fallback during migration.
 
 1. Import WGE under `Assets/WorldGraphEditor/`.
 2. Confirm Unity compiles.
-3. Do not add WGE `TransitionManager` prefabs to Boot or gameplay scenes.
-4. Do not add `Passage2D`, `Teleport2D`, or WGE spawn point components to Underbrew gates.
-5. Create or confirm a `WorldGraphContainer` asset for the Underbrew scenes.
-6. Add both scenes to Build Settings and graph them in WGE.
-7. Add ports matching the existing Underbrew gates.
+3. Keep WGE `Assets/WorldGraphEditor/Resources/TransitionManager.prefab` for editor tooling.
+4. Assign the Underbrew `WorldGraphContainer` asset to that WGE manager prefab.
+5. Set the WGE manager prefab's `_autoLoad` to `false` so WGE `Bootstrapper` does not create a
+   runtime `TransitionManager`.
+6. Do not add WGE `TransitionManager` instances to Boot or gameplay scenes.
+7. Do not add `Passage2D`, `Teleport2D`, or WGE spawn point components to Underbrew gates.
+8. Create or confirm a `WorldGraphContainer` asset for the Underbrew scenes.
+9. Add both scenes to Build Settings and graph them in WGE.
+10. Add ports matching the existing Underbrew gates.
 
 ### Phase 1 — Add A Resolver, No Scene Loading
 
@@ -106,8 +137,14 @@ Assets/_Project/Scripts/WorldGraph/WorldGraphTransitionResolver.cs
 4. Call `container.CanPassTransition(sourcePortGuid, ignoreShortcuts, out status)`.
 5. Call `container.GetTransitionData(sourcePortGuid, false)` when passage is allowed.
 6. Read `RuntimeTransitionData.TargetPassageGuid` and `RuntimeTransitionData.TargetSceneBuildIndex`.
-7. Convert build index to scene name with `SceneUtility.GetScenePathByBuildIndex(buildIndex)`.
-8. Validate the scene name with `Application.CanStreamedLevelBeLoaded`.
+7. Convert build index to a scene name explicitly:
+
+```csharp
+string path = SceneUtility.GetScenePathByBuildIndex(buildIndex);
+string sceneName = Path.GetFileNameWithoutExtension(path);
+```
+
+8. Validate `sceneName`, not the `.unity` path, with `Application.CanStreamedLevelBeLoaded`.
 9. Return pure data only.
 
 The resolver must never call `SceneManager.LoadSceneAsync`, instantiate a player, move the hero, or
@@ -147,6 +184,16 @@ WorldGraphTransitionResolver.SetContainer(worldGraphContainer);
 ```
 
 Do not put WGE transition ownership into `GameManager`.
+
+Assign the same `WorldGraphContainer` asset to:
+
+- Underbrew `Bootstrap`, for runtime resolver access.
+- WGE `Assets/WorldGraphEditor/Resources/TransitionManager.prefab`, for WGE editor refresh,
+  validation, overlays, and build preprocessing.
+
+The WGE manager prefab must remain an editor-tooling container source only. Its `_autoLoad` field
+must be disabled so `WorldGraphEditor.Bootstrapper` does not instantiate `TransitionManager` before
+scene load.
 
 ### Phase 3 — Refactor `TransitionPoint`
 
@@ -209,6 +256,11 @@ Preserve existing activation guards:
 - wrong-direction push-back
 - `GameManager.Instance.State == GameState.Playing`
 - `localTransitionGuard = true` only after transition starts
+
+Do **not** add `GameManager.SetActiveRespawnMarker(linkedRespawnMarker)` in this WGE pass.
+Underbrew's current design explicitly keeps gate traversal separate from checkpoint respawn policy:
+death after crossing a gate returns to the last activated checkpoint, not to the entry door.
+`linkedRespawnMarker` remains reserved for a future policy pass.
 
 Replace only the destination resolution section:
 
@@ -286,13 +338,29 @@ using (new EditorGUI.DisabledScope(true))
 }
 ```
 
-The editor must provide a `RefreshContext`. Since `RefreshContext` only needs an
-`ITransitionManager` with a `WorldGraphContainer`, create a small editor-only adapter instead of
-depending on WGE `TransitionManager`.
+After `RefreshPassageBaseData()` and any dropdown change, persist scene-object data:
 
-The editor still needs a source for the graph asset. Recommended first pass: create a small
-Underbrew settings asset for the `WorldGraphContainer`. This avoids scene scanning and keeps the
-editor independent of whether the Boot scene is loaded.
+```csharp
+bool changed = serializedObject.ApplyModifiedProperties();
+if (changed)
+{
+    EditorUtility.SetDirty(target);
+    EditorSceneManager.MarkSceneDirty(((TransitionPoint)target).gameObject.scene);
+}
+```
+
+This is important because the inspector may display a valid selected port, assigned GUID, and target
+scene, but builds rely on the serialized `_selectedGuid` stored by `PortsDropdown`.
+
+The editor must provide a `RefreshContext`. Since `RefreshContext` only needs an
+`ITransitionManager` with a `WorldGraphContainer`, the simplest first pass is to use WGE's existing
+`Resources/TransitionManager.prefab` as the container source. WGE's own
+`TransitionComponentRefresher` and validation path already depend on that prefab, so this avoids
+forking the refresh model.
+
+Only create a separate Underbrew editor settings asset if WGE's refresh tooling is intentionally
+customized later. If that happens, keep it synchronized with the container assigned to `Bootstrap`
+and document the reason.
 
 ### Phase 6 — Validator Pass
 
@@ -338,12 +406,17 @@ target port GUID.
 ## Runtime Rules
 
 - Do not use WGE `TransitionManager` for gameplay scene loading.
-- Do not place WGE `TransitionManager` prefabs in Boot or gameplay scenes.
+- Keep WGE `Resources/TransitionManager.prefab` for editor tooling, with the graph container
+  assigned and `_autoLoad` set to `false`.
+- Do not place WGE `TransitionManager` instances in Boot or gameplay scenes.
+- Confirm no WGE `TransitionManager` instance is created at runtime.
 - Do not put `Passage2D`, `Teleport2D`, or WGE spawn point components on Underbrew gates.
 - Do not call `SceneManager.LoadSceneAsync` from WGE adapters.
 - Do not move or spawn the hero from WGE code.
 - Do not write hero physics outside `HeroMotor`.
 - Do not add WGE data to save files in the first integration pass.
+- Do not call `GameManager.SetActiveRespawnMarker` from `TransitionPoint`; `linkedRespawnMarker`
+  remains reserved and unused at runtime.
 - Keep legacy gate fields until every scene has been migrated and tested.
 
 ---
@@ -360,16 +433,20 @@ No Unity tests or playtests have been run for this strategy. Validate in Editor 
 6. Wrong-direction or invalid activation still rejects and applies push-back correctly.
 7. Door interact gates still require interact.
 8. Death and respawn still use Underbrew `SaveManager` / `RespawnMarker`, not WGE spawn points.
-9. No `TransitionManager` prefab exists in Boot or gameplay scenes.
-10. No `Passage2D` or `Teleport2D` components are on Underbrew gates.
-11. Standalone build completes with all WGE-backed and legacy transitions functional.
+9. WGE `Resources/TransitionManager.prefab` exists for editor tooling and has `_autoLoad` disabled.
+10. Add a temporary integration smoke check that logs or asserts if
+    `FindAnyObjectByType<WorldGraphEditor.TransitionManager>()` returns a runtime instance.
+11. No WGE `TransitionManager` instance is created at runtime.
+12. No `Passage2D`, `Teleport2D`, or WGE spawn point components are on Underbrew gates.
+13. Standalone build completes with all WGE-backed and legacy transitions functional.
 
 ---
 
 ## Open Questions Before Implementation
 
-1. **Container settings location.** Should the editor read the `WorldGraphContainer` from a new
-   Underbrew settings asset, from `Bootstrap`, or from an existing WGE global setting?
+1. **Container synchronization.** The same `WorldGraphContainer` must be assigned to WGE's
+   `Resources/TransitionManager.prefab` and Underbrew `Bootstrap`. If a future settings asset is
+   introduced, define one owner and one synchronization path.
 2. **Shortcut gating.** WGE distinguishes normal edges, one-way edges, and shortcuts. For now use
    `ignoreShortcuts = false`; revisit when ability gating or locked shortcuts are implemented.
 3. **Scene name format.** Confirm whether `GameManager.BeginSceneTransition` expects the scene name
@@ -387,6 +464,8 @@ No Unity tests or playtests have been run for this strategy. Validate in Editor 
 - **Scene loading flow.** Do not call `SceneManager.LoadSceneAsync` outside `GameManager.BeginSceneTransition`.
 - **Physics ownership.** Do not write hero velocity except through `HeroMotor`.
 - **Save/load timing.** Do not add new save points or call `SaveManager.Save()` outside checkpoint interactions.
+- **Checkpoint respawn policy.** Do not wire `TransitionPoint.linkedRespawnMarker` or call
+  `GameManager.SetActiveRespawnMarker` from gate traversal in this integration pass.
 - **Audio and camera systems.** Do not integrate WGE audio or camera logic.
 - **`HeroSceneEntry.cs`.** No WGE changes required.
 - **`HeroMotor.cs`.** No WGE changes required.
@@ -411,6 +490,10 @@ because the verified WGE API is safe for direct authoring integration: only
 `GetSpawnPosition()` is abstract, `PassageBase` has no runtime scene-loading behavior, and the
 dangerous WGE runtime path lives outside `PassageBase`.
 
+Do **not** use `Passage2D` as the gate component even though its inspector has the desired Assigned
+GUID / Target Scene workflow. That workflow comes from `PassageBase`; `Passage2D` adds the forbidden
+runtime trigger path through WGE `TransitionManager`.
+
 Keep Underbrew runtime ownership by resolving WGE graph data into:
 
 ```csharp
@@ -424,3 +507,15 @@ candidate.GateKey == key
 ```
 
 instead of comparing against the private legacy `gateKey` field.
+
+---
+
+## Unity Editor Setup Required
+
+1. Import WGE under `Assets/WorldGraphEditor/`.
+2. Create or confirm the Underbrew `WorldGraphContainer` asset.
+3. Assign that container to `Assets/WorldGraphEditor/Resources/TransitionManager.prefab`.
+4. Disable `_autoLoad` on the WGE `TransitionManager` prefab.
+5. Assign the same container to the Boot scene's `Bootstrap` component.
+6. Select WGE ports on each `TransitionPoint`; verify Assigned GUID and Target Scene populate.
+7. Confirm no Underbrew gate uses `Passage2D`, `Teleport2D`, or WGE spawn point components.
