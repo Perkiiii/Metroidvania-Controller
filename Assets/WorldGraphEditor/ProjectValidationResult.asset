@@ -32,24 +32,35 @@ MonoBehaviour:
   - SCCIndex: 1
     TestResults:
     - Tested: 1
-      ScenePath: Assets/_Project/Scenes/SampleScene.unity
-      NodeName: SampleScene
+      ScenePath: Assets/_Project/Scenes/SampleScene3.unity
+      NodeName: SampleScene3
       ErrorsCount: 0
-      WarningsCount: 1
-      BuildIndex: 1
+      WarningsCount: 0
+      BuildIndex: 3
       TestResults:
-      - Description: Scene contains missing ports.
-        TestStatusType: 1
+      - Description: No missing ports found.
+        TestStatusType: 0
       - Description: No duplicate ports found.
         TestStatusType: 0
     - Tested: 1
       ScenePath: Assets/_Project/Scenes/SampleScene2.unity
       NodeName: SampleScene2
       ErrorsCount: 0
-      WarningsCount: 1
+      WarningsCount: 0
       BuildIndex: 2
       TestResults:
-      - Description: Scene contains missing ports.
-        TestStatusType: 1
+      - Description: No missing ports found.
+        TestStatusType: 0
+      - Description: No duplicate ports found.
+        TestStatusType: 0
+    - Tested: 1
+      ScenePath: Assets/_Project/Scenes/SampleScene.unity
+      NodeName: SampleScene
+      ErrorsCount: 0
+      WarningsCount: 0
+      BuildIndex: 1
+      TestResults:
+      - Description: No missing ports found.
+        TestStatusType: 0
       - Description: No duplicate ports found.
         TestStatusType: 0

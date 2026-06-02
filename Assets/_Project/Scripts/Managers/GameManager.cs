@@ -63,7 +63,7 @@ public sealed class GameManager : MonoBehaviour
     // Scene transitions
     // -------------------------------------------------------------------------
 
-    public bool BeginSceneTransition(string targetScene, string entryGateKey = "")
+    public bool BeginSceneTransition(string targetScene, string destinationPassageGuid = "")
     {
         if (_isTransitioning)
         {
@@ -84,11 +84,11 @@ public sealed class GameManager : MonoBehaviour
         }
 
         _isTransitioning = true;
-        StartCoroutine(TransitionRoutine(targetScene, entryGateKey));
+        StartCoroutine(TransitionRoutine(targetScene, destinationPassageGuid));
         return true;
     }
 
-    private IEnumerator TransitionRoutine(string targetScene, string entryGateKey)
+    private IEnumerator TransitionRoutine(string targetScene, string destinationPassageGuid)
     {
         HeroController lockedHero = null;
         bool controlLockAdded = false;
@@ -150,14 +150,14 @@ public sealed class GameManager : MonoBehaviour
 
             // Phase A — placement: resolve destination gate, place hero, lock control.
             // Synchronous; happens behind the still-black screen.
-            TransitionPoint dest = !string.IsNullOrEmpty(entryGateKey)
-                ? TransitionPoint.FindByGateKey(entryGateKey)
+            TransitionPoint dest = !string.IsNullOrEmpty(destinationPassageGuid)
+                ? TransitionPoint.FindByPassageGuid(destinationPassageGuid)
                 : null;
 
-            if (dest == null && !string.IsNullOrEmpty(entryGateKey))
+            if (dest == null && !string.IsNullOrEmpty(destinationPassageGuid))
             {
-                Debug.LogError($"[GameManager] No TransitionPoint with key '{entryGateKey}' found in '{SceneManager.GetActiveScene().name}'. Using scene fallback placement.");
-                PlaceHeroAtMissingGateFallback(entryGateKey);
+                Debug.LogError($"[GameManager] No TransitionPoint with passage GUID '{destinationPassageGuid}' found in '{SceneManager.GetActiveScene().name}'. Using scene fallback placement.");
+                PlaceHeroAtMissingPassageFallback(destinationPassageGuid);
                 if (_hero != null)
                 {
                     fallbackLockedHero = _hero;
@@ -226,7 +226,7 @@ public sealed class GameManager : MonoBehaviour
         }
     }
 
-    private void PlaceHeroAtMissingGateFallback(string missingGateKey)
+    private void PlaceHeroAtMissingPassageFallback(string missingPassageGuid)
     {
         if (_hero == null)
             return;
@@ -238,12 +238,12 @@ public sealed class GameManager : MonoBehaviour
             _hero.transform.position = marker.RespawnPosition;
             _hero.ForceFacingDirection(marker.FacingDirection);
             _sceneFallbackPosition = marker.RespawnPosition;
-            Debug.LogError($"[GameManager] Missing entry gate '{missingGateKey}'. Placed hero at fallback RespawnMarker '{marker.Key}'.", marker);
+            Debug.LogError($"[GameManager] Missing destination passage GUID '{missingPassageGuid}'. Placed hero at fallback RespawnMarker '{marker.Key}'.", marker);
             return;
         }
 
         _sceneFallbackPosition = _hero.transform.position;
-        Debug.LogError($"[GameManager] Missing entry gate '{missingGateKey}' and no RespawnMarker exists in scene '{SceneManager.GetActiveScene().name}'. Hero remains at authored scene position.");
+        Debug.LogError($"[GameManager] Missing destination passage GUID '{missingPassageGuid}' and no RespawnMarker exists in scene '{SceneManager.GetActiveScene().name}'. Hero remains at authored scene position.");
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

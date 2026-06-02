@@ -39,6 +39,11 @@ MonoBehaviour:
       IsInput: 0
       IsHorizontal: 0
       IsAdditional: 0
+    - Name: Right 0
+      Guid: 781f74c2-cbd2-4719-8890-99b0a813289e
+      IsInput: 0
+      IsHorizontal: 1
+      IsAdditional: 0
   - NodeName: SampleScene
     SceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
     SceneAssetGuid: 99c9720ab356a0642a771bea13969a05
@@ -57,6 +62,19 @@ MonoBehaviour:
       IsInput: 1
       IsHorizontal: 0
       IsAdditional: 0
+  - NodeName: SampleScene3
+    SceneAsset: {fileID: 102900000, guid: 877da1bbb8f61cf4ebac69ab8473ece3, type: 3}
+    SceneAssetGuid: 877da1bbb8f61cf4ebac69ab8473ece3
+    ScenePath: Assets/_Project/Scenes/SampleScene3
+    BuildIndex: 3
+    Guid: efc226b1-e327-4754-ad8e-2fe185fadb00
+    Position: {x: 1258.3999, y: 296}
+    PortsData:
+    - Name: Left 0
+      Guid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+      IsInput: 1
+      IsHorizontal: 1
+      IsAdditional: 0
   _edgesData:
   - TransitionType: 0
     IsFacingRight: 0
@@ -68,6 +86,11 @@ MonoBehaviour:
     FromPortGuid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
     ToPortGuid: b51dde29-5384-4923-8c31-c62785f04d94
     EdgeGuid: 90810cba-f244-4ccd-b30f-d6c421ca32e9
+  - TransitionType: 0
+    IsFacingRight: 0
+    FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+    ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
+    EdgeGuid: 20b49edf-3bf1-48ea-a535-a96643917892
   _testResults:
   - Tested: 1
     ScenePath: Assets/_Project/Scenes/Boot.unity
@@ -81,25 +104,36 @@ MonoBehaviour:
     - Description: No duplicate ports found.
       TestStatusType: 0
   - Tested: 1
-    ScenePath: Assets/_Project/Scenes/SampleScene2.unity
-    NodeName: SampleScene2
-    ErrorsCount: 0
-    WarningsCount: 1
-    BuildIndex: 2
-    TestResults:
-    - Description: Scene contains missing ports.
-      TestStatusType: 1
-    - Description: No duplicate ports found.
-      TestStatusType: 0
-  - Tested: 1
     ScenePath: Assets/_Project/Scenes/SampleScene.unity
     NodeName: SampleScene
     ErrorsCount: 0
-    WarningsCount: 1
+    WarningsCount: 0
     BuildIndex: 1
     TestResults:
-    - Description: Scene contains missing ports.
-      TestStatusType: 1
+    - Description: No missing ports found.
+      TestStatusType: 0
+    - Description: No duplicate ports found.
+      TestStatusType: 0
+  - Tested: 1
+    ScenePath: Assets/_Project/Scenes/SampleScene2.unity
+    NodeName: SampleScene2
+    ErrorsCount: 0
+    WarningsCount: 0
+    BuildIndex: 2
+    TestResults:
+    - Description: No missing ports found.
+      TestStatusType: 0
+    - Description: No duplicate ports found.
+      TestStatusType: 0
+  - Tested: 1
+    ScenePath: Assets/_Project/Scenes/SampleScene3.unity
+    NodeName: SampleScene3
+    ErrorsCount: 0
+    WarningsCount: 0
+    BuildIndex: 3
+    TestResults:
+    - Description: No missing ports found.
+      TestStatusType: 0
     - Description: No duplicate ports found.
       TestStatusType: 0
 --- !u!114 &11400000
@@ -121,10 +155,14 @@ MonoBehaviour:
     PortsGuid:
     - 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
     - b51dde29-5384-4923-8c31-c62785f04d94
+    - 781f74c2-cbd2-4719-8890-99b0a813289e
   - BuildIndex: 1
     PortsGuid:
     - 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
     - 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
+  - BuildIndex: 3
+    PortsGuid:
+    - c478de6a-980b-45bd-bcab-fd1beccc9f58
   _connectionsData:
   - TransitionType: 0
     IsFacingRight: 0
@@ -134,5 +172,9 @@ MonoBehaviour:
     IsFacingRight: 0
     FromPortGuid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
     ToPortGuid: b51dde29-5384-4923-8c31-c62785f04d94
+  - TransitionType: 0
+    IsFacingRight: 0
+    FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+    ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
   _hasErrors: 0
   _editorData: {fileID: -4457843452463174348}

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc1aa0c128b2465c8ae5f6876690583a, type: 3}
+  m_Name: UndoRedoSnapshotOverlayData
+  m_EditorClassIdentifier: WorldGraphEditor.Editor::WorldGraphEditor.Editor.UndoRedoSnapshotOverlayData
+  ScreenshotSettings:
+    Distance: 20
+    IsOrthographic: 1
+    Resolution: 1
+    NpotScale: 1
+    Center: {x: 0, y: 0, z: 0}
+    Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
+    Size: {x: 18, y: 10}
+    SceneGuid: 877da1bbb8f61cf4ebac69ab8473ece3

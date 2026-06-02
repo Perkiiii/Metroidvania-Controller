@@ -53,4 +53,4 @@ MonoBehaviour:
   _transitionStartedCallConfig: {fileID: 11400000, guid: bcc9d2730a34d2e499671913e698b708, type: 2}
   _sceneLoadedCallConfig: {fileID: 11400000, guid: 816a9c73a6ffc1a4ea04ac4bc0d2ca1c, type: 2}
   _transitionEndedCallConfig: {fileID: 11400000, guid: bfbd637cb7f341b479d3baf3bd6f8e3d, type: 2}
-  _printTransitions: 0
+  _printTransitions: 1

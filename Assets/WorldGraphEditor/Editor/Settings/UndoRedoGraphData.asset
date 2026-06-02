@@ -22,24 +22,6 @@ MonoBehaviour:
     Guid: 28926fcb-de29-484b-913b-b09367563257
     Position: {x: 404.80002, y: 96}
     PortsData: []
-  - NodeName: SampleScene2
-    SceneAsset: {fileID: 102900000, guid: a19d61ae3fca6e94ea8c4b1abb37849e, type: 3}
-    SceneAssetGuid: a19d61ae3fca6e94ea8c4b1abb37849e
-    ScenePath: Assets/_Project/Scenes/SampleScene2
-    BuildIndex: 2
-    Guid: 28480ae3-5642-419c-b6ad-bf712dc5aa86
-    Position: {x: 730.4, y: 296}
-    PortsData:
-    - Name: Left 0
-      Guid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-      IsInput: 1
-      IsHorizontal: 1
-      IsAdditional: 0
-    - Name: Bottom 0
-      Guid: b51dde29-5384-4923-8c31-c62785f04d94
-      IsInput: 0
-      IsHorizontal: 0
-      IsAdditional: 0
   - NodeName: SampleScene
     SceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
     SceneAssetGuid: 99c9720ab356a0642a771bea13969a05
@@ -58,6 +40,42 @@ MonoBehaviour:
       IsInput: 1
       IsHorizontal: 0
       IsAdditional: 0
+  - NodeName: SampleScene2
+    SceneAsset: {fileID: 102900000, guid: a19d61ae3fca6e94ea8c4b1abb37849e, type: 3}
+    SceneAssetGuid: a19d61ae3fca6e94ea8c4b1abb37849e
+    ScenePath: Assets/_Project/Scenes/SampleScene2
+    BuildIndex: 2
+    Guid: 28480ae3-5642-419c-b6ad-bf712dc5aa86
+    Position: {x: 730.4, y: 296}
+    PortsData:
+    - Name: Left 0
+      Guid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
+      IsInput: 1
+      IsHorizontal: 1
+      IsAdditional: 0
+    - Name: Bottom 0
+      Guid: b51dde29-5384-4923-8c31-c62785f04d94
+      IsInput: 0
+      IsHorizontal: 0
+      IsAdditional: 0
+    - Name: Right 0
+      Guid: 781f74c2-cbd2-4719-8890-99b0a813289e
+      IsInput: 0
+      IsHorizontal: 1
+      IsAdditional: 0
+  - NodeName: SampleScene3
+    SceneAsset: {fileID: 102900000, guid: 877da1bbb8f61cf4ebac69ab8473ece3, type: 3}
+    SceneAssetGuid: 877da1bbb8f61cf4ebac69ab8473ece3
+    ScenePath: Assets/_Project/Scenes/SampleScene3
+    BuildIndex: 3
+    Guid: efc226b1-e327-4754-ad8e-2fe185fadb00
+    Position: {x: 1258.3999, y: 296}
+    PortsData:
+    - Name: Left 0
+      Guid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+      IsInput: 1
+      IsHorizontal: 1
+      IsAdditional: 0
   EdgesData:
   - TransitionType: 0
     IsFacingRight: 0
@@ -69,4 +87,10 @@ MonoBehaviour:
     FromPortGuid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
     ToPortGuid: b51dde29-5384-4923-8c31-c62785f04d94
     EdgeGuid: 90810cba-f244-4ccd-b30f-d6c421ca32e9
-  SelectedElementGuids: []
+  - TransitionType: 0
+    IsFacingRight: 0
+    FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+    ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
+    EdgeGuid: 20b49edf-3bf1-48ea-a535-a96643917892
+  SelectedElementGuids:
+  - efc226b1-e327-4754-ad8e-2fe185fadb00

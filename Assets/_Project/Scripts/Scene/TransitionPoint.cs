@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using WorldGraphEditor;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Collider2D))]
-public sealed class TransitionPoint : MonoBehaviour
+public sealed class TransitionPoint : PassageBase, ITransitionComponent
 {
     private enum TransitionActivationMode
     {
@@ -12,12 +13,7 @@ public sealed class TransitionPoint : MonoBehaviour
     }
 
     [Header("Identity")]
-    [SerializeField] private string gateKey;
     [SerializeField] private GateSide gateSide = GateSide.Unknown;
-
-    [Header("Source — outgoing transition")]
-    [SerializeField] private string targetScene;
-    [SerializeField] private string entryGateKey;
 
     // ---------------------------------------------------------------------
     // Destination — incoming entry motion.
@@ -74,10 +70,7 @@ public sealed class TransitionPoint : MonoBehaviour
     private bool localTransitionGuard;
     private Collider2D cachedCollider;
 
-    public string GateKey => gateKey;
     public GateSide GateSide => gateSide;
-    public string TargetScene => targetScene;
-    public string EntryGateKey => entryGateKey;
     public Vector3 EntrySpawnPosition => transform.position + (Vector3)entryOffset;
     public EntryFacing FacingOverride => entryFacingOverride;
     public float EntryRunInDuration => entryRunInDuration;
@@ -91,19 +84,46 @@ public sealed class TransitionPoint : MonoBehaviour
     public bool RequireInteract => requireInteract;
     public RespawnMarker LinkedRespawnMarker => linkedRespawnMarker;
 
-    public static TransitionPoint FindByGateKey(string key)
+    // Shadows PassageBase.GetGuid() intentionally — PassageBase.GetGuid() is not virtual.
+    // In builds: delegates to base, which returns PortsDropdown._selectedGuid directly.
+    // In the Editor: reads _selectedGuid via SerializedObject rather than through
+    // PortsDropdown.GetSelectedValue(). GetSelectedValue() can silently return _guidData[0]
+    // (the first port available in the current scene) when _data is populated by a WGE Refresh
+    // but the assigned port no longer exists in the graph (renamed or deleted after assignment).
+    // Reading the serialized field directly ensures the value always matches what is baked into builds.
+    // ITransitionComponent.GetGuid() below routes through this same method.
+    public new string GetGuid()
     {
-        if (string.IsNullOrEmpty(key)) return null;
+#if UNITY_EDITOR
+        return GetSerializedAssignedGuid();
+#else
+        return base.GetGuid();
+#endif
+    }
+
+    string ITransitionComponent.GetGuid()
+    {
+        return GetGuid();
+    }
+
+    public override Vector3 GetSpawnPosition()
+    {
+        return EntrySpawnPosition;
+    }
+
+    public static TransitionPoint FindByPassageGuid(string guid)
+    {
+        if (string.IsNullOrEmpty(guid)) return null;
 
         TransitionPoint match = null;
         for (int i = 0; i < Active.Count; i++)
         {
             TransitionPoint candidate = Active[i];
-            if (candidate == null || candidate.gateKey != key) continue;
+            if (candidate == null || candidate.GetGuid() != guid) continue;
 
             if (match != null)
             {
-                Debug.LogWarning($"[TransitionPoint] Multiple active gates with key '{key}' — using first match.");
+                Debug.LogWarning($"[TransitionPoint] Multiple active gates with GUID '{guid}' - using first match.");
                 break;
             }
 
@@ -172,18 +192,6 @@ public sealed class TransitionPoint : MonoBehaviour
     {
         if (localTransitionGuard) return false;
         if (hero == null) return false;
-        if (string.IsNullOrEmpty(targetScene))
-        {
-            if (mode == TransitionActivationMode.DoorInteract)
-                Debug.LogWarning($"[TransitionPoint] Door '{name}' has no targetScene; transition rejected.", this);
-            return false;
-        }
-        if (string.IsNullOrEmpty(entryGateKey))
-        {
-            Debug.LogError($"[TransitionPoint] '{name}' has targetScene '{targetScene}' but no entryGateKey; transition rejected.", this);
-            return false;
-        }
-
         if (GameManager.Instance == null) return false;
 
         if (mode == TransitionActivationMode.AutoTrigger && isDoor && requireInteract)
@@ -207,7 +215,24 @@ public sealed class TransitionPoint : MonoBehaviour
 
         if (GameManager.Instance.State != GameState.Playing) return false;
 
-        if (!GameManager.Instance.BeginSceneTransition(targetScene, entryGateKey))
+        string graphGuid = GetGuid();
+        if (string.IsNullOrEmpty(graphGuid))
+        {
+            Debug.LogWarning($"[TransitionPoint] '{name}' has no WGE port assigned; transition rejected.", this);
+            return false;
+        }
+
+        if (!WorldGraphTransitionResolver.TryResolve(graphGuid, false, out WorldGraphTransitionRequest request))
+        {
+            Debug.LogWarning($"[TransitionPoint] WGE resolve failed for '{name}': {request.FailureReason}", this);
+
+            if (mode == TransitionActivationMode.AutoTrigger && heroCollider != null)
+                ApplyPushBack(hero, heroCollider);
+
+            return false;
+        }
+
+        if (!GameManager.Instance.BeginSceneTransition(request.TargetSceneName, request.TargetPortGuid))
             return false;
 
         localTransitionGuard = true;
@@ -267,11 +292,8 @@ public sealed class TransitionPoint : MonoBehaviour
         if (gateSide == GateSide.Unknown)
             Debug.LogWarning($"[TransitionPoint] '{name}' has GateSide.Unknown. Pick a direction.", this);
 
-        if (string.IsNullOrWhiteSpace(gateKey))
-            Debug.LogWarning($"[TransitionPoint] '{name}' has no gateKey set.", this);
-
-        if (!string.IsNullOrEmpty(targetScene) && string.IsNullOrWhiteSpace(entryGateKey))
-            Debug.LogWarning($"[TransitionPoint] '{name}' is a source gate (targetScene set) but entryGateKey is empty.", this);
+        if (string.IsNullOrEmpty(GetGuid()))
+            Debug.LogWarning($"[TransitionPoint] '{name}' has no WGE port assigned. Select a port in the Inspector.", this);
 
         if (gateSide == GateSide.Door && !isDoor)
             Debug.LogWarning($"[TransitionPoint] '{name}' has GateSide.Door but isDoor is false.", this);
@@ -288,6 +310,14 @@ public sealed class TransitionPoint : MonoBehaviour
         Collider2D col = GetComponent<Collider2D>();
         if (col != null && !col.isTrigger)
             Debug.LogWarning($"[TransitionPoint] '{name}' Collider2D is not set as trigger.", this);
+    }
+
+    private string GetSerializedAssignedGuid()
+    {
+        UnityEditor.SerializedObject serializedPoint = new UnityEditor.SerializedObject(this);
+        UnityEditor.SerializedProperty assignedPort = serializedPoint.FindProperty("_assignedPort");
+        UnityEditor.SerializedProperty selectedGuid = assignedPort?.FindPropertyRelative("_selectedGuid");
+        return selectedGuid != null ? selectedGuid.stringValue : "";
     }
 #endif
 }

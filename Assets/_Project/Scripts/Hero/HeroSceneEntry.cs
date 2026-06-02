@@ -94,7 +94,7 @@ public sealed class HeroSceneEntry : MonoBehaviour
 
         if (placementHadUnknownSide)
         {
-            Debug.LogError($"[HeroSceneEntry] Gate '{dest.GateKey}' has GateSide.Unknown — skipping entry motion.");
+            Debug.LogError($"[HeroSceneEntry] Gate '{dest.name}' ({dest.GetGuid()}) has GateSide.Unknown - skipping entry motion.");
             placementDone = true;
             return;
         }

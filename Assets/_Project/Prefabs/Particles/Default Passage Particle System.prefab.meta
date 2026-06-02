@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: acf8b3a984ce206428f2dafbdc4b1340
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Examples/Prefabs/Particles/Default Passage Particle
+    System.prefab
+  uploadId: 891090

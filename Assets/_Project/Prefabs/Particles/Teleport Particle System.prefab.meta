@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d143d6a8e6935a441a7438cd4a598516
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Examples/Prefabs/Particles/Teleport Particle
+    System.prefab
+  uploadId: 891090

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3671141b4b284414aaba7917dd4f2378
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Examples/Prefabs/Particles/Red Passage Particle
+    System.prefab
+  uploadId: 891090

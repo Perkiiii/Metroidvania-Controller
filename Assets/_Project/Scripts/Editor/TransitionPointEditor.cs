@@ -1,13 +1,16 @@
+using System;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using WorldGraphEditor;
 
 [CustomEditor(typeof(TransitionPoint))]
 public sealed class TransitionPointEditor : Editor
 {
-    private SerializedProperty gateKey;
+    private SerializedProperty assignedPort;
+    private SerializedProperty assignedGuid;
+    private SerializedProperty targetSceneFromGraph;
     private SerializedProperty gateSide;
-    private SerializedProperty targetScene;
-    private SerializedProperty entryGateKey;
     private SerializedProperty entryOffset;
     private SerializedProperty entryFacingOverride;
     private SerializedProperty entryRunInDuration;
@@ -21,12 +24,16 @@ public sealed class TransitionPointEditor : Editor
     private SerializedProperty requireInteract;
     private SerializedProperty linkedRespawnMarker;
 
+    private TransitionManager _wgeManager;
+    private string _refreshError;
+    private bool _guidIsStale;
+
     private void OnEnable()
     {
-        gateKey = serializedObject.FindProperty("gateKey");
+        assignedPort = serializedObject.FindProperty("_assignedPort");
+        assignedGuid = serializedObject.FindProperty("_assignedGuid");
+        targetSceneFromGraph = serializedObject.FindProperty("_targetScene");
         gateSide = serializedObject.FindProperty("gateSide");
-        targetScene = serializedObject.FindProperty("targetScene");
-        entryGateKey = serializedObject.FindProperty("entryGateKey");
         entryOffset = serializedObject.FindProperty("entryOffset");
         entryFacingOverride = serializedObject.FindProperty("entryFacingOverride");
         entryRunInDuration = serializedObject.FindProperty("entryRunInDuration");
@@ -39,6 +46,9 @@ public sealed class TransitionPointEditor : Editor
         isDoor = serializedObject.FindProperty("isDoor");
         requireInteract = serializedObject.FindProperty("requireInteract");
         linkedRespawnMarker = serializedObject.FindProperty("linkedRespawnMarker");
+
+        _wgeManager = TransitionManager.LoadFromResources();
+        TryRefreshFromWorldGraph();
     }
 
     public override void OnInspectorGUI()
@@ -51,12 +61,12 @@ public sealed class TransitionPointEditor : Editor
                 "TransitionPointEditor could not find one or more expected serialized fields. The default Inspector is shown so scene data remains editable.",
                 MessageType.Error);
             DrawDefaultInspector();
-            serializedObject.ApplyModifiedProperties();
+            ApplyAndMarkDirtyIfChanged();
             return;
         }
 
+        DrawWorldGraphPort();
         DrawIdentity();
-        DrawOutgoingTransition();
         DrawActivation();
         DrawIncomingEntry();
         DrawGateSpecificTuning();
@@ -64,28 +74,106 @@ public sealed class TransitionPointEditor : Editor
         DrawValidationMessages();
         DrawButtons();
 
-        serializedObject.ApplyModifiedProperties();
+        ApplyAndMarkDirtyIfChanged();
+    }
+
+    private void DrawWorldGraphPort()
+    {
+        DrawSection("World Graph Port");
+
+        if (_refreshError != null)
+            EditorGUILayout.HelpBox($"WGE refresh failed: {_refreshError}", MessageType.Warning);
+
+        EditorGUILayout.PropertyField(assignedPort, new GUIContent("Assigned Port"), true);
+
+        using (new EditorGUI.DisabledScope(true))
+        {
+            EditorGUILayout.PropertyField(assignedGuid, new GUIContent("GUID (read-only)"));
+            EditorGUILayout.PropertyField(targetSceneFromGraph, new GUIContent("Target Scene (read-only)"));
+        }
+
+        if (IsBlank(GetCurrentAssignedGuid()))
+        {
+            EditorGUILayout.HelpBox(
+                "No WGE port assigned. Select a port from the dropdown to enable transitions.",
+                MessageType.Warning);
+        }
+        else if (_guidIsStale)
+        {
+            EditorGUILayout.HelpBox(
+                "The assigned WGE port no longer exists in the graph (renamed or deleted). " +
+                "The original GUID has been preserved — re-select the correct port from the dropdown, " +
+                "or run Tools → Project → Validate Transition Gate Links.",
+                MessageType.Warning);
+        }
+    }
+
+    // Called in OnEnable (initial population), when the assigned port GUID changes
+    // (ApplyAndMarkDirtyIfChanged), and via the manual button in DrawButtons.
+    // Not called on every repaint to avoid querying WGE EditorData every frame.
+    //
+    // Mutation guard: PassageBase.Refresh() calls PortsDropdown.SetData(), which calls
+    // RefreshSelectedData() when the assigned port no longer exists in the graph (renamed or
+    // deleted). RefreshSelectedData() silently overwrites _selectedGuid and _selectedName with
+    // _guidData[0] and its display name. We snapshot both fields before Refresh, detect the
+    // mutation via a temporary SerializedObject, and restore the originals so the serialized
+    // scene data is never changed without an explicit user action in the dropdown.
+    private void TryRefreshFromWorldGraph()
+    {
+        if (_wgeManager == null)
+        {
+            _refreshError = "WGE TransitionManager prefab not found at Assets/WorldGraphEditor/Resources/TransitionManager.prefab.";
+            return;
+        }
+
+        // Snapshot _selectedGuid and _selectedName before Refresh.
+        SerializedProperty guidProp = assignedPort?.FindPropertyRelative("_selectedGuid");
+        SerializedProperty nameProp = assignedPort?.FindPropertyRelative("_selectedName");
+        string guidBefore = guidProp?.stringValue ?? "";
+        string nameBefore = nameProp?.stringValue ?? "";
+
+        try
+        {
+            ((TransitionPoint)target).Refresh(new RefreshContext(_wgeManager));
+            _refreshError = null;
+        }
+        catch (Exception e)
+        {
+            _refreshError = e.Message;
+            return;
+        }
+
+        // Detect whether Refresh mutated _selectedGuid via a fresh SerializedObject that reads
+        // the post-Refresh live object state. This must happen before serializedObject.Update()
+        // so the mutation has not yet entered the main serialized object's change tracking.
+        bool mutated = false;
+        if (guidProp != null)
+        {
+            var checkSO = new SerializedObject(target);
+            SerializedProperty checkGuid = checkSO.FindProperty("_assignedPort")?.FindPropertyRelative("_selectedGuid");
+            SerializedProperty checkName = checkSO.FindProperty("_assignedPort")?.FindPropertyRelative("_selectedName");
+            if (checkGuid != null && checkGuid.stringValue != guidBefore)
+            {
+                // Restore both fields so the serialized state is consistent with what the user set.
+                mutated = true;
+                checkGuid.stringValue = guidBefore;
+                if (checkName != null)
+                    checkName.stringValue = nameBefore;
+                checkSO.ApplyModifiedProperties();
+            }
+        }
+
+        _guidIsStale = mutated;
+
+        // Sync the main serializedObject after restoration. This picks up the _assignedGuid and
+        // _targetScene display-field changes from Refresh while leaving _selectedGuid unchanged.
+        serializedObject.Update();
     }
 
     private void DrawIdentity()
     {
         DrawSection("Identity");
-        DrawStringField(gateKey, new GUIContent("Gate Key", "Stable key for this gate. Destination gates are resolved by this value."));
         DrawEnumField<GateSide>(gateSide, new GUIContent("Gate Side", "Direction or type of this gate."));
-    }
-
-    private void DrawOutgoingTransition()
-    {
-        DrawSection("Outgoing Transition");
-        DrawStringField(targetScene, new GUIContent("Target Scene", "Build Settings scene name to load when this gate is activated."));
-        DrawStringField(entryGateKey, new GUIContent("Entry Gate Key", "Destination gateKey inside the target scene."));
-
-        if (IsBlank(targetScene.stringValue) && IsBlank(entryGateKey.stringValue))
-        {
-            EditorGUILayout.HelpBox(
-                "Destination-only gate: blank targetScene and entryGateKey means this gate can be used as an arrival point without starting an outgoing transition.",
-                MessageType.Info);
-        }
     }
 
     private void DrawActivation()
@@ -168,18 +256,6 @@ public sealed class TransitionPointEditor : Editor
         if (side == GateSide.Unknown)
             EditorGUILayout.HelpBox("GateSide is Unknown. Pick Left, Right, Top, Bottom, or Door.", MessageType.Warning);
 
-        if (IsBlank(gateKey.stringValue))
-            EditorGUILayout.HelpBox("gateKey is blank. Give this gate a stable key before using it as a destination.", MessageType.Warning);
-
-        bool hasTargetScene = !IsBlank(targetScene.stringValue);
-        bool hasEntryGateKey = !IsBlank(entryGateKey.stringValue);
-
-        if (hasTargetScene && !hasEntryGateKey)
-            EditorGUILayout.HelpBox("targetScene is set, but entryGateKey is blank.", MessageType.Warning);
-
-        if (!hasTargetScene && hasEntryGateKey)
-            EditorGUILayout.HelpBox("entryGateKey is set, but targetScene is blank.", MessageType.Warning);
-
         if (isDoor.boolValue && side != GateSide.Door)
             EditorGUILayout.HelpBox("This is marked as a Door, but Gate Side is not Door.", MessageType.Warning);
 
@@ -216,33 +292,34 @@ public sealed class TransitionPointEditor : Editor
     {
         DrawSection("Authoring");
 
-        if (GUILayout.Button("Copy Gate Key"))
+        if (GUILayout.Button("Copy Passage GUID"))
         {
-            EditorGUIUtility.systemCopyBuffer = gateKey.stringValue;
+            EditorGUIUtility.systemCopyBuffer = GetCurrentAssignedGuid();
         }
+
+        if (GUILayout.Button("Refresh World Graph Data"))
+            TryRefreshFromWorldGraph();
 
         if (GUILayout.Button("Set Door Defaults"))
         {
             gateSide.intValue = (int)GateSide.Door;
             isDoor.boolValue = true;
             requireInteract.boolValue = true;
-            serializedObject.ApplyModifiedProperties();
         }
 
         if (GUILayout.Button("Set Edge Gate Defaults"))
         {
             isDoor.boolValue = false;
             requireInteract.boolValue = false;
-            serializedObject.ApplyModifiedProperties();
         }
     }
 
     private bool HasAllExpectedProperties()
     {
-        return gateKey != null
+        return assignedPort != null
+            && assignedGuid != null
+            && targetSceneFromGraph != null
             && gateSide != null
-            && targetScene != null
-            && entryGateKey != null
             && entryOffset != null
             && entryFacingOverride != null
             && entryRunInDuration != null
@@ -257,18 +334,44 @@ public sealed class TransitionPointEditor : Editor
             && linkedRespawnMarker != null;
     }
 
+    private void ApplyAndMarkDirtyIfChanged()
+    {
+        // Snapshot the GUID before applying so we can tell whether the port assignment changed.
+        string guidBefore = assignedPort?.FindPropertyRelative("_selectedGuid")?.stringValue ?? "";
+
+        bool changed = serializedObject.ApplyModifiedProperties();
+        if (!changed) return;
+
+        TransitionPoint transitionPoint = (TransitionPoint)target;
+        EditorUtility.SetDirty(transitionPoint);
+        if (transitionPoint.gameObject.scene.IsValid())
+            EditorSceneManager.MarkSceneDirty(transitionPoint.gameObject.scene);
+
+        // Only call Refresh when the assigned port GUID itself changed (i.e. the user picked a
+        // different port in the dropdown). Refreshing for unrelated changes such as entry offset
+        // or gate side is unnecessary, and calling Refresh on those changes is the exact path
+        // that can expose the PassageBase.Refresh() / RefreshSelectedData() silent mutation
+        // described in TryRefreshFromWorldGraph. When the user picks a valid port from the
+        // dropdown, that GUID exists in the current graph data, so SetData's early-exit fires
+        // and RefreshSelectedData() is never called.
+        string guidAfter = assignedPort?.FindPropertyRelative("_selectedGuid")?.stringValue ?? "";
+        if (guidAfter != guidBefore)
+            TryRefreshFromWorldGraph();
+    }
+
+    private string GetCurrentAssignedGuid()
+    {
+        SerializedProperty selectedGuid = assignedPort.FindPropertyRelative("_selectedGuid");
+        if (selectedGuid != null)
+            return selectedGuid.stringValue;
+
+        return ((TransitionPoint)target).GetGuid();
+    }
+
     private static void DrawSection(string label)
     {
         EditorGUILayout.Space(8f);
         EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
-    }
-
-    private static void DrawStringField(SerializedProperty property, GUIContent label)
-    {
-        Rect rect = EditorGUILayout.GetControlRect();
-        EditorGUI.BeginProperty(rect, label, property);
-        property.stringValue = EditorGUI.TextField(rect, label, property.stringValue);
-        EditorGUI.EndProperty();
     }
 
     private static void DrawBoolField(SerializedProperty property, GUIContent label)
@@ -305,7 +408,7 @@ public sealed class TransitionPointEditor : Editor
         EditorGUI.EndProperty();
     }
 
-    private static void DrawObjectField<TObject>(SerializedProperty property, GUIContent label) where TObject : Object
+    private static void DrawObjectField<TObject>(SerializedProperty property, GUIContent label) where TObject : UnityEngine.Object
     {
         Rect rect = EditorGUILayout.GetControlRect();
         EditorGUI.BeginProperty(rect, label, property);

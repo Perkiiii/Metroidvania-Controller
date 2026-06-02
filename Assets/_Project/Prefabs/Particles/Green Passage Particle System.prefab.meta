@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 51bac4ac616b86c41a55f85c3c740cde
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Examples/Prefabs/Particles/Green Passage Particle
+    System.prefab
+  uploadId: 891090
