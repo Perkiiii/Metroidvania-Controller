@@ -17,9 +17,24 @@ namespace WorldGraphEditor.Editor
         private readonly WorldBuilderGraph _worldBuilderGraph;
         private readonly Dictionary<SceneAsset, List<SceneNode>> _nodeDuplicates = new();
         
+        private VisualElement _miniMap;
+        private VisualElement _miniMapBody;
+        private Button _miniMapMinimizeButton;
+        private Label _miniMapZoomLabel;
         private Label _messageLabel;
 
+        private bool _isMiniMapDragging;
+        private bool _isMiniMapMinimized;
+        private bool _isMiniMapPinnedToBottomRight = true;
+        private Vector2 _miniMapDragStartMousePosition;
+        private Vector2 _miniMapDragStartPosition;
         private bool _readyToWork;
+
+        private const float _miniMapWidth = 200f;
+        private const float _miniMapHeight = 150f;
+        private const float _miniMapHeaderHeight = 24f;
+        private const float _miniMapFooterHeight = 18f;
+        private const float _miniMapMargin = 10f;
 
         internal WorldBuilderGraphView(WorldBuilderGraph worldBuilderGraph, WorldGraphContainer container)
         {
@@ -37,9 +52,12 @@ namespace WorldGraphEditor.Editor
             Insert(0, grid);
             grid.StretchToParentSize();
 
+            AddMiniMap();
+
             RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
             RegisterCallback<DragPerformEvent>(OnDragPerfomed);
             RegisterCallback<MouseUpEvent>(OnMouseUp);
+            RegisterCallback<GeometryChangedEvent>(OnGraphViewGeometryChanged);
 
             graphViewChanged += OnGraphViewChanged;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -54,6 +72,7 @@ namespace WorldGraphEditor.Editor
             UnregisterCallback<DragUpdatedEvent>(OnDragUpdated);
             UnregisterCallback<DragPerformEvent>(OnDragPerfomed);
             UnregisterCallback<MouseUpEvent>(OnMouseUp);
+            UnregisterCallback<GeometryChangedEvent>(OnGraphViewGeometryChanged);
             
             graphViewChanged -= OnGraphViewChanged;
             Undo.undoRedoPerformed -= OnUndoRedo;
@@ -158,10 +177,467 @@ namespace WorldGraphEditor.Editor
 
         public void ClearGraph()
         {
-            graphElements.ToList().ForEach(RemoveElement);
+            foreach (var graphElement in graphElements.ToList())
+            {
+                if (graphElement == _miniMap)
+                    continue;
+
+                RemoveElement(graphElement);
+            }
+
             ClearData();
         }
-        
+
+        private void AddMiniMap()
+        {
+            if (_miniMap != null)
+            {
+                if (_miniMap.parent == null)
+                    Add(_miniMap);
+
+                return;
+            }
+
+            _miniMap = new VisualElement
+            {
+                visible = false,
+            };
+
+            StyleMiniMap(_miniMap);
+            var header = CreateMiniMapHeader();
+            _miniMapBody = CreateMiniMapBody();
+            _miniMapZoomLabel = CreateMiniMapZoomLabel();
+
+            _miniMap.Add(header);
+            _miniMap.Add(_miniMapBody);
+            _miniMap.Add(_miniMapZoomLabel);
+            _miniMap.RegisterCallback<MouseDownEvent>(OnMiniMapDragStart);
+            _miniMap.RegisterCallback<MouseMoveEvent>(OnMiniMapDragMove);
+            _miniMap.RegisterCallback<MouseUpEvent>(OnMiniMapDragEnd);
+            _miniMap.RegisterCallback<MouseLeaveEvent>(OnMiniMapDragEnd);
+            _miniMap.schedule.Execute(RefreshMiniMap).Every(100);
+
+            Add(_miniMap);
+            _miniMap.schedule.Execute(PlaceMiniMapBottomRight).ExecuteLater(0);
+        }
+
+        internal void ToggleMiniMap()
+        {
+            if (_miniMap == null || _miniMap.parent == null)
+                AddMiniMap();
+
+            _miniMap.visible = !_miniMap.visible;
+
+            if (_miniMap.visible)
+            {
+                if (_isMiniMapPinnedToBottomRight)
+                    PlaceMiniMapBottomRight();
+
+                _miniMap.BringToFront();
+            }
+        }
+
+        private static void StyleMiniMap(VisualElement miniMap)
+        {
+            var borderColor = new Color(0.04f, 0.04f, 0.04f, 1f);
+
+            miniMap.style.position = Position.Absolute;
+            miniMap.style.left = _miniMapMargin;
+            miniMap.style.top = _miniMapMargin;
+            miniMap.style.width = _miniMapWidth;
+            miniMap.style.height = _miniMapHeight;
+            miniMap.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 0.96f);
+            miniMap.style.borderTopColor = borderColor;
+            miniMap.style.borderRightColor = borderColor;
+            miniMap.style.borderBottomColor = borderColor;
+            miniMap.style.borderLeftColor = borderColor;
+            miniMap.style.borderTopWidth = 1;
+            miniMap.style.borderRightWidth = 1;
+            miniMap.style.borderBottomWidth = 1;
+            miniMap.style.borderLeftWidth = 1;
+            miniMap.style.borderTopLeftRadius = 3;
+            miniMap.style.borderTopRightRadius = 3;
+            miniMap.style.borderBottomRightRadius = 3;
+            miniMap.style.borderBottomLeftRadius = 3;
+            miniMap.style.paddingTop = 0;
+            miniMap.style.paddingRight = 0;
+            miniMap.style.paddingBottom = 0;
+            miniMap.style.paddingLeft = 0;
+            miniMap.style.overflow = Overflow.Hidden;
+        }
+
+        private VisualElement CreateMiniMapHeader()
+        {
+            var header = new VisualElement
+            {
+                style =
+                {
+                    position = Position.Absolute,
+                    left = 0,
+                    right = 0,
+                    top = 0,
+                    height = 24,
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    backgroundColor = new Color(0.02f, 0.02f, 0.02f, 0.98f),
+                    paddingLeft = 7,
+                    paddingRight = 5
+                }
+            };
+
+            header.Add(CreateMiniMapMenuIcon());
+            header.Add(new Label("MiniMap")
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    color = new Color(0.74f, 0.74f, 0.74f, 1f),
+                    fontSize = 12,
+                    unityFontStyleAndWeight = FontStyle.Normal,
+                    marginLeft = 5,
+                    flexGrow = 1
+                }
+            });
+            _miniMapMinimizeButton = CreateMiniMapMinimizeButton();
+            header.Add(_miniMapMinimizeButton);
+
+            return header;
+        }
+
+        private Button CreateMiniMapMinimizeButton()
+        {
+            var button = new Button(ToggleMiniMapMinimized)
+            {
+                text = "-"
+            };
+
+            button.RegisterCallback<MouseDownEvent>(evt => evt.StopPropagation());
+            button.RegisterCallback<MouseMoveEvent>(evt => evt.StopPropagation());
+            button.RegisterCallback<MouseUpEvent>(evt => evt.StopPropagation());
+            button.style.width = 18;
+            button.style.height = 18;
+            button.style.marginTop = 0;
+            button.style.marginRight = 0;
+            button.style.marginBottom = 0;
+            button.style.marginLeft = 0;
+            button.style.paddingTop = 0;
+            button.style.paddingRight = 0;
+            button.style.paddingBottom = 1;
+            button.style.paddingLeft = 0;
+            button.style.color = new Color(0.74f, 0.74f, 0.74f, 1f);
+            button.style.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            button.style.borderTopWidth = 0;
+            button.style.borderRightWidth = 0;
+            button.style.borderBottomWidth = 0;
+            button.style.borderLeftWidth = 0;
+            return button;
+        }
+
+        private static VisualElement CreateMiniMapMenuIcon()
+        {
+            var icon = new VisualElement
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    width = 15,
+                    height = 10,
+                    justifyContent = Justify.SpaceBetween
+                }
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                icon.Add(new VisualElement
+                {
+                    pickingMode = PickingMode.Ignore,
+                    style =
+                    {
+                        height = 1,
+                        backgroundColor = new Color(0.5f, 0.5f, 0.5f, 1f)
+                    }
+                });
+            }
+
+            return icon;
+        }
+
+        private VisualElement CreateMiniMapBody()
+        {
+            var body = new VisualElement
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    position = Position.Absolute,
+                    left = 5,
+                    right = 5,
+                    top = _miniMapHeaderHeight,
+                    bottom = _miniMapFooterHeight,
+                    backgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f),
+                    borderTopColor = new Color(0.4f, 0.4f, 0.4f, 1f),
+                    borderRightColor = new Color(0.4f, 0.4f, 0.4f, 1f),
+                    borderBottomColor = new Color(0.4f, 0.4f, 0.4f, 1f),
+                    borderLeftColor = new Color(0.4f, 0.4f, 0.4f, 1f),
+                    borderTopWidth = 1,
+                    borderRightWidth = 1,
+                    borderBottomWidth = 1,
+                    borderLeftWidth = 1,
+                    overflow = Overflow.Hidden
+                }
+            };
+
+            body.generateVisualContent += OnGenerateMiniMapBodyVisualContent;
+            return body;
+        }
+
+        private static Label CreateMiniMapZoomLabel()
+        {
+            return new Label
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    position = Position.Absolute,
+                    right = 4,
+                    bottom = 2,
+                    color = new Color(0.74f, 0.74f, 0.74f, 1f),
+                    fontSize = 9,
+                    unityTextAlign = TextAnchor.MiddleRight
+                }
+            };
+        }
+
+        private void RefreshMiniMap()
+        {
+            if (_miniMap is not {visible: true} || _miniMapBody == null)
+                return;
+
+            _miniMapZoomLabel.text = $"Zoom: {Mathf.RoundToInt(scale * 100f)}%";
+            _miniMapBody.MarkDirtyRepaint();
+        }
+
+        private void OnGenerateMiniMapBodyVisualContent(MeshGenerationContext context)
+        {
+            var sceneNodes = nodes.ToList().OfType<SceneNode>().ToList();
+            if (sceneNodes.Count == 0)
+                return;
+
+            var graphBounds = GetGraphBounds(sceneNodes);
+            var viewportRect = GetViewportRectInContentSpace();
+            if (viewportRect.width > 0f && viewportRect.height > 0f)
+                graphBounds = Encapsulate(graphBounds, viewportRect);
+
+            graphBounds.xMin -= 80f;
+            graphBounds.xMax += 80f;
+            graphBounds.yMin -= 80f;
+            graphBounds.yMax += 80f;
+
+            var bodyWidth = _miniMapBody.resolvedStyle.width;
+            var bodyHeight = _miniMapBody.resolvedStyle.height;
+            if (bodyWidth <= 0f || bodyHeight <= 0f)
+                return;
+
+            var scaleFactor = Mathf.Min(bodyWidth / graphBounds.width, bodyHeight / graphBounds.height);
+            var offset = new Vector2(
+                (bodyWidth - graphBounds.width * scaleFactor) * 0.5f,
+                (bodyHeight - graphBounds.height * scaleFactor) * 0.5f);
+            var painter = context.painter2D;
+
+            foreach (var sceneNode in sceneNodes)
+            {
+                DrawMiniMapNodePreview(painter, sceneNode, graphBounds, offset, scaleFactor);
+            }
+
+            DrawMiniMapViewportPreview(painter, viewportRect, graphBounds, offset, scaleFactor);
+        }
+
+        private void DrawMiniMapNodePreview(Painter2D painter, SceneNode sceneNode, Rect graphBounds, Vector2 offset, float scaleFactor)
+        {
+            var position = sceneNode.GetPosition();
+            var rect = ExpandMiniMapRect(ToMiniMapRect(position, graphBounds, offset, scaleFactor), 18f, 8f);
+            var isSelected = selection.Contains(sceneNode);
+            var nodeColor = new Color(0.9f, 0.9f, 0.9f, 0.5f);
+            var borderColor = isSelected
+                ? new Color(0.27f, 0.75f, 1f, 1f)
+                : nodeColor;
+
+            PathRectangle(painter, rect);
+            painter.fillColor = nodeColor;
+            painter.Fill();
+            painter.strokeColor = borderColor;
+            painter.lineWidth = isSelected ? 2f : 1f;
+            painter.Stroke();
+        }
+
+        private static void DrawMiniMapViewportPreview(Painter2D painter, Rect viewportRect, Rect graphBounds,
+            Vector2 offset, float scaleFactor)
+        {
+            if (viewportRect.width <= 0f || viewportRect.height <= 0f)
+                return;
+
+            var rect = ExpandMiniMapRect(ToMiniMapRect(viewportRect, graphBounds, offset, scaleFactor), 8f, 8f);
+            PathRectangle(painter, rect);
+            painter.strokeColor = new Color(0.76f, 0.76f, 0.76f, 0.75f);
+            painter.lineWidth = 1f;
+            painter.Stroke();
+        }
+
+        private void ToggleMiniMapMinimized()
+        {
+            _isMiniMapMinimized = !_isMiniMapMinimized;
+            _miniMapBody.visible = !_isMiniMapMinimized;
+            _miniMapZoomLabel.visible = !_isMiniMapMinimized;
+            _miniMapMinimizeButton.text = _isMiniMapMinimized ? "+" : "-";
+            _miniMap.style.height = _isMiniMapMinimized ? _miniMapHeaderHeight : _miniMapHeight;
+
+            if (_isMiniMapPinnedToBottomRight)
+                PlaceMiniMapBottomRight();
+            else
+                ClampMiniMapToView();
+        }
+
+        private static Rect GetGraphBounds(IReadOnlyList<SceneNode> sceneNodes)
+        {
+            var bounds = sceneNodes[0].GetPosition();
+
+            for (int i = 1; i < sceneNodes.Count; i++)
+            {
+                bounds = Encapsulate(bounds, sceneNodes[i].GetPosition());
+            }
+
+            return bounds;
+        }
+
+        private Rect GetViewportRectInContentSpace()
+        {
+            var topLeft = contentViewContainer.WorldToLocal(worldBound.position);
+            var bottomRight = contentViewContainer.WorldToLocal(worldBound.position + worldBound.size);
+            var min = Vector2.Min(topLeft, bottomRight);
+            var max = Vector2.Max(topLeft, bottomRight);
+
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private static Rect ToMiniMapRect(Rect graphRect, Rect graphBounds, Vector2 offset, float scaleFactor)
+        {
+            return new Rect(
+                offset.x + (graphRect.x - graphBounds.xMin) * scaleFactor,
+                offset.y + (graphRect.y - graphBounds.yMin) * scaleFactor,
+                graphRect.width * scaleFactor,
+                graphRect.height * scaleFactor);
+        }
+
+        private static Rect ExpandMiniMapRect(Rect rect, float minWidth, float minHeight)
+        {
+            if (rect.width < minWidth)
+            {
+                rect.x -= (minWidth - rect.width) * 0.5f;
+                rect.width = minWidth;
+            }
+
+            if (rect.height < minHeight)
+            {
+                rect.y -= (minHeight - rect.height) * 0.5f;
+                rect.height = minHeight;
+            }
+
+            return rect;
+        }
+
+        private static void PathRectangle(Painter2D painter, Rect rect)
+        {
+            painter.BeginPath();
+            painter.MoveTo(rect.min);
+            painter.LineTo(new Vector2(rect.xMin, rect.yMax));
+            painter.LineTo(rect.max);
+            painter.LineTo(new Vector2(rect.xMax, rect.yMin));
+            painter.ClosePath();
+        }
+
+        private static Rect Encapsulate(Rect a, Rect b)
+        {
+            return Rect.MinMaxRect(
+                Mathf.Min(a.xMin, b.xMin),
+                Mathf.Min(a.yMin, b.yMin),
+                Mathf.Max(a.xMax, b.xMax),
+                Mathf.Max(a.yMax, b.yMax));
+        }
+
+        private void OnMiniMapDragStart(MouseDownEvent evt)
+        {
+            if (evt.button != 0)
+                return;
+
+            if (evt.localMousePosition.y > _miniMapHeaderHeight)
+                return;
+
+            _isMiniMapPinnedToBottomRight = false;
+            _isMiniMapDragging = true;
+            _miniMapDragStartMousePosition = evt.mousePosition;
+            _miniMapDragStartPosition = new Vector2(_miniMap.resolvedStyle.left, _miniMap.resolvedStyle.top);
+            _miniMap.CaptureMouse();
+            evt.StopPropagation();
+        }
+
+        private void OnMiniMapDragMove(MouseMoveEvent evt)
+        {
+            if (!_isMiniMapDragging)
+                return;
+
+            var delta = evt.mousePosition - _miniMapDragStartMousePosition;
+            SetMiniMapPosition(_miniMapDragStartPosition + delta);
+            evt.StopPropagation();
+        }
+
+        private void OnMiniMapDragEnd(EventBase evt)
+        {
+            if (!_isMiniMapDragging)
+                return;
+
+            _isMiniMapDragging = false;
+            _miniMap.ReleaseMouse();
+            evt.StopPropagation();
+        }
+
+        private void SetMiniMapPosition(Vector2 position)
+        {
+            var maxX = Mathf.Max(0f, resolvedStyle.width - _miniMap.resolvedStyle.width);
+            var maxY = Mathf.Max(0f, resolvedStyle.height - _miniMap.resolvedStyle.height);
+
+            _miniMap.style.left = Mathf.Clamp(position.x, 0f, maxX);
+            _miniMap.style.top = Mathf.Clamp(position.y, 0f, maxY);
+        }
+
+        private void PlaceMiniMapBottomRight()
+        {
+            if (_miniMap == null)
+                return;
+
+            var height = _isMiniMapMinimized ? _miniMapHeaderHeight : _miniMapHeight;
+            var x = Mathf.Max(0f, resolvedStyle.width - _miniMapWidth - _miniMapMargin);
+            var y = Mathf.Max(0f, resolvedStyle.height - height - _miniMapMargin);
+
+            _miniMap.style.left = x;
+            _miniMap.style.top = y;
+        }
+
+        private void ClampMiniMapToView()
+        {
+            if (_miniMap == null)
+                return;
+
+            SetMiniMapPosition(new Vector2(_miniMap.resolvedStyle.left, _miniMap.resolvedStyle.top));
+        }
+
+        private void OnGraphViewGeometryChanged(GeometryChangedEvent _)
+        {
+            if (_isMiniMapPinnedToBottomRight)
+                PlaceMiniMapBottomRight();
+            else
+                ClampMiniMapToView();
+        }
+
         public void FindNodeDuplicates(SceneNode node, SceneAsset asset)
         {
             if (asset == null)

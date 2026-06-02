@@ -22,24 +22,6 @@ MonoBehaviour:
     Guid: 28926fcb-de29-484b-913b-b09367563257
     Position: {x: 404.80002, y: 96}
     PortsData: []
-  - NodeName: SampleScene
-    SceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
-    SceneAssetGuid: 99c9720ab356a0642a771bea13969a05
-    ScenePath: Assets/_Project/Scenes/SampleScene
-    BuildIndex: 1
-    Guid: 9be16b21-ebae-49a7-b969-078e4904ca6b
-    Position: {x: 225.59999, y: 428.8}
-    PortsData:
-    - Name: Right 0
-      Guid: 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
-      IsInput: 0
-      IsHorizontal: 1
-      IsAdditional: 0
-    - Name: Top 0
-      Guid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
-      IsInput: 1
-      IsHorizontal: 0
-      IsAdditional: 0
   - NodeName: SampleScene2
     SceneAsset: {fileID: 102900000, guid: a19d61ae3fca6e94ea8c4b1abb37849e, type: 3}
     SceneAssetGuid: a19d61ae3fca6e94ea8c4b1abb37849e
@@ -62,6 +44,24 @@ MonoBehaviour:
       Guid: 781f74c2-cbd2-4719-8890-99b0a813289e
       IsInput: 0
       IsHorizontal: 1
+      IsAdditional: 0
+  - NodeName: SampleScene
+    SceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
+    SceneAssetGuid: 99c9720ab356a0642a771bea13969a05
+    ScenePath: Assets/_Project/Scenes/SampleScene
+    BuildIndex: 1
+    Guid: 9be16b21-ebae-49a7-b969-078e4904ca6b
+    Position: {x: 225.59999, y: 428.8}
+    PortsData:
+    - Name: Right 0
+      Guid: 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
+      IsInput: 0
+      IsHorizontal: 1
+      IsAdditional: 0
+    - Name: Top 0
+      Guid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
+      IsInput: 1
+      IsHorizontal: 0
       IsAdditional: 0
   - NodeName: SampleScene3
     SceneAsset: {fileID: 102900000, guid: 877da1bbb8f61cf4ebac69ab8473ece3, type: 3}
@@ -92,5 +92,4 @@ MonoBehaviour:
     FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
     ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
     EdgeGuid: 20b49edf-3bf1-48ea-a535-a96643917892
-  SelectedElementGuids:
-  - efc226b1-e327-4754-ad8e-2fe185fadb00
+  SelectedElementGuids: []

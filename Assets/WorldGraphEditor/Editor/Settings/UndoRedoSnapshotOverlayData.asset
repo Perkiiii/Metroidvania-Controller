@@ -15,9 +15,9 @@ MonoBehaviour:
   ScreenshotSettings:
     Distance: 20
     IsOrthographic: 1
-    Resolution: 1
-    NpotScale: 1
-    Center: {x: 0, y: 0, z: 0}
+    Resolution: 0
+    NpotScale: 0
+    Center: {x: -6.5497484, y: 6.0949044, z: 0.00000036328464}
     Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
-    Size: {x: 18, y: 10}
+    Size: {x: 20, y: 15}
     SceneGuid: 877da1bbb8f61cf4ebac69ab8473ece3
