@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: fb2f32c253ee46598f0c7c2d3fd0c971
+timeCreated: 1727777840
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/SaveSystem/PortData.cs
+  uploadId: 891090

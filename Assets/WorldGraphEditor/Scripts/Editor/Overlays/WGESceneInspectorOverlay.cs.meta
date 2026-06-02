@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 20df6435bf1f4cb8a338d4647c473b51
+timeCreated: 1750619060
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Overlays/WGESceneInspectorOverlay.cs
+  uploadId: 891090

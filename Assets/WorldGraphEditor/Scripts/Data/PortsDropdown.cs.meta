@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 3c42ca4d44b142b7822fee58d06aa05b
+timeCreated: 1728141472
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Data/PortsDropdown.cs
+  uploadId: 891090

@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 26a0b64edba442ea9aa037feb216890a
+timeCreated: 1760448353
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Data/TransitionDelayData.cs
+  uploadId: 891090

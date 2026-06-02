@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: cb1e3cf3097c4e10b0a3d08da8bb0639
+timeCreated: 1753871362
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Data/NodeChangesData.cs
+  uploadId: 891090

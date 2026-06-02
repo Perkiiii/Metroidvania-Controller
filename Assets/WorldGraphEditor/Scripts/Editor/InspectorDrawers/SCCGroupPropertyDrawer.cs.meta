@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 6f67299eb2c5495e99e986807133067c
+timeCreated: 1751407307
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/SCCGroupPropertyDrawer.cs
+  uploadId: 891090

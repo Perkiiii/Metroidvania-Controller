@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 046b14e363374aa8854e887ea08f7704
+timeCreated: 1732533277
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/SceneNodeInspectorHelperEditor.cs
+  uploadId: 891090

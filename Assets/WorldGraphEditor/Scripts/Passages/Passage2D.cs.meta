@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: c9b60623e5724141895c46c80b9fde76
+timeCreated: 1728125552
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Passages/Passage2D.cs
+  uploadId: 891090

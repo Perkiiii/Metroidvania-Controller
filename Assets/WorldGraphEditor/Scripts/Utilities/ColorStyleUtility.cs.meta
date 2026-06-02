@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 9b562f61ee0f4886963fb62ef2129e6e
+timeCreated: 1754392716
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Utilities/ColorStyleUtility.cs
+  uploadId: 891090

@@ -1,0 +1,33 @@
+:root
+{
+    --toolbar-focus-color: #ffd500;
+}
+
+Toolbar
+{
+    height: 25px;
+}
+
+.unity-text-field__label
+{
+    padding: 4px;
+}
+
+TextField:focus > .unity-text-field__label
+{
+    color: var(--toolbar-focus-color);
+}
+
+.unity-text-field__input
+{
+    min-width: 100px;
+    max-width: 200px;
+    
+    padding-left: 2px;
+    border-radius: 5px;
+}
+
+.unity-text-element--inner-input-field-component:focus
+{
+    color: var(--toolbar-focus-color);
+}

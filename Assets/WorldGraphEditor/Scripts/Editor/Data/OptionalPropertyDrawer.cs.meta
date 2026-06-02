@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: d92063a3a7d146cfa7e637c773193591
+timeCreated: 1741690400
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Data/OptionalPropertyDrawer.cs
+  uploadId: 891090

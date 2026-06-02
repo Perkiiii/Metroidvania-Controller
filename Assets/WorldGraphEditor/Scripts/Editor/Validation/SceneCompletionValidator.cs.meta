@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 70e344b1f44440ddbe03741adee1ed1a
+timeCreated: 1750698571
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Validation/SceneCompletionValidator.cs
+  uploadId: 891090

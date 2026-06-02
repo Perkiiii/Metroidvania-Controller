@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 2eb8fe74dd794da1bccf586db4522079
+timeCreated: 1735653631
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/SaveSystem/CallData.cs
+  uploadId: 891090

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 816a9c73a6ffc1a4ea04ac4bc0d2ca1c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Resources/Scene Loaded Config.asset
+  uploadId: 891090

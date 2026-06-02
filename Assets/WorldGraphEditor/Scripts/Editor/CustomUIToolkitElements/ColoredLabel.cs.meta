@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 2e7c307aaf8e4d1d8e0b2dc06105fb3f
+timeCreated: 1751140440
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/ColoredLabel.cs
+  uploadId: 891090

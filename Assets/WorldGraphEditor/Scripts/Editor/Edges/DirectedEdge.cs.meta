@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 03071c35ed8045e9be87f486806abca8
+timeCreated: 1732179778
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Edges/DirectedEdge.cs
+  uploadId: 891090

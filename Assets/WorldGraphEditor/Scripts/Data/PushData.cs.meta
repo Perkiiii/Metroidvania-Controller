@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 713d169ac275475483398bc0a5b0f9cf
+timeCreated: 1740049459
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Data/PushData.cs
+  uploadId: 891090

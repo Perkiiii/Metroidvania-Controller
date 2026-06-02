@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: f344dc48e73e44cf969cb1193ea6ba82
+timeCreated: 1728147450
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Attributes/ReadOnlyFieldDrawer.cs
+  uploadId: 891090

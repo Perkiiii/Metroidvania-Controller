@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: b3213619f3f04791b9e0594df837f2b0
+timeCreated: 1738352172
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Utilities/TransitionManagerPrefabCreator.cs
+  uploadId: 891090

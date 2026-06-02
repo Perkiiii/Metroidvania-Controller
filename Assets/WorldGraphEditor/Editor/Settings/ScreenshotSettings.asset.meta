@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0d146ebe353bbf4449f5babc6d17a8ce
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Editor/Settings/ScreenshotSettings.asset
+  uploadId: 891090

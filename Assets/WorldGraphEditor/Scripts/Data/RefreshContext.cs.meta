@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 8ec0dab9a9d94862a461ca8253df369f
+timeCreated: 1760168441
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Data/RefreshContext.cs
+  uploadId: 891090

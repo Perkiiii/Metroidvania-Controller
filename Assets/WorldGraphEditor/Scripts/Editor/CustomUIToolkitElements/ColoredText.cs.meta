@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 83213f2b51aa43afae644abab30735b6
+timeCreated: 1751184529
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/ColoredText.cs
+  uploadId: 891090

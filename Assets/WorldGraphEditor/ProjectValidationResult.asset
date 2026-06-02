@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e2471eb397d45ecad0be5300a654e2b, type: 3}
+  m_Name: ProjectValidationResult
+  m_EditorClassIdentifier: WorldGraphEditor.Editor::WorldGraphEditor.Editor.ProjectValidationResult
+  _container: {fileID: 11400000, guid: 54ce382d84817344eb5155810ad536e2, type: 2}
+  _ignoreShortcuts: 0
+  _considerAdditionalPorts: 0
+  _scc:
+  - SCCIndex: 0
+    TestResults:
+    - Tested: 1
+      ScenePath: Assets/_Project/Scenes/Boot.unity
+      NodeName: Boot
+      ErrorsCount: 0
+      WarningsCount: 0
+      BuildIndex: 0
+      TestResults:
+      - Description: No missing ports found.
+        TestStatusType: 0
+      - Description: No duplicate ports found.
+        TestStatusType: 0
+  - SCCIndex: 1
+    TestResults:
+    - Tested: 1
+      ScenePath: Assets/_Project/Scenes/SampleScene.unity
+      NodeName: SampleScene
+      ErrorsCount: 0
+      WarningsCount: 1
+      BuildIndex: 1
+      TestResults:
+      - Description: Scene contains missing ports.
+        TestStatusType: 1
+      - Description: No duplicate ports found.
+        TestStatusType: 0
+    - Tested: 1
+      ScenePath: Assets/_Project/Scenes/SampleScene2.unity
+      NodeName: SampleScene2
+      ErrorsCount: 0
+      WarningsCount: 1
+      BuildIndex: 2
+      TestResults:
+      - Description: Scene contains missing ports.
+        TestStatusType: 1
+      - Description: No duplicate ports found.
+        TestStatusType: 0

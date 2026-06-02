@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 4de82b5ff03c48f38280ee018bce4a74
+timeCreated: 1755165960
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/EditorWindows/WGESettingsProvider.cs
+  uploadId: 891090

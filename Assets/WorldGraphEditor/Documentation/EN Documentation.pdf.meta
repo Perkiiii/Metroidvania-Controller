@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 273139b4befecae469bb22f688303672
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Documentation/EN Documentation.pdf
+  uploadId: 891090

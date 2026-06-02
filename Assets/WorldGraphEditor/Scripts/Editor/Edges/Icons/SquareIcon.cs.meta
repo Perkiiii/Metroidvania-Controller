@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: ad4a95a3808249708a0a9975f517dcda
+timeCreated: 1732356848
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Edges/Icons/SquareIcon.cs
+  uploadId: 891090

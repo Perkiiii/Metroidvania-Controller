@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 7a6be8f908524e68a6422d8a4f3e2397
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/SaveSystem/EdgeData.cs
+  uploadId: 891090

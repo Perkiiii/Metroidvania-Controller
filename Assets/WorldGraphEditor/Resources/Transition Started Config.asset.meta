@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bcc9d2730a34d2e499671913e698b708
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Resources/Transition Started Config.asset
+  uploadId: 891090

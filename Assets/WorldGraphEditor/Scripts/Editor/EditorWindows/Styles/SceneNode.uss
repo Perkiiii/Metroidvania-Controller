@@ -1,0 +1,148 @@
+:root
+{
+    --scene-node-color: rgba(59, 59, 59, 1);
+    --scene-node-title-color: rgba(94, 94, 94, 0.3);
+
+    --scene-node-duplicate-color: #813131;
+    --scene-node-duplicate-title-color: rgba(255, 98, 98, 0.2);
+
+    --scene-node-has-ports-duplicates-title-color: #812c2c;
+
+    --selection-color: #ffffff;
+}
+
+#title
+{
+    background-color: var(--scene-node-title-color);
+}
+
+#node-border
+{
+    border-radius: 10px;
+    border-width: 1px;
+}
+
+#selection-border 
+{
+    border-color: var(--selection-color);
+    border-radius: 12px;
+}
+
+:hover > #selection-border 
+{
+    border-color: var(--selection-color);
+}
+
+:checked > #selection-border
+{
+    border-color: var(--selection-color);
+    border-width: 2px;
+}
+
+:hover:checked > #selection-border
+{
+    border-color: var(--selection-color);
+    border-width: 4px;
+}
+
+#title-label
+{
+    color: #ffffff;
+    -unity-font-style: bold;
+    font-size: 12px;
+}
+
+.scene-node-has-ports-duplicates > .main-container
+{
+    background-color: var(--scene-node-has-ports-duplicates-title-color);
+}
+
+.scene-node-duplicate #title
+{
+    background-color: var(--scene-node-duplicate-title-color);
+}
+
+.scene-node-duplicate > .main-container
+{
+    background-color: var(--scene-node-duplicate-color);
+}
+
+.main-container
+{
+    background-color: var(--scene-node-color);
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.center-row
+{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.top-container
+{
+    display: flex;
+    flex-direction: row;
+    align-self: center;
+}
+
+.bottom-container
+{
+    display: flex;
+    flex-direction: row;
+    align-self: center;
+}
+
+.left-container
+{
+    display: flex;
+    flex-direction: column;
+}
+
+.right-container
+{
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-column
+{
+    display: flex;
+}
+
+.title-flex-column
+{
+    display: flex;
+    min-width: 100%;
+}
+
+.title-container
+{
+    align-items: flex-start;
+    margin: 0 auto;
+    flex-grow: 1;
+
+    padding: 5px;
+    border-radius: 10px;
+
+    min-width: 80px;
+    
+    min-height: 100%;
+    max-height: 100%;
+}
+
+.top-title-container
+{
+    justify-content: space-between;
+    flex-direction: row;
+}
+
+.bottom-title-container
+{
+    -unity-font-style: bold;
+    flex-direction: column;
+    
+    padding: 7px;
+    color: #acacac;
+}

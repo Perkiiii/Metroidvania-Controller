@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 6fc1f82c96c947a08b226426d7f5818b
+timeCreated: 1732201275
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Edges/Icons/ArrowIcon.cs
+  uploadId: 891090

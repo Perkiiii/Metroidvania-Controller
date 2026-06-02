@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: ac8dbbc267e14dc8b087e11a646f7e35
+timeCreated: 1759687542
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Enums/ScreenshotResolutionType.cs
+  uploadId: 891090

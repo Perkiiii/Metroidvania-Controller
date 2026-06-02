@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 436465dd8c4f4f6fb3d2e6d20ac63f50
+timeCreated: 1727808881
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/EditorWindows/Styles/Toolbar.uss
+  uploadId: 891090

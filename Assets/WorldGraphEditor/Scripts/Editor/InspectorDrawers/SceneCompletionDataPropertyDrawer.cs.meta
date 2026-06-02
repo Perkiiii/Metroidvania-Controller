@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: d059de8c8bc54152afdd2667e96c8277
+timeCreated: 1751022758
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/SceneCompletionDataPropertyDrawer.cs
+  uploadId: 891090

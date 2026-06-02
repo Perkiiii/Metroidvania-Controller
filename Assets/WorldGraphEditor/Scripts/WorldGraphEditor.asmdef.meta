@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: fd5719a9d26f5dc458f6aa7e0750808c
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/WorldGraphEditor.asmdef
+  uploadId: 891090

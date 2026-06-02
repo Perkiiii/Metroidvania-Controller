@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 2e619649668d4e08be27ab25c56d1e60
+timeCreated: 1728734101
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Attributes/EnableIfFieldAttribute.cs
+  uploadId: 891090

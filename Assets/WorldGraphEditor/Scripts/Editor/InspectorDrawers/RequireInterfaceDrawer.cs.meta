@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 8680e9bfcd964133ada21aea891a0dc1
+timeCreated: 1751026302
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/RequireInterfaceDrawer.cs
+  uploadId: 891090

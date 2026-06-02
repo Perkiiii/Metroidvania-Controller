@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 065bf2baff454701a8dea05d888cd7d5
+timeCreated: 1733762756
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Passages/Teleport2D.cs
+  uploadId: 891090

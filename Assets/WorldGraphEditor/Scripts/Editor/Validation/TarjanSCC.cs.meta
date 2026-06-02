@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 6b13fd230b804da2bcc464e3d56e289c
+timeCreated: 1751301556
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Validation/TarjanSCC.cs
+  uploadId: 891090

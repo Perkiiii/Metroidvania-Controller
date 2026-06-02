@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 0c8064a54faa44ff8cc821b3a05188af
+timeCreated: 1754318364
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Utilities/TransitionComponentRefresher.cs
+  uploadId: 891090

@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 9eccb2e4171f44f5b1265c494bb327e4
+timeCreated: 1735655181
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/CallDataPropertyDrawer.cs
+  uploadId: 891090

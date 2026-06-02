@@ -1,4 +1,5 @@
 ﻿<Solution>
+  <Project Path="WorldGraphEditor.csproj" />
   <Project Path="Kybernetik.Animancer.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="MoreMountains.Tools.csproj" />
@@ -8,6 +9,7 @@
   <Project Path="SingularityGroup.HotReload.Editor.csproj" />
   <Project Path="SingularityGroup.HotReload.Runtime.csproj" />
   <Project Path="VHierarchy.csproj" />
+  <Project Path="WorldGraphEditor.Editor.csproj" />
   <Project Path="Lofelt.NiceVibrations.Editor.csproj" />
   <Project Path="VInspector.csproj" />
   <Project Path="Lofelt.NiceVibrations.Demo.csproj" />

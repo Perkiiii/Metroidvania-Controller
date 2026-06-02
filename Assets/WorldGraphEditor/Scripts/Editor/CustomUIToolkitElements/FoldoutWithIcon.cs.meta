@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 1e717b08a7f54a1b8c9b4550ca0b13e0
+timeCreated: 1751142086
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/FoldoutWithIcon.cs
+  uploadId: 891090

@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: aa4f99b7437d439f9071072fc2550b98
+timeCreated: 1732355976
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Edges/Icons/EdgeIcon.cs
+  uploadId: 891090

@@ -1,0 +1,9 @@
+﻿:root
+{
+    --selection-color: #ffffff;
+}
+
+.selected-edge  
+{
+    --selected-edge-color: var(--selection-color);
+}

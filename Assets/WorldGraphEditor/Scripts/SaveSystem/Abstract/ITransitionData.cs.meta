@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 87fb3a3a9b044026988c01d813f047dd
+timeCreated: 1751363610
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/SaveSystem/Abstract/ITransitionData.cs
+  uploadId: 891090

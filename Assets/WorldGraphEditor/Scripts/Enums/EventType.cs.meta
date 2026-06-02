@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 19e3f4ef7f7049eab0f414479f2d060d
+timeCreated: 1735653677
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Enums/EventType.cs
+  uploadId: 891090

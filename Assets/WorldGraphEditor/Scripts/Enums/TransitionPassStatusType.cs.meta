@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: e329861a59284f0dac261087010aff29
+timeCreated: 1739798904
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Enums/TransitionPassStatusType.cs
+  uploadId: 891090

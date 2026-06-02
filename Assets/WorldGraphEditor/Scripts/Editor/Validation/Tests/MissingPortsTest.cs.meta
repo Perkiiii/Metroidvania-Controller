@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 9c11f515d54541d782b794bc2da310f5
+timeCreated: 1751114897
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Validation/Tests/MissingPortsTest.cs
+  uploadId: 891090

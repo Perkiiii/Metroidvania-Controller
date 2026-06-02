@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: e94a54e7dbcf4a158477a84b690b234b
+timeCreated: 1739391473
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/EditorWindows/Styles/CustomEdgeStyle.uss
+  uploadId: 891090

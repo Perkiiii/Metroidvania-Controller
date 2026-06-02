@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 19f2690debd145dfbc6b5b1b36a21092
+timeCreated: 1740049419
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Passages/Abstract/IPusher.cs
+  uploadId: 891090

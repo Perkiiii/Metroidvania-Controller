@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 7a84674d3d25496b852a713edf4316ee
+timeCreated: 1750757931
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/DuplicateListElement.cs
+  uploadId: 891090

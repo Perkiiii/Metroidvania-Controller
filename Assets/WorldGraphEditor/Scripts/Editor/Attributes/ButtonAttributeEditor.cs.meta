@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 614a4db642f946208468dd33f382a11e
+timeCreated: 1752752531
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Attributes/ButtonAttributeEditor.cs
+  uploadId: 891090

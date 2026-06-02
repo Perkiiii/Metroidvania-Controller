@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 31a4c120d21144458060cf8b381ceb0e
+timeCreated: 1728668115
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Enums/DelayType.cs
+  uploadId: 891090

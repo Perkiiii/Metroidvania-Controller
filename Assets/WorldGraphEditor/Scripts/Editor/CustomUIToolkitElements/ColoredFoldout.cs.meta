@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 2b0a905b69a54d0eb6d6867f231f47e1
+timeCreated: 1751185437
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/ColoredFoldout.cs
+  uploadId: 891090

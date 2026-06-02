@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 2de3c18ec804438a93fe9abc2d3197c6
+timeCreated: 1751897946
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/EditorWindows/Toolbar/ToolbarSceneExtension.cs
+  uploadId: 891090

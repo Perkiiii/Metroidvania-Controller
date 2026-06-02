@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec17750a89f542068d8efaedd64c3206, type: 3}
+  m_Name: ScreenshotSettings
+  m_EditorClassIdentifier: 
+  _screenshotSettings:
+  - Distance: 20
+    IsOrthographic: 1
+    Resolution: 1
+    NpotScale: 1
+    Center: {x: 0, y: 1, z: 0}
+    Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
+    Size: {x: 18.5, y: 10}
+    SceneGuid: 354bf9d441408d84aacac6e052728c0a
+  - Distance: 20
+    IsOrthographic: 1
+    Resolution: 1
+    NpotScale: 1
+    Center: {x: 0, y: 1.5, z: 0}
+    Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
+    Size: {x: 32, y: 18}
+    SceneGuid: 5c1cc05c2ccbdc745a66af1840fcdd98
+  _defaultSettings:
+    Distance: 20
+    IsOrthographic: 1
+    Resolution: 1
+    NpotScale: 1
+    Center: {x: 0, y: 0, z: 0}
+    Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
+    Size: {x: 18, y: 10}
+    SceneGuid: 4d1d334901cd835429a776e61bf9d8d7

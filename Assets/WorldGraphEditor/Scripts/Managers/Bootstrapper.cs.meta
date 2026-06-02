@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: c45028345d4a4b1fa50868ddc0c384ab
+timeCreated: 1728124320
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Managers/Bootstrapper.cs
+  uploadId: 891090

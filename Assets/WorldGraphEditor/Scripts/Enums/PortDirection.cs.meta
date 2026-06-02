@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 3f29b671e1224a328e501831b45e90b9
+timeCreated: 1740218560
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Enums/PortDirection.cs
+  uploadId: 891090

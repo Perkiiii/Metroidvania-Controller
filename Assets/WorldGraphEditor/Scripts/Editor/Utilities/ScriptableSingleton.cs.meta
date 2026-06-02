@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: a617045d6b1f4a9bb906cf7fa510ae7a
+timeCreated: 1755097048
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Utilities/ScriptableSingleton.cs
+  uploadId: 891090

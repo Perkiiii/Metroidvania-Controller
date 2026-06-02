@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 6ca133f0b20c4a16a0c871801d969633
+timeCreated: 1728141816
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/InspectorDrawers/DropdownPropertyDrawer.cs
+  uploadId: 891090

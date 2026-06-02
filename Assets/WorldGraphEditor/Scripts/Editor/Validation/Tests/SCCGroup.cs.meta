@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: b18e6bf727e24791ad1cab5cdd99eadd
+timeCreated: 1751405532
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Validation/Tests/SCCGroup.cs
+  uploadId: 891090

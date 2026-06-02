@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 2cf535b62f6d4c2987341bc7b3cd1fff
+timeCreated: 1748000511
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Scriptables/ContainerEditorData.cs
+  uploadId: 891090

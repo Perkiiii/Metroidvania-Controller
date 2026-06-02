@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: cc1aa0c128b2465c8ae5f6876690583a
+timeCreated: 1763228644
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/UndoRedo/UndoRedoSnapshotOverlayData.cs
+  uploadId: 891090

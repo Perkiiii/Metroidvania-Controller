@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: b9d7e091dc07478f91a97e0e18f3beff
+timeCreated: 1727622644
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/EditorWindows/Styles/SceneNode.uss
+  uploadId: 891090

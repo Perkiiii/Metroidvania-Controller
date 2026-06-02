@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: dd6d167c902146a9bc9868d30f6574f7
+timeCreated: 1750761977
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/CustomUIToolkitElements/Separator.cs
+  uploadId: 891090

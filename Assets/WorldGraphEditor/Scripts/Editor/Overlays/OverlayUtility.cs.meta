@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 4ea0a701b92947a9980476becd7d753e
+timeCreated: 1750672187
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.2.0
+  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Overlays/OverlayUtility.cs
+  uploadId: 891090
