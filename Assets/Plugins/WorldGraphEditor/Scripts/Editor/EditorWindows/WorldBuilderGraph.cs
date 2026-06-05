@@ -154,6 +154,7 @@ namespace WorldGraphEditor.Editor
             var loadButton = new Button(() => RequestDataOperation(false)) {text = "Open"};
             _refreshScenePreviewButton = new Button(RefreshScenePreviews) {text = "Refresh Preview"};
             _captureScenesButton = new Button(CaptureAllScenes) {text = "Capture Scene Previews"};
+            var miniMapButton = new Button(() => _graphView.ToggleMiniMap()) {text = "MiniMap"};
             _refreshScenePreviewButton.SetEnabled(false);
             _captureScenesButton.SetEnabled(false);
             
@@ -169,6 +170,7 @@ namespace WorldGraphEditor.Editor
                 
                 rightContainer.Add(_captureScenesButton);
                 rightContainer.Add(_refreshScenePreviewButton);
+                rightContainer.Add(miniMapButton);
             
                 toolbar.Add(leftContainer);
                 toolbar.Add(rightContainer);
