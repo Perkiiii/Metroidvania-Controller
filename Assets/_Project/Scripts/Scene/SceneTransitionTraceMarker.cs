@@ -1,0 +1,23 @@
+public enum SceneTransitionTraceMarker
+{
+    RequestReceived,
+    RequestAccepted,
+    RequestRejectedAlreadyTransitioning,
+    ControlLocked,
+    CameraFreezeRequested,
+    FadeOutStarted,
+    FadeOutComplete,
+    SceneLoadStarted,
+    SceneLoaded,
+    DestinationResolved,
+    HeroPlaced,
+    CameraRebindStarted,
+    CameraRebindComplete,
+    FadeInStarted,
+    FadeInComplete,
+    EntryMotionStarted,
+    EntryMotionComplete,
+    GameplayRestored,
+    TransitionFailed,
+    CleanupComplete
+}

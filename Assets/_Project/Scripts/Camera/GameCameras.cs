@@ -110,6 +110,11 @@ public sealed class GameCameras : MonoBehaviour
         if (cameraController != null) cameraController.SnapToTarget();
     }
 
+    public void FreezeForSceneTransition()
+    {
+        cameraController?.FreezeInPlace(true);
+    }
+
     public IEnumerator FadeOut(float duration = -1f)
     {
         if (fade == null)
@@ -121,6 +126,17 @@ public sealed class GameCameras : MonoBehaviour
         yield return StartCoroutine(fade.FadeOut(duration));
     }
 
+    public IEnumerator FadeOut(FadeProfile profile)
+    {
+        if (fade == null)
+        {
+            Debug.LogWarning("[GameCameras] FadeOut requested, but no CameraFade is assigned. Continuing without a screen fade.", this);
+            yield break;
+        }
+
+        yield return StartCoroutine(fade.FadeOut(profile));
+    }
+
     public IEnumerator FadeIn(float duration = -1f)
     {
         if (fade == null)
@@ -130,6 +146,17 @@ public sealed class GameCameras : MonoBehaviour
         }
 
         yield return StartCoroutine(fade.FadeIn(duration));
+    }
+
+    public IEnumerator FadeIn(FadeProfile profile)
+    {
+        if (fade == null)
+        {
+            Debug.LogWarning("[GameCameras] FadeIn requested, but no CameraFade is assigned. Continuing without a screen fade.", this);
+            yield break;
+        }
+
+        yield return StartCoroutine(fade.FadeIn(profile));
     }
 
     public void SetBlack()

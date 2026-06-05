@@ -46,6 +46,9 @@ public sealed class Bootstrap : MonoBehaviour
 
         string startupScene = SaveManager.Instance.GetStartupScene(firstScene);
         GameManager.Instance.RequestSavedRespawnPlacementOnNextSceneLoad();
-        GameManager.Instance.BeginSceneTransition(startupScene);
+        GameManager.Instance.BeginSceneTransition(new SceneTransitionRequest(
+            startupScene,
+            kind: SceneTransitionKind.Startup,
+            sourceDescription: "bootstrap startup"));
     }
 }

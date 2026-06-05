@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -12,14 +13,20 @@ public sealed class GameManager : MonoBehaviour
     // Fired after every scene load, before anything scene-local has run its Start.
     public event Action<Scene> SceneInit;
 
+    [Header("Scene Transition Fades")]
+    [SerializeField] private FadeProfile defaultFadeProfile;
+    [SerializeField] private FadeProfile startupFadeProfile;
+    [SerializeField] private FadeProfile respawnFadeProfile;
+
     private Coroutine _hitStopCoroutine;
+    private SceneLoader _sceneLoader;
+    private SceneTransitionManager _sceneTransitionManager;
     private HeroController _hero;
     private HeroHealthComponent _heroHealth;
 
     private RespawnMarker _activeRespawnMarker;
     private bool _placeHeroAtSavedRespawnOnNextSceneLoad;
     private bool _respawnOrRecoveryInProgress;
-    private bool _isTransitioning;
     private bool _hasPendingNormalDeathRespawn;
     private string _pendingNormalDeathRespawnScene = "";
     private string _pendingNormalDeathRespawnMarkerKey = "";
@@ -28,6 +35,31 @@ public sealed class GameManager : MonoBehaviour
     private Vector3 _sceneFallbackPosition;
 
     public bool IsRespawnOrRecoveryInProgress => _respawnOrRecoveryInProgress;
+    public bool IsSceneTransitioning => _sceneTransitionManager != null && _sceneTransitionManager.IsTransitioning;
+    public SceneTransitionTrace LastSceneTransitionTimeline => _sceneTransitionManager?.LastTrace;
+    public SceneTransitionTrace ActiveSceneTransitionTimeline => _sceneTransitionManager?.ActiveTrace;
+    public IReadOnlyList<SceneTransitionTraceMarker> LastSceneTransitionTrace => _sceneTransitionManager?.LastMarkers;
+
+    internal HeroController CurrentHero => _hero;
+    internal HeroHealthComponent CurrentHeroHealth => _heroHealth;
+    internal bool HasPendingNormalDeathRespawn => _hasPendingNormalDeathRespawn;
+
+    internal FadeProfile GetFadeProfileFor(SceneTransitionRequest request)
+    {
+        if (request.FadeOverride != null)
+            return request.FadeOverride;
+
+        switch (request.Kind)
+        {
+            case SceneTransitionKind.Startup:
+                return startupFadeProfile != null ? startupFadeProfile : defaultFadeProfile;
+            case SceneTransitionKind.NormalDeathRespawn:
+                return respawnFadeProfile != null ? respawnFadeProfile : defaultFadeProfile;
+            case SceneTransitionKind.Gate:
+            default:
+                return defaultFadeProfile;
+        }
+    }
 
     public void RequestSavedRespawnPlacementOnNextSceneLoad()
     {
@@ -51,6 +83,8 @@ public sealed class GameManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        _sceneLoader = new SceneLoader();
+        _sceneTransitionManager = new SceneTransitionManager(this, _sceneLoader);
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -65,168 +99,15 @@ public sealed class GameManager : MonoBehaviour
 
     public bool BeginSceneTransition(string targetScene, string destinationPassageGuid = "")
     {
-        if (_isTransitioning)
-        {
-            Debug.LogWarning($"[GameManager] Ignoring BeginSceneTransition('{targetScene}') — a transition is already in progress.");
-            return false;
-        }
-
-        if (string.IsNullOrEmpty(targetScene))
-        {
-            Debug.LogError("[GameManager] BeginSceneTransition called with empty targetScene; rejected.");
-            return false;
-        }
-
-        if (!IsSceneLoadable(targetScene))
-        {
-            Debug.LogError($"[GameManager] Scene '{targetScene}' is not in Build Settings; rejected.");
-            return false;
-        }
-
-        _isTransitioning = true;
-        StartCoroutine(TransitionRoutine(targetScene, destinationPassageGuid));
-        return true;
+        return BeginSceneTransition(new SceneTransitionRequest(targetScene, destinationPassageGuid));
     }
 
-    private IEnumerator TransitionRoutine(string targetScene, string destinationPassageGuid)
+    public bool BeginSceneTransition(SceneTransitionRequest request)
     {
-        HeroController lockedHero = null;
-        bool controlLockAdded = false;
-        HeroController fallbackLockedHero = null;
-        bool fallbackControlLockAdded = false;
-        bool completed = false;
-
-        try
-        {
-            State = GameState.Loading;
-            CameraShakeRequester.ShakeStop();
-
-            // Lock the outgoing hero so input is ignored during fade-out, even though
-            // the hero will be destroyed when the scene unloads.
-            if (_hero != null)
-            {
-                lockedHero = _hero;
-                lockedHero.AddControlLock(this);
-                controlLockAdded = true;
-            }
-
-            // Grant i-frames covering the fade-out + load + entry-motion window so
-            // an enemy or hazard hit on the same frame as the transition trigger
-            // cannot stall the sequence by routing through hurt / hazard recovery.
-            // Duration is intentionally generous; the timer expires harmlessly if
-            // the transition finishes early. The outgoing hero is destroyed mid-window
-            // when the scene unloads, so this only matters during fade-out.
-            if (_heroHealth != null) _heroHealth.GrantTemporaryInvincibility(this, 3f);
-
-            if (GameCameras.Instance != null)
-                yield return StartCoroutine(GameCameras.Instance.FadeOut());
-
-            AsyncOperation load = SceneManager.LoadSceneAsync(targetScene);
-            while (!load.isDone)
-                yield return null;
-            // OnSceneLoaded fires SceneInit, then repopulates _hero and resolves saved respawn marker.
-
-            State = GameState.EnteringLevel;
-
-            if (GameCameras.Instance != null)
-                GameCameras.Instance.SetBlack();
-
-            if (_hasPendingNormalDeathRespawn)
-            {
-                CompletePendingNormalDeathRespawn(targetScene);
-
-                if (GameCameras.Instance != null)
-                    GameCameras.Instance.RebindForSceneEntry();
-
-                yield return new WaitForSecondsRealtime(0.1f);
-
-                if (GameCameras.Instance != null)
-                    yield return StartCoroutine(GameCameras.Instance.FadeIn());
-
-                State = GameState.Playing;
-                completed = true;
-                yield break;
-            }
-
-            // Phase A — placement: resolve destination gate, place hero, lock control.
-            // Synchronous; happens behind the still-black screen.
-            TransitionPoint dest = !string.IsNullOrEmpty(destinationPassageGuid)
-                ? TransitionPoint.FindByPassageGuid(destinationPassageGuid)
-                : null;
-
-            if (dest == null && !string.IsNullOrEmpty(destinationPassageGuid))
-            {
-                Debug.LogError($"[GameManager] No TransitionPoint with passage GUID '{destinationPassageGuid}' found in '{SceneManager.GetActiveScene().name}'. Using scene fallback placement.");
-                PlaceHeroAtMissingPassageFallback(destinationPassageGuid);
-                if (_hero != null)
-                {
-                    fallbackLockedHero = _hero;
-                    fallbackLockedHero.AddControlLock(this);
-                    fallbackControlLockAdded = true;
-                }
-            }
-
-            if (dest != null && _hero != null)
-            {
-                _hero.BeginSceneEntryPlacement(dest);
-                // Refresh fallback so a post-entry hazard returns the hero to the
-                // gate-placed position, not the scene's authored hero position.
-                _sceneFallbackPosition = _hero.transform.position;
-            }
-
-            // Rebind camera to the placed hero position.
-            if (GameCameras.Instance != null)
-                GameCameras.Instance.RebindForSceneEntry();
-
-            yield return new WaitForSecondsRealtime(0.1f);
-
-            // Phase B+C — fade-in and entry motion start simultaneously so the scene
-            // is revealed while the hero is already walking in from the gate.
-            // We fire the fade non-blocking, run the motion to completion, then await
-            // the fade at the tail in case it outlasts the motion.
-            Coroutine entryFadeIn = null;
-            if (GameCameras.Instance != null)
-                entryFadeIn = StartCoroutine(GameCameras.Instance.FadeIn());
-
-            if (dest != null && _hero != null)
-            {
-                _hero.BeginSceneEntryMotion(dest);
-                while (_hero != null && _hero.IsEnteringScene)
-                    yield return null;
-            }
-
-            // Ensure the fade finishes even when entry motion is very short.
-            if (entryFadeIn != null)
-                yield return entryFadeIn;
-
-            if (fallbackControlLockAdded && fallbackLockedHero != null)
-            {
-                fallbackLockedHero.RemoveControlLock(this);
-                fallbackControlLockAdded = false;
-            }
-
-            // Phase D — hand control back. HeroSceneEntry's finally has removed its own
-            // control lock; GameManager promotes state to Playing.
-            State = GameState.Playing;
-            completed = true;
-        }
-        finally
-        {
-            if (!completed && controlLockAdded && lockedHero != null && lockedHero == _hero)
-                lockedHero.RemoveControlLock(this);
-
-            if (fallbackControlLockAdded && fallbackLockedHero != null)
-                fallbackLockedHero.RemoveControlLock(this);
-
-            if (!completed && (State == GameState.Loading || State == GameState.EnteringLevel || State == GameState.ExitingLevel))
-                State = GameState.Playing;
-
-            ClearPendingNormalDeathRespawn();
-            _isTransitioning = false;
-        }
+        return _sceneTransitionManager != null && _sceneTransitionManager.Begin(request);
     }
 
-    private void PlaceHeroAtMissingPassageFallback(string missingPassageGuid)
+    internal void PlaceHeroAtMissingPassageFallback(string missingPassageGuid)
     {
         if (_hero == null)
             return;
@@ -235,7 +116,7 @@ public sealed class GameManager : MonoBehaviour
         if (markers.Length > 0)
         {
             RespawnMarker marker = markers[0];
-            _hero.transform.position = marker.RespawnPosition;
+            _hero.TeleportForScenePlacement(marker.RespawnPosition);
             _hero.ForceFacingDirection(marker.FacingDirection);
             _sceneFallbackPosition = marker.RespawnPosition;
             Debug.LogError($"[GameManager] Missing destination passage GUID '{missingPassageGuid}'. Placed hero at fallback RespawnMarker '{marker.Key}'.", marker);
@@ -244,6 +125,16 @@ public sealed class GameManager : MonoBehaviour
 
         _sceneFallbackPosition = _hero.transform.position;
         Debug.LogError($"[GameManager] Missing destination passage GUID '{missingPassageGuid}' and no RespawnMarker exists in scene '{SceneManager.GetActiveScene().name}'. Hero remains at authored scene position.");
+    }
+
+    internal void SetSceneFallbackPosition(Vector3 position)
+    {
+        _sceneFallbackPosition = position;
+    }
+
+    internal void SetGameState(GameState state)
+    {
+        State = state;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -319,7 +210,7 @@ public sealed class GameManager : MonoBehaviour
 
         if (_hero == null) return;
 
-        _hero.transform.position = _activeRespawnMarker.RespawnPosition;
+        _hero.TeleportForScenePlacement(_activeRespawnMarker.RespawnPosition);
         _hero.ForceFacingDirection(_activeRespawnMarker.FacingDirection);
         Debug.Log($"[GameManager] Placed hero at saved respawn marker: {_activeRespawnMarker.Key}");
     }
@@ -330,7 +221,7 @@ public sealed class GameManager : MonoBehaviour
 
     public void BeginRespawnSequence()
     {
-        if (_respawnOrRecoveryInProgress || _isTransitioning)
+        if (_respawnOrRecoveryInProgress || IsSceneTransitioning)
         {
             return;
         }
@@ -354,7 +245,10 @@ public sealed class GameManager : MonoBehaviour
                 _pendingNormalDeathRespawnScene = respawnScene;
                 _pendingNormalDeathRespawnMarkerKey = markerKey;
 
-                if (BeginSceneTransition(respawnScene))
+                if (BeginSceneTransition(new SceneTransitionRequest(
+                    respawnScene,
+                    kind: SceneTransitionKind.NormalDeathRespawn,
+                    sourceDescription: "normal death respawn")))
                     return;
 
                 ClearPendingNormalDeathRespawn();
@@ -408,7 +302,7 @@ public sealed class GameManager : MonoBehaviour
         }
     }
 
-    private void CompletePendingNormalDeathRespawn(string loadedScene)
+    internal void CompletePendingNormalDeathRespawn(string loadedScene)
     {
         if (!string.IsNullOrEmpty(_pendingNormalDeathRespawnScene) && loadedScene != _pendingNormalDeathRespawnScene)
         {
@@ -436,7 +330,7 @@ public sealed class GameManager : MonoBehaviour
         {
             if (marker != null)
             {
-                _hero.transform.position = marker.RespawnPosition;
+                _hero.TeleportForScenePlacement(marker.RespawnPosition);
                 _hero.ForceFacingDirection(marker.FacingDirection);
                 _activeRespawnMarker = marker;
                 _sceneFallbackPosition = marker.RespawnPosition;
@@ -444,7 +338,7 @@ public sealed class GameManager : MonoBehaviour
             else
             {
                 Debug.LogError($"[GameManager] No RespawnMarker found in scene '{sceneName}'. Falling back to cached scene entry position.");
-                _hero.transform.position = _sceneFallbackPosition;
+                _hero.TeleportForScenePlacement(_sceneFallbackPosition);
             }
 
         }
@@ -461,7 +355,7 @@ public sealed class GameManager : MonoBehaviour
         SaveManager.Instance?.SetCurrentScene(sceneName);
     }
 
-    private void ClearPendingNormalDeathRespawn()
+    internal void ClearPendingNormalDeathRespawn()
     {
         _hasPendingNormalDeathRespawn = false;
         _pendingNormalDeathRespawnScene = "";
@@ -472,7 +366,7 @@ public sealed class GameManager : MonoBehaviour
 
     private bool IsSceneLoadable(string sceneName)
     {
-        return !string.IsNullOrEmpty(sceneName) && Application.CanStreamedLevelBeLoaded(sceneName);
+        return _sceneLoader != null && _sceneLoader.CanLoad(sceneName);
     }
 
     private RespawnMarker ResolveRespawnMarkerInLoadedScene(string markerKey)
@@ -566,13 +460,13 @@ public sealed class GameManager : MonoBehaviour
             {
                 if (marker != null)
                 {
-                    _hero.transform.position = marker.RespawnPosition;
+                    _hero.TeleportForScenePlacement(marker.RespawnPosition);
                     _hero.ForceFacingDirection(marker.FacingDirection);
                 }
                 else
                 {
                     Debug.LogWarning("[GameManager] Recoverable hazard had no HazardRespawnMarker assigned. Falling back to nearest RespawnMarker or cached scene entry position.");
-                    _hero.transform.position = FindNearestRespawnMarkerPosition();
+                    _hero.TeleportForScenePlacement(FindNearestRespawnMarkerPosition());
                 }
 
                 _hero.ResetAfterHazardRecovery();

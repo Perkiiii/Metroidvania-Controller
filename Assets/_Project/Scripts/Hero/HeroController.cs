@@ -120,6 +120,17 @@ public class HeroController : MonoBehaviour
         if (motor != null) motor.PushOut(worldOffset, zeroVelocityX, zeroVelocityY);
     }
 
+    public void TeleportForScenePlacement(Vector3 position)
+    {
+        if (motor != null)
+        {
+            motor.TeleportTo(position);
+            return;
+        }
+
+        transform.position = position;
+    }
+
     public bool IsRecoiling => blackboard != null && blackboard.recoiling;
     public bool IsControlLocked => blackboard != null && (blackboard.controlLocked || blackboard.inputBlocked);
 

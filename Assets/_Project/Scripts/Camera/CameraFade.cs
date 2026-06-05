@@ -29,38 +29,29 @@ public sealed class CameraFade : MonoBehaviour
 
     public IEnumerator FadeOut(float duration = -1f)
     {
-        CancelActiveFade();
-
-        if (!EnsureCanvasGroup())
-            yield break;
-
         float resolvedDuration = duration < 0f ? defaultFadeOutDuration : duration;
-        if (resolvedDuration <= 0f)
-        {
-            SetBlackInternal();
-            yield break;
-        }
+        yield return FadeOut(resolvedDuration, null, 0f);
+    }
 
-        activeFade = StartCoroutine(FadeRoutine(0f, 1f, resolvedDuration));
-        yield return activeFade;
+    public IEnumerator FadeOut(FadeProfile profile)
+    {
+        float resolvedDuration = profile != null ? profile.FadeOutDuration : defaultFadeOutDuration;
+        AnimationCurve curve = profile != null ? profile.FadeOutCurve : null;
+        float hold = profile != null ? profile.HoldAtBlackDuration : 0f;
+        yield return FadeOut(resolvedDuration, curve, hold);
     }
 
     public IEnumerator FadeIn(float duration = -1f)
     {
-        CancelActiveFade();
-
-        if (!EnsureCanvasGroup())
-            yield break;
-
         float resolvedDuration = duration < 0f ? defaultFadeInDuration : duration;
-        if (resolvedDuration <= 0f)
-        {
-            SetClearInternal();
-            yield break;
-        }
+        yield return FadeIn(resolvedDuration, null);
+    }
 
-        activeFade = StartCoroutine(FadeRoutine(1f, 0f, resolvedDuration));
-        yield return activeFade;
+    public IEnumerator FadeIn(FadeProfile profile)
+    {
+        float resolvedDuration = profile != null ? profile.FadeInDuration : defaultFadeInDuration;
+        AnimationCurve curve = profile != null ? profile.FadeInCurve : null;
+        yield return FadeIn(resolvedDuration, curve);
     }
 
     public void SetBlack()
@@ -81,7 +72,45 @@ public sealed class CameraFade : MonoBehaviour
         SetClearInternal();
     }
 
-    private IEnumerator FadeRoutine(float from, float to, float duration)
+    private IEnumerator FadeOut(float duration, AnimationCurve curve, float holdAtBlack)
+    {
+        CancelActiveFade();
+
+        if (!EnsureCanvasGroup())
+            yield break;
+
+        if (duration <= 0f)
+        {
+            SetBlackInternal();
+        }
+        else
+        {
+            activeFade = StartCoroutine(FadeRoutine(0f, 1f, duration, curve));
+            yield return activeFade;
+        }
+
+        if (holdAtBlack > 0f)
+            yield return new WaitForSecondsRealtime(holdAtBlack);
+    }
+
+    private IEnumerator FadeIn(float duration, AnimationCurve curve)
+    {
+        CancelActiveFade();
+
+        if (!EnsureCanvasGroup())
+            yield break;
+
+        if (duration <= 0f)
+        {
+            SetClearInternal();
+            yield break;
+        }
+
+        activeFade = StartCoroutine(FadeRoutine(1f, 0f, duration, curve));
+        yield return activeFade;
+    }
+
+    private IEnumerator FadeRoutine(float from, float to, float duration, AnimationCurve curve)
     {
         IsFading = true;
         ApplyAlpha(from);
@@ -99,9 +128,11 @@ public sealed class CameraFade : MonoBehaviour
         {
             elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float curvedT = fadingIn
-                ? Mathf.SmoothStep(0f, 1f, t)
-                : 1f - (1f - t) * (1f - t);
+            float curvedT = curve != null && curve.length > 0
+                ? Mathf.Clamp01(curve.Evaluate(t))
+                : fadingIn
+                    ? Mathf.SmoothStep(0f, 1f, t)
+                    : 1f - (1f - t) * (1f - t);
             ApplyAlpha(Mathf.Lerp(from, to, curvedT));
             yield return null;
         }

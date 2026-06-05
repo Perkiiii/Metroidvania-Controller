@@ -232,7 +232,11 @@ public sealed class TransitionPoint : PassageBase, ITransitionComponent
             return false;
         }
 
-        if (!GameManager.Instance.BeginSceneTransition(request.TargetSceneName, request.TargetPortGuid))
+        if (!GameManager.Instance.BeginSceneTransition(new SceneTransitionRequest(
+            request.TargetSceneName,
+            request.TargetPortGuid,
+            kind: SceneTransitionKind.Gate,
+            sourceDescription: name)))
             return false;
 
         localTransitionGuard = true;

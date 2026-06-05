@@ -227,7 +227,7 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 - `RecoverLocal` hazards subtract hazard damage, preserve reduced health, and ask `GameManager` to recover the hero at the assigned `HazardRespawnMarker` when health remains above zero. A directly assigned `HazardRespawnMarker` is strongly recommended; `OnValidate` warns if missing, and runtime falls back to the nearest `RespawnMarker`, then the cached scene-entry position.
 - `activeHazardRespawnMarkerKey` in `PlayerSaveData` remains reserved for future trigger-updated hazard marker persistence. The first-pass runtime path does not depend on `SaveManager`.
 
-**TransitionPoint** (implemented — Milestone 1): `TransitionPoint` does **not** call `GameManager.SetActiveRespawnMarker`. By design decision, death after crossing a gate sends the hero back to the last activated checkpoint, not to the entry door. A serialized `linkedRespawnMarker` field exists on `TransitionPoint` and is auto-populated from a child `RespawnMarker` in `Awake`, but is not consumed at runtime in this pass. It is reserved for a future policy pass that may opt into entry-door respawn. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) remain independent.
+**TransitionPoint** (implemented — Milestone 1; WGE-backed): `TransitionPoint` does **not** call `GameManager.SetActiveRespawnMarker`. By design decision, death after crossing a gate sends the hero back to the last activated checkpoint, not to the entry door. A serialized `linkedRespawnMarker` field exists on `TransitionPoint` and is auto-populated from a child `RespawnMarker` in `Awake`, but is not consumed at runtime in this pass. It is reserved for a future policy pass that may opt into entry-door respawn. `ActiveRespawnMarker` (normal death) and `ActiveHazardRespawnMarker` (hazard death) remain independent. World Graph Editor (WGE) supplies scene graph / port GUID data only; Underbrew still owns runtime loading, hero placement, and respawn flow. See `Docs/Integrations/WorldGraphEditorIntegration.md`.
 
 **Respawn marker persistence:** The save file stores the checkpoint scene name plus marker string `Key`, not a live object reference. On scene load, `GameManager.ResolveActiveRespawnMarkerFromSave()` only resolves `_activeRespawnMarker` when the loaded scene matches `activeRespawnSceneName`; it intentionally does not warn when ordinary traversal loads a different scene. On boot/continue, `PlaceHeroAtSavedRespawnIfRequested()` moves the hero to the resolved marker position before the fade-in. On normal death in a different scene, `GameManager` runs a pending normal-death respawn transition: load checkpoint scene, skip `TransitionPoint` entry motion, resolve the saved marker or first available fallback marker, restore health/state, rebind the camera, and fade in.
 
@@ -237,7 +237,9 @@ Registration: `InteractableBase.OnTriggerEnter2D` registers; `OnTriggerExit2D` d
 
 ## Scene Transitions and Loading
 
-**TransitionPoint** (implemented — Milestone 1):
+**World Graph Editor integration:** WGE is integrated as the scene graph, node, connection, and port authoring layer. `TransitionPoint` stores the selected WGE port GUID and `WorldGraphTransitionResolver` resolves graph data into a target scene and target passage GUID. WGE runtime transition components (`Passage2D`, `Teleport2D`, spawn points, runtime `TransitionManager`) are not used for gameplay; `GameManager.BeginSceneTransition(...)` remains Underbrew's public scene-transition entry point and delegates the lifecycle to `SceneTransitionManager`. Full ownership rules and upgrade steps live in `Docs/Integrations/WorldGraphEditorIntegration.md`.
+
+**TransitionPoint** (implemented — Milestone 1, WGE-backed):
 
 `TransitionPoint` is a `MonoBehaviour` + `Collider2D` that serves as both a *source* gate (triggers a transition when the hero enters) and a *destination* gate (provides spawn position and entry-motion parameters when the hero arrives from another scene).
 
@@ -245,17 +247,15 @@ Key serialized fields:
 
 | Field | Role |
 |---|---|
-| `gateKey` | Stable string ID; matched by the source gate's `entryGateKey`. Unique within a scene. |
+| WGE assigned port (`PassageBase._assignedPort`) | Stable WGE passage GUID for this gate. Selected in the `TransitionPoint` custom Inspector and used for both outgoing graph resolution and destination lookup. |
 | `gateSide` | `GateSide` enum (Left, Right, Top, Bottom, Door, Unknown). Explicit; never inferred from GameObject name. |
-| `targetScene` | Destination scene name. Empty = destination-only gate. |
-| `entryGateKey` | `gateKey` of the destination gate in `targetScene`. |
 | `entryOffset` | World-space nudge added to the gate's position to produce the hero spawn point. |
 | `entryFacingOverride` | `EntryFacing` enum (None, ForceRight, ForceLeft). `None` means destination-hero default facing; it does NOT carry facing across scenes. |
 | Per-gate motion params | `entryRunInDuration`, `entryDropSpeed`, `bottomThrowHorizontal`, `bottomThrowVertical`, `bottomThrowDuration`, `bottomGateSpawnLift`, `entryMaxFallbackTime`. All are transition-entry values only; they do not affect `HeroConfig` movement tuning. |
 | `isDoor` / `requireInteract` | `isDoor` routes activation through `DoorTransitionInteractable` (extends `InteractableBase`). `requireInteract = false` makes the door auto-trigger. |
 | `linkedRespawnMarker` | Reserved for a future policy pass. Auto-populated from a child `RespawnMarker` in `Awake` if empty. Not consumed at runtime in the current pass. |
 
-Static registry: `TransitionPoint` maintains an `Active` list (populated in `OnEnable`, cleared in `OnDisable`). `FindByGateKey(string)` does an O(n) search and warns on duplicate keys. `GameManager` uses this after scene load to locate the destination gate without a `FindObjectsByType` call per transition.
+Static registry: `TransitionPoint` maintains an `Active` list (populated in `OnEnable`, cleared in `OnDisable`). `FindByPassageGuid(string)` does an O(n) search and warns on duplicate WGE GUIDs. `GameManager` uses this after scene load to locate the destination gate without a `FindObjectsByType` call per transition.
 
 Activation rules:
 - Non-door, non-interact: `OnTriggerEnter2D` / `OnTriggerStay2D` route through `TransitionPoint`'s shared activation validation. `OnTriggerStay2D` remains a safety net for heroes already inside a trigger.
@@ -277,13 +277,13 @@ Top entries place the hero at the destination gate, apply the authored downward 
 
 `HeroMotor` owns all `Rigidbody2D` velocity writes and scene-entry placement through the `BeginScriptedEntry / EndScriptedEntry / SetScriptedVelocity / SetScriptedVelocityX / PushOut / TeleportTo / GetPositionWithFeetAt` API. The scripted-entry mode re-applies the locked target velocity at the end of every `FixedTick` so locomotion, gravity, wall-slide, and fall-clamp cannot overwrite it.
 
-Editor validation: `Tools/Project/Validate Transition Gate Links` scans enabled Build Settings scenes and reports blank or duplicate `gateKey`s, source gates targeting scenes outside Build Settings, blank `entryGateKey`s, and target scenes that do not contain exactly one matching destination gate. This is editor-only validation, not a runtime gate database.
+Editor validation: `Tools/Project/Validate Transition Gate Links` scans enabled Build Settings scenes and reports blank or duplicate WGE passage GUIDs, graph links that cannot resolve, targets outside enabled Build Settings scenes, and target scenes that do not contain exactly one matching destination gate. This is editor-only validation, not a runtime gate database.
 
 **GameManager** (MonoBehaviour, DontDestroyOnLoad) — four responsibilities only. Do not add to these without a documented architectural reason:
 
 1. **`GameState` enum** — `Playing`, `Paused`, `EnteringLevel`, `ExitingLevel`, `Loading`. Written only by GameManager methods, never from outside.
 2. **`SceneInit` event** — fired after every scene load, before the fade-in. Scene-local systems subscribe here rather than relying on `Awake` ordering.
-3. **`BeginSceneTransition(targetScene, entryGateKey)`** — validates `targetScene` (non-empty + in Build Settings), rejects re-entry while `_isTransitioning` is true, and returns whether the transition actually started. Actual flow: grant i-frames on outgoing hero → add control lock → fade out → `LoadSceneAsync` → `OnSceneLoaded` fires `SceneInit`, then caches the new hero and resolves saved respawn placement → if a pending normal-death respawn exists, place at the checkpoint marker and skip gate entry → otherwise resolve destination `TransitionPoint` by `gateKey` → place hero at destination gate or deterministic missing-gate fallback (`RespawnMarker`, then authored hero position) → refresh `_sceneFallbackPosition` → rebind camera → 0.1 s wait → fade in **and** per-gate entry motion start simultaneously → wait for both to complete → set `GameState.Playing`. Fade-in and entry motion are concurrent by design so the hero is already walking in from the gate as the screen reveals. `_isTransitioning` is always cleared in a `try/finally`, and transition-owned outgoing control locks are removed if the routine aborts before scene handoff.
+3. **`BeginSceneTransition(...)`** — public compatibility facade. It accepts either the legacy `(targetScene, destinationPassageGuid)` pair or a typed `SceneTransitionRequest`, then delegates to `SceneTransitionManager`. `SceneTransitionManager` validates the scene through `SceneLoader`, rejects duplicate requests, resolves the fade profile from request override → kind default → `CameraFade` fallback, records an ordered debug trace, and owns the normal transition coroutine. Actual flow: grant i-frames on outgoing hero → add control lock → freeze camera → fade out → `SceneLoader.LoadSingle` → `OnSceneLoaded` fires `SceneInit`, then caches the new hero and resolves saved respawn placement → if a pending normal-death respawn exists, place at the checkpoint marker and skip gate entry → otherwise resolve destination `TransitionPoint` by WGE passage GUID → place hero at destination gate or deterministic missing-gate fallback (`RespawnMarker`, then authored hero position) → refresh `_sceneFallbackPosition` → rebind camera → 0.1 s wait → fade in **and** per-gate entry motion start simultaneously → wait for both to complete → set `GameState.Playing`. Fade-in and entry motion are concurrent by design so the hero is already walking in from the gate as the screen reveals. Transition state and transition-owned control locks are cleaned up in `try/finally`.
 4. **`Pause()` / `Unpause()`** — set `GameState.Paused`, add hero control lock, set `Time.timeScale = 0`. Unpause reverses all three in order. Nothing else in the project touches `Time.timeScale`.
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
