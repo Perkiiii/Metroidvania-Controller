@@ -24,3 +24,13 @@ MonoBehaviour:
   deathDestroyDelay: 1.95
   hurtSfx: {fileID: 8300000, guid: 9c447bd69223a044cb852fa966918023, type: 3}
   deathSfx: {fileID: 8300000, guid: a0fbf78b64e63304e8cfa71b3dd77c49, type: 3}
+  patrolSpeed: 1.5
+  chaseSpeed: 2.5
+  patrolIdleTime: 1.5
+  chaseTimeout: 3
+  attackRange: 0.8
+  attackCooldown: 1
+  detectionRadius: 5
+  terrainLayers:
+    serializedVersion: 2
+    m_Bits: 128

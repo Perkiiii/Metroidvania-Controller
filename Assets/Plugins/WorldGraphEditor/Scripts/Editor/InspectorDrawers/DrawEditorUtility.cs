@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEditor;
+using UnityEngine;
 
 namespace WorldGraphEditor.Editor
 {
@@ -50,6 +51,19 @@ namespace WorldGraphEditor.Editor
         public static void DrawSpace(int amount = 12)
         {
             EditorGUILayout.Space(amount);
+        }
+
+        public static bool DrawButton(string text, bool enabled, GUIStyle style = null)
+        {
+            var previous = GUI.enabled;
+            GUI.enabled = enabled;
+
+            style ??= GUI.skin.button;  
+            
+            var res = GUILayout.Button(text, style);
+            GUI.enabled = previous;
+
+            return res;
         }
     }
 }

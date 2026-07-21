@@ -1397,13 +1397,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TransitionPoint
   _assignedPort:
-    _selectedGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+    _selectedGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
     _displayData:
     - Left 0
     _guidData:
-    - c478de6a-980b-45bd-bcab-fd1beccc9f58
+    - 01833b88-20ca-4b2a-8a60-3da478f863c7
     _selectedName: Left 0
-  _assignedGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+  _assignedGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
   _targetScene: Assets/_Project/Scenes/SampleScene2
   gateSide: 1
   entryOffset: {x: 1, y: 0}

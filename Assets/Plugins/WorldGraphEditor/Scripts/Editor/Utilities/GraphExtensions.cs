@@ -47,9 +47,8 @@ namespace WorldGraphEditor.Editor
         internal static string GetFormattedPath(this SceneAsset sceneAsset)
         {
             var fullPath = AssetDatabase.GetAssetPath(sceneAsset);
-            var examplesPath = WGEAssetPathUtility.GetPath("Examples") + "/";
-            var pathWithoutAssets = fullPath.StartsWith(examplesPath) 
-                ? fullPath[examplesPath.Length..] 
+            var pathWithoutAssets = fullPath.StartsWith("Assets/WorldGraphEditor/Examples") 
+                ? fullPath["Assets/WorldGraphEditor/Examples/".Length..] 
                 : fullPath;
             
             var lastDotIndex = pathWithoutAssets.LastIndexOf('.');
@@ -67,20 +66,6 @@ namespace WorldGraphEditor.Editor
             edge?.input?.Disconnect(edge);
         }
 
-        internal static SceneNodeData GetData(this SceneNode node)
-        {
-            return new SceneNodeData
-            {
-                NodeName = node.Name,
-                Guid = node.Guid,
-                SceneAsset = node.SceneAsset,
-                ScenePath = node.SceneAsset.name,
-                Position = node.GetPosition().position,
-                
-                SceneAssetGuid = node.SceneAssetGuid
-            };
-        }
-
         internal static SceneNodeData GetDataWithPorts(this SceneNode node, bool connectedOnly)
         {
             return new SceneNodeData
@@ -93,16 +78,25 @@ namespace WorldGraphEditor.Editor
                 Position = node.GetPosition().position,
                 PortsData = node.Ports.GetData(connectedOnly).ToArray(),
                 
-                SceneAssetGuid = node.SceneAssetGuid
+                SceneAssetGuid = node.SceneAssetGuid,
+                
+#if WGE_ADDRESSABLES
+                Address = AddressablesAddressResolver.TryResolveSceneAddress(node.SceneAssetGuid),
+#endif
             };
         }
 
         internal static IEnumerable<SceneRuntimeData> GetRuntimeData(this IList<SceneNodeData> data)
         {
-            return data.Select(static item => new SceneRuntimeData
+            return data.Select(item => new SceneRuntimeData
             {
+                SceneName = item.SceneAsset.name,
+                NodeName = item.NodeName,
                 BuildIndex = item.BuildIndex,
-                PortsGuid = item.PortsData.Select(static item => item.Guid).ToArray()
+                PortsData = item.PortsData.GetRuntimeData().ToArray(),
+#if WGE_ADDRESSABLES
+                Address = AddressablesAddressResolver.TryResolveSceneAddress(item.SceneAssetGuid),
+#endif
             });
         }
         
@@ -114,6 +108,16 @@ namespace WorldGraphEditor.Editor
                 ToPortGuid = item.ToPortGuid,
                 FromPortGuid = item.FromPortGuid,
                 TransitionType = item.TransitionType
+            });
+        }
+
+        internal static IEnumerable<PortRuntimeData> GetRuntimeData(this IEnumerable<PortData> portsData)
+        {
+            return portsData.Select(static port => new PortRuntimeData
+            {
+                Name = port.Name,
+                Guid = port.Guid,
+                IsAdditional = port.IsAdditional
             });
         }
 

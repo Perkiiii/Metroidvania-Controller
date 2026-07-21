@@ -676,17 +676,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TransitionPoint
   _assignedPort:
-    _selectedGuid: b51dde29-5384-4923-8c31-c62785f04d94
+    _selectedGuid: 5ccee222-3500-4c91-9747-0b746570dcc2
     _displayData:
     - Left 0
     - Bottom 0
     - Right 0
     _guidData:
-    - 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    - b51dde29-5384-4923-8c31-c62785f04d94
-    - 781f74c2-cbd2-4719-8890-99b0a813289e
+    - 68be6e2e-2440-4f65-b987-5bd652a097c8
+    - 5ccee222-3500-4c91-9747-0b746570dcc2
+    - bf998044-cbee-430e-9c71-8b17d138450d
     _selectedName: Bottom 0
-  _assignedGuid: b51dde29-5384-4923-8c31-c62785f04d94
+  _assignedGuid: 5ccee222-3500-4c91-9747-0b746570dcc2
   _targetScene: Assets/_Project/Scenes/SampleScene
   gateSide: 4
   entryOffset: {x: 1, y: 0}
@@ -1167,17 +1167,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TransitionPoint
   _assignedPort:
-    _selectedGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
+    _selectedGuid: bf998044-cbee-430e-9c71-8b17d138450d
     _displayData:
     - Left 0
     - Bottom 0
     - Right 0
     _guidData:
-    - 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    - b51dde29-5384-4923-8c31-c62785f04d94
-    - 781f74c2-cbd2-4719-8890-99b0a813289e
+    - 68be6e2e-2440-4f65-b987-5bd652a097c8
+    - 5ccee222-3500-4c91-9747-0b746570dcc2
+    - bf998044-cbee-430e-9c71-8b17d138450d
     _selectedName: Right 0
-  _assignedGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
+  _assignedGuid: bf998044-cbee-430e-9c71-8b17d138450d
   _targetScene: Assets/_Project/Scenes/SampleScene3
   gateSide: 2
   entryOffset: {x: -1, y: 0}
@@ -2023,17 +2023,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TransitionPoint
   _assignedPort:
-    _selectedGuid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
+    _selectedGuid: 68be6e2e-2440-4f65-b987-5bd652a097c8
     _displayData:
     - Left 0
     - Bottom 0
     - Right 0
     _guidData:
-    - 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    - b51dde29-5384-4923-8c31-c62785f04d94
-    - 781f74c2-cbd2-4719-8890-99b0a813289e
+    - 68be6e2e-2440-4f65-b987-5bd652a097c8
+    - 5ccee222-3500-4c91-9747-0b746570dcc2
+    - bf998044-cbee-430e-9c71-8b17d138450d
     _selectedName: Left 0
-  _assignedGuid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
+  _assignedGuid: 68be6e2e-2440-4f65-b987-5bd652a097c8
   _targetScene: Assets/_Project/Scenes/SampleScene
   gateSide: 1
   entryOffset: {x: 1, y: 0}

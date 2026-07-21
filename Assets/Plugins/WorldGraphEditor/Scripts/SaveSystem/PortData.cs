@@ -5,13 +5,17 @@ using System;
 namespace WorldGraphEditor
 {
     [Serializable]
-    public struct PortData : IEquatable<PortData>
+    public struct PortData : IEquatable<PortData>, IPortData
     {
         public string Name;
         public string Guid;
         public bool IsInput;
         public bool IsHorizontal;
         public bool IsAdditional;
+        
+        public string GetGuid() => Guid;
+
+        public bool GetIsAdditional() => IsAdditional;
 
         public bool Equals(PortData other)
         {

@@ -59,7 +59,7 @@ namespace WorldGraphEditor.Editor
 
         private void RefreshBuildSettings()
         {
-            var savedScenes = _target.EditorData.SceneNodeData;
+            var savedScenes = _target.EditorGraph.GetScenesData();
             var enabledScenes = EditorBuildSettings.scenes.Where(item => item.enabled).ToArray();
             
             ScenesValidationHelper.AddMissingScenesToBuild(savedScenes, enabledScenes);

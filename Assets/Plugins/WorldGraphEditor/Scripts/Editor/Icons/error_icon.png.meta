@@ -154,6 +154,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 306228
   packageName: World Graph Editor
-  packageVersion: 1.2.0
-  assetPath: Assets/WorldGraphEditor/Scripts/Editor/Icons/error_icon.png
-  uploadId: 891090
+  packageVersion: 1.3.0
+  assetPath: Assets/Plugins/WorldGraphEditor/Scripts/Editor/Icons/error_icon.png
+  uploadId: 949198

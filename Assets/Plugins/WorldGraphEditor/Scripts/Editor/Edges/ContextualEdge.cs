@@ -18,7 +18,7 @@ namespace WorldGraphEditor.Editor
             
             this.SetGuid(Guid.NewGuid().ToString());
 
-            GraphUtility.AddStyleSheet(this, "Scripts/Editor/EditorWindows/Styles/CustomEdgeStyle.uss");
+            styleSheets.Add(WGEAssetPathUtility.LoadStyleSheet("Scripts/Editor/EditorWindows/Styles/CustomEdgeStyle.uss"));
             AddToClassList("selected-edge");
         }
 

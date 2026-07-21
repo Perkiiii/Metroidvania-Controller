@@ -69,6 +69,19 @@ Docs/              architecture and feature documentation
 New scripts go under `Assets/_Project/Scripts/<SystemName>/`. Do not place scripts at the `Assets/`
 root or inside `Assets/Plugins/`.
 
+### Quick Architecture Map
+
+| System Layer | Scripts Path | ScriptableObjects Path | Key Base Type |
+|---|---|---|---|
+| Hero Mechanics | `Scripts/Hero/` | `ScriptableObjects/Hero/` | Plain C# action classes ticked via `HeroActionController` |
+| Enemy AI | `Scripts/Enemy/` | `ScriptableObjects/Enemy/` | `EnemyController` coordinator, `IEnemyBehaviour` |
+| World & Interactables | `Scripts/World/` | `ScriptableObjects/World/` | `InteractableBase` |
+| Save / Load | `Scripts/Save/` | (wired on SaveManager prefab) | `ISaveTarget` |
+| Scene Graph | `Scripts/WorldGraph/` | `ScriptableObjects/World/UnderbrewWorldGraph.asset` | `WorldGraphTransitionResolver` (static) |
+| HUD / UI | `Scripts/UI/` | (linked via HUD Canvas) | Event subscribers; no per-frame polling |
+
+All paths are relative to `Assets/_Project/`.
+
 ---
 
 ## Agent Workflow
@@ -155,6 +168,9 @@ See `Docs/FeatureSpecs/Combat.md`.
   communication.
 - Room bounds: `CameraBoundsVolume`. Temporary hard locks: `CameraLockArea`. Soft framing:
   `CameraOffsetArea`. All tuning in `CameraConfig.asset`.
+- **`CameraInfoCache`** caches camera position, aspect, and world half-extents once per frame.
+  Query `CameraInfoCache.WorldRect`, `HalfWidth`, and `HalfHeight` instead of recalculating
+  projection math.
 
 See `Docs/FeatureSpecs/Camera.md`.
 
@@ -179,6 +195,8 @@ See `Docs/FeatureSpecs/Audio.md`.
   `HeroStateBlackboard`, `Rigidbody2D`, or enemy classes at save or load time.
 - **All save-eligible state is owned by a ScriptableObject implementing `ISaveTarget`.**
   Scene-object identity is stored as string keys, never as `UnityEngine.Object` references.
+- **`ApplySaveData` implementations must use event-firing setters** (e.g. `SetUnlocked`), never
+  direct field assignment, so scene subscribers (e.g. `AbilityGate`) react correctly on load.
 - **Only the checkpoint interaction flow and `SaveManager.SaveOnQuit` call `Save()`.**
   Never from hero or enemy MonoBehaviours.
 
@@ -188,6 +206,12 @@ See `Docs/FeatureSpecs/SaveSystem.md`.
 
 - **Scene transitions go through `GameManager.BeginSceneTransition`.** `TransitionPoint` calls
   it; it must never call `LoadSceneAsync` directly.
+- **WGE runtime components are not used for gameplay.** `TransitionPoint` derives from WGE
+  `PassageBase` for graph authoring only. Do not add `Passage2D`, `Teleport2D`, WGE spawn points,
+  or a runtime WGE `TransitionManager` to any scene. The `_autoLoad` field on
+  `Assets/WorldGraphEditor/Resources/TransitionManager.prefab` **must stay `false`** — if `true`,
+  WGE creates a competing singleton before `Bootstrap.Awake()`. Check after every WGE upgrade.
+  See `Docs/Integrations/WorldGraphEditorIntegration.md`.
 - **`AddControlLock` / `RemoveControlLock` is the only approved input-suppression channel.**
   Do not write `blackboard.controlLocked` directly from world or UI systems.
 - **`GameManager` has four core responsibilities:** `GameState` enum, `SceneInit` event,
@@ -211,6 +235,8 @@ See `Docs/FeatureSpecs/HUD.md`.
 - **Do not use C# inheritance for enemy variants** — prefer composition and distinct config assets.
 - **Enemies must not reference `HeroController` or any hero subsystem.** They may read the hero
   `Transform` for detection targeting.
+- **Clean death:** disable physics (`Rigidbody2D`, colliders) and AI on the same frame death
+  starts, before the destroy delay, to avoid one-frame physics glitches.
 
 See `Docs/FeatureSpecs/EnemyAI.md`.
 

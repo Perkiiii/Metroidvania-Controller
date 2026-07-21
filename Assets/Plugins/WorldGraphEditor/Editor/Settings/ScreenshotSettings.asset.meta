@@ -10,6 +10,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 306228
   packageName: World Graph Editor
-  packageVersion: 1.2.0
-  assetPath: Assets/WorldGraphEditor/Editor/Settings/ScreenshotSettings.asset
-  uploadId: 891090
+  packageVersion: 1.3.0
+  assetPath: Assets/Plugins/WorldGraphEditor/Editor/Settings/ScreenshotSettings.asset
+  uploadId: 949198

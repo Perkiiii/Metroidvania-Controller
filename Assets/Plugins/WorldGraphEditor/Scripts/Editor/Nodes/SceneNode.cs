@@ -17,7 +17,6 @@ namespace WorldGraphEditor.Editor
         internal string SceneAssetGuid { get; private set; }
         
         internal static Action<SceneNode> OnSceneNodeDeleted;
-
         internal static Action<SceneNode, SceneAsset, SceneAsset> OnSceneAssetChanged;
         internal static Action<SceneNode, SceneAsset> OnBeforeSceneAssetChanged;
         
@@ -40,6 +39,10 @@ namespace WorldGraphEditor.Editor
         private VisualElement _topTitleContainer { get; set; }
         private VisualElement _bottomTitleContainer { get; set; }
 
+#if WGE_ADDRESSABLES
+        private Label _addressableBadge;
+#endif
+
         public SceneNode(SceneAsset sceneAsset, string name, string guid, Vector2 position)
         {
             base.title = name;
@@ -58,9 +61,14 @@ namespace WorldGraphEditor.Editor
             };
 
             _topTitleContainer.Add(portButton);
+#if WGE_ADDRESSABLES
+            CreateAddressableBadge();
+#endif
             _handledScenesLabel = new Label();
             _bottomTitleContainer.Add(_handledScenesLabel);
-            GraphUtility.AddStyleSheet(this, "Scripts/Editor/EditorWindows/Styles/SceneNode.uss");
+            styleSheets.Add(
+                WGEAssetPathUtility.LoadStyleSheet(
+                    "Scripts/Editor/EditorWindows/Styles/SceneNode.uss"));
 
             RegisterCallback<ContextualMenuPopulateEvent>(OnContextManuPopulate);
             RefreshHandledScenesLabel(true);
@@ -68,21 +76,41 @@ namespace WorldGraphEditor.Editor
             RefreshPorts();
         }
 
-        public void TryAddScenePreview(float opacity)
+        public void AddScenePreview(float opacity)
         {
-            var alpha = 1 - Mathf.Clamp01(opacity);
-            var sprite = SceneScreenshotUtility.GetSpriteForScreenshot(SceneAssetGuid);
-
-            if (sprite == null)
+            if (!CanApplyScenePreview())
                 return;
+
+            if (!SceneScreenshotsData.Instance.IsAutoCaptureEnabled(SceneAssetGuid))
+            {
+                ClearScenePreview();
+                return;
+            }
+
+            var texture = SceneScreenshotUtility.GetScreenshotTexture(SceneAssetGuid);
             
-            mainContainer.style.backgroundImage = Background.FromSprite(sprite);
+            if (texture == null)
+            {
+                ClearScenePreview();
+                return;
+            }
+
+            var alpha = 1 - Mathf.Clamp01(opacity);
+            mainContainer.style.backgroundImage = new StyleBackground(texture);
             mainContainer.style.unityBackgroundImageTintColor = new StyleColor(new Color(1f, 1f, 1f, alpha));
+        }
 
-            // InvalidOperationException: EnsureRunningOnMainThread can only be called from the main thread
+        private bool CanApplyScenePreview()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+                return false;
 
-            /*mainContainer.style.backgroundImage = texture;
-            mainContainer.style.unityBackgroundImageTintColor = new StyleColor(new Color(1f, 1f, 1f, 0.45f));*/
+            return !string.IsNullOrEmpty(SceneAssetGuid);
+        }
+
+        public void ClearScenePreview()
+        {
+            mainContainer.style.backgroundImage = new StyleBackground(StyleKeyword.None);
         }
         
         private void OnContextManuPopulate(ContextualMenuPopulateEvent evt)
@@ -293,7 +321,7 @@ namespace WorldGraphEditor.Editor
         {
             var isSceneAssetExists = SceneAsset != null;
             var message = isSceneAssetExists
-                ? $"Handled scene:\n -{SceneAsset.GetFormattedPath()}"
+                ? $"Handled scene:\n -{SceneAsset.name}"
                 : "NO SCENE HANDLED";
 
             if (isSceneAssetExists)
@@ -308,10 +336,45 @@ namespace WorldGraphEditor.Editor
             }
 
             if (isAssetChanged)
-                TryAddScenePreview(WorldGraphEditorSettings.Instance.NodeBackgroundOpacity);
+                AddScenePreview(WorldGraphEditorSettings.Instance.NodeBackgroundOpacity);
             
             _handledScenesLabel.text = message;
+#if WGE_ADDRESSABLES
+            RefreshAddressableBadge();
+#endif
         }
+
+#if WGE_ADDRESSABLES
+        private void CreateAddressableBadge()
+        {
+            _addressableBadge = new Label("ADR")
+            {
+                tooltip = "Loaded via Addressables"
+            };
+            _addressableBadge.AddToClassList("scene-node-addressable-badge");
+            _addressableBadge.style.display = DisplayStyle.None;
+            _topTitleContainer.Insert(0, _addressableBadge);
+        }
+
+        internal void RefreshAddressableBadge()
+        {
+            if (_addressableBadge == null)
+                return;
+
+            var isAddressable = !string.IsNullOrEmpty(SceneAssetGuid) &&
+                                AddressablesAddressResolver.IsAddressableScene(SceneAssetGuid);
+
+            _addressableBadge.style.display = isAddressable ? DisplayStyle.Flex : DisplayStyle.None;
+
+            if (!isAddressable)
+                return;
+
+            var address = AddressablesAddressResolver.TryResolveSceneAddress(SceneAssetGuid);
+            _addressableBadge.tooltip = string.IsNullOrEmpty(address)
+                ? "Loaded via Addressables"
+                : $"Loaded via Addressables.\nAddress: {address}";
+        }
+#endif
 
         public void RemovePort(string guid)
         {
@@ -333,26 +396,237 @@ namespace WorldGraphEditor.Editor
             UndoRedoUtility.Record(this, GetPosition().position, "Node changed");
         }
 
-        public Port GetOppositePort(Port existingPort)
+        internal AutoConnectPreview GetAutoConnectPreview(Port existingPort, Vector2 cursorPositionInContent,
+            Port snapTarget = null)
+        {
+            if (snapTarget != null && snapTarget.node == this && !snapTarget.IsAdditional())
+            {
+                return snapTarget.connected
+                    ? new AutoConnectPreview(AutoConnectKind.ConnectOccupied, new PortPreview(snapTarget.portName, snapTarget.portColor))
+                    : new AutoConnectPreview(AutoConnectKind.ConnectExisting, new PortPreview(snapTarget.portName, snapTarget.portColor));
+            }
+
+            var decision = ResolveAutoConnectDecision(existingPort, cursorPositionInContent);
+
+            if (decision.HasUnconnected)
+            {
+                var nearest = decision.NearestUnconnected;
+
+                if (nearest != null)
+                    return new AutoConnectPreview(AutoConnectKind.ConnectExisting, new PortPreview(nearest.portName, nearest.portColor));
+
+                return new AutoConnectPreview(AutoConnectKind.ConnectExisting);
+            }
+
+            var (prev, next) = (decision.Prev, decision.Next);
+
+            if (prev != null && next != null)
+                return new AutoConnectPreview(AutoConnectKind.InsertBetween,
+                    new PortPreview(prev.portName, prev.portColor), 
+                    new PortPreview(next.portName, next.portColor));
+
+            if (prev != null)
+                return new AutoConnectPreview(AutoConnectKind.InsertAfter, new PortPreview(prev.portName, prev.portColor));
+
+            if (next != null)
+                return new AutoConnectPreview(AutoConnectKind.InsertBefore, new PortPreview(next.portName, next.portColor));
+
+            return new AutoConnectPreview(AutoConnectKind.InsertFirst);
+        }
+
+        public Port GetOppositePort(Port existingPort, Vector2 cursorPositionInContent)
+        {
+            var decision = ResolveAutoConnectDecision(existingPort, cursorPositionInContent);
+
+            if (decision.HasUnconnected)
+                return decision.NearestUnconnected;
+
+            var directionName = GetPortName(decision.OppositeDirection, decision.Orientation);
+            var insertIndex = GetInsertIndex(decision.Container, decision.Next);
+
+            return InsertPortAt(decision.OppositeDirection, decision.Orientation, decision.Container, directionName,
+                insertIndex, false, decision.Prev, decision.Next);
+        }
+
+        private readonly struct AutoConnectDecision
+        {
+            public readonly Direction OppositeDirection;
+            public readonly Orientation Orientation;
+            public readonly VisualElement Container;
+            public readonly bool HasUnconnected;
+            public readonly Port NearestUnconnected;
+            public readonly Port Prev;
+            public readonly Port Next;
+
+            public AutoConnectDecision(Direction oppositeDirection, Orientation orientation, VisualElement container,
+                bool hasUnconnected, Port nearestUnconnected, Port prev, Port next)
+            {
+                OppositeDirection = oppositeDirection;
+                Orientation = orientation;
+                Container = container;
+                HasUnconnected = hasUnconnected;
+                NearestUnconnected = nearestUnconnected;
+                Prev = prev;
+                Next = next;
+            }
+        }
+
+        private AutoConnectDecision ResolveAutoConnectDecision(Port existingPort, Vector2 cursorPositionInContent)
         {
             var oppositeDirection = existingPort.direction == Direction.Input ? Direction.Output : Direction.Input;
             var orientation = existingPort.orientation;
-
+            var isVertical = orientation == Orientation.Vertical;
             var container = GetPortContainer(oppositeDirection, orientation);
-            var directionName = GetPortName(oppositeDirection, orientation);
 
-            var unconnectedPorts = GetUnConnectedPorts(oppositeDirection, orientation).ToArray();
-            
-            if (unconnectedPorts.Length > 0)
-                return unconnectedPorts.First();
-                
-            var port = AddPort(oppositeDirection, orientation, container, directionName, false);
+            var unconnected = GetUnConnectedPorts(oppositeDirection, orientation).ToArray();
+            Port nearest = null;
+
+            if (unconnected.Length > 0)
+            {
+                var cursorInContainer = GetCursorInContainerSpace(container, cursorPositionInContent);
+                nearest = GetNearestUnconnectedPort(unconnected, container, cursorInContainer, isVertical);
+            }
+
+            var (prev, next) = FindNeighbourPorts(container, cursorPositionInContent, isVertical);
+
+            return new AutoConnectDecision(oppositeDirection, orientation, container,
+                unconnected.Length > 0, nearest, prev, next);
+        }
+
+        private Port InsertPortAt(Direction direction, Orientation orientation, VisualElement container,
+            string directionName, int insertIndex, bool isAdditional, Port prev, Port next)
+        {
+            var guid = System.Guid.NewGuid().ToString();
+            var portsCount = container.Query("connector").ToList().Count;
+            var portName = $"{directionName} {portsCount}";
+
+            var port = GraphUtility.CreatePort(direction, orientation, portName, guid, isAdditional);
+            container.Insert(insertIndex, port);
+            InsertPortInList(port, prev, next);
+
+            UndoRedoUtility.Record(this, GetPosition().position, "Node changed");
+            SceneNodeInspectorHelper.Instance?.Init(this);
+
+            RefreshExpandedState();
+            RefreshPorts();
+
             return port;
         }
 
-        public bool ContainsUnConnectedPort(Direction direction, Orientation orientation)
+        private void InsertPortInList(Port port, Port prev, Port next)
         {
-            return GetUnConnectedPorts(direction, orientation).Any();
+            if (prev != null)
+            {
+                var prevIndex = _ports.IndexOf(prev);
+                if (prevIndex != -1)
+                {
+                    _ports.Insert(prevIndex + 1, port);
+                    return;
+                }
+            }
+
+            if (next != null)
+            {
+                var nextIndex = _ports.IndexOf(next);
+                if (nextIndex != -1)
+                {
+                    _ports.Insert(nextIndex, port);
+                    return;
+                }
+            }
+
+            _ports.Add(port);
+        }
+
+        private static int GetInsertIndex(VisualElement container, Port next)
+        {
+            if (next == null)
+                return container.childCount;
+
+            return container.IndexOf(next);
+        }
+
+        private Vector2 GetCursorInContainerSpace(VisualElement container, Vector2 cursorPositionInContent)
+        {
+            var hierarchyParent = hierarchy.parent;
+            if (hierarchyParent == null)
+                return cursorPositionInContent;
+
+            return hierarchyParent.ChangeCoordinatesTo(container, cursorPositionInContent);
+        }
+
+        private static Port GetNearestUnconnectedPort(IReadOnlyList<Port> unconnectedPorts, VisualElement container,
+            Vector2 cursorInContainer, bool isVertical)
+        {
+            var cursorAxis = isVertical ? cursorInContainer.x : cursorInContainer.y;
+            Port nearest = null;
+            var minDistance = float.MaxValue;
+
+            foreach (var port in unconnectedPorts)
+            {
+                var capPos = GetPortCapCenterInContainerSpace(port, container);
+                var portAxis = isVertical ? capPos.x : capPos.y;
+                var distance = Mathf.Abs(portAxis - cursorAxis);
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearest = port;
+                }
+            }
+
+            return nearest;
+        }
+
+        private (Port prev, Port next) FindNeighbourPorts(VisualElement container,
+            Vector2 cursorPositionInContent, bool isVertical)
+        {
+            var cursorInContainer = GetCursorInContainerSpace(container, cursorPositionInContent);
+            var cursorX = cursorInContainer.x;
+            var cursorY = cursorInContainer.y;
+
+            var ports = isVertical
+                ? container.Children().OfType<Port>()
+                    .OrderBy(p => GetPortCapCenterInContainerSpace(p, container).x)
+                    .ToList()
+                : container.Children().OfType<Port>()
+                    .OrderBy(p => GetPortCapCenterInContainerSpace(p, container).y)
+                    .ToList();
+
+            for (var i = 0; i < ports.Count; i++)
+            {
+                var capPos = GetPortCapCenterInContainerSpace(ports[i], container);
+
+                if (isVertical && cursorX < capPos.x)
+                {
+                    var next = ports[i];
+                    var previous = i > 0 ? ports[i - 1] : null;
+                    return (previous, next);
+                }
+
+                if (!isVertical && cursorY < capPos.y)
+                {
+                    var next = ports[i];
+                    var previous = i > 0 ? ports[i - 1] : null;
+                    return (previous, next);
+                }
+            }
+
+            return (ports.LastOrDefault(), null);
+        }
+
+        private static Vector2 GetPortCapCenterInContainerSpace(Port port, VisualElement container)
+        {
+            var cap = port.Q("cap") ?? port.Q(null, "connectorCap");
+
+            if (cap == null)
+                return container.WorldToLocal(port.LocalToWorld(port.layout.center));
+
+            var centerInCap = new Vector2(
+                cap.layout.xMin + cap.layout.width * 0.5f,
+                cap.layout.yMin + cap.layout.height * 0.5f);
+
+            return container.WorldToLocal(cap.LocalToWorld(centerInCap));
         }
 
         public IEnumerable<Port> GetUnConnectedPorts(Direction direction, Orientation orientation)

@@ -55,8 +55,9 @@ namespace WorldGraphEditor.Editor
         public static void Init(WorldGraphContainer container)
         {
             Undo.RegisterCompleteObjectUndo(Data, "Load From Container");
+
+            InitializeData(container, container.EditorGraph?.GetScenesData(), container.EditorGraph?.GetEdgesData());
             
-            InitializeData(container, container.EditorData?.SceneNodeData, container.EditorData?.EdgesData);
 
             EditorUtility.SetDirty(Data);
             AssetDatabase.SaveAssetIfDirty(Data);

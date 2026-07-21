@@ -24,7 +24,7 @@ public sealed class TransitionPointEditor : Editor
     private SerializedProperty requireInteract;
     private SerializedProperty linkedRespawnMarker;
 
-    private TransitionManager _wgeManager;
+    private WGEProjectConfig _wgeConfig;
     private string _refreshError;
     private bool _guidIsStale;
 
@@ -47,7 +47,7 @@ public sealed class TransitionPointEditor : Editor
         requireInteract = serializedObject.FindProperty("requireInteract");
         linkedRespawnMarker = serializedObject.FindProperty("linkedRespawnMarker");
 
-        _wgeManager = TransitionManager.LoadFromResources();
+        _wgeConfig = WGEProjectConfig.Instance;
         TryRefreshFromWorldGraph();
     }
 
@@ -120,9 +120,9 @@ public sealed class TransitionPointEditor : Editor
     // scene data is never changed without an explicit user action in the dropdown.
     private void TryRefreshFromWorldGraph()
     {
-        if (_wgeManager == null)
+        if (_wgeConfig == null)
         {
-            _refreshError = "WGE TransitionManager prefab not found at Assets/WorldGraphEditor/Resources/TransitionManager.prefab.";
+            _refreshError = "WGEProjectConfig asset not found or could not be created.";
             return;
         }
 
@@ -134,7 +134,7 @@ public sealed class TransitionPointEditor : Editor
 
         try
         {
-            ((TransitionPoint)target).Refresh(new RefreshContext(_wgeManager));
+            ((TransitionPoint)target).Refresh(new RefreshContext(_wgeConfig));
             _refreshError = null;
         }
         catch (Exception e)

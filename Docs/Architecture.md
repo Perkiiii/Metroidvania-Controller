@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-05-26
+**Last audited:** 2026-06-05
 
 ## Overview
 
@@ -173,21 +173,29 @@ See `Docs/FeatureSpecs/Abilities.md` for the full per-ability spec.
 
 Each enemy is a self-contained scene object. The structure mirrors the hero's blackboard-and-action pattern but is simpler.
 
-**Implemented (as of 2026-05-19):**
+**Implemented:**
 
 ```
 EnemyController (MonoBehaviour — coordinator)
 ├── EnemyConfig (SO)          movement speed, knockback, stun, health, SFX
-├── EnemyStateBlackboard      hurt, recoiling, dead flags (alerted/attacking: planned)
-├── IEnemyBehaviour           interface; current impl: MushroomEnemy (patrol loop)
+├── EnemyStateBlackboard      alerted, hurt, recoiling, attacking, attackWindowActive, dead flags
+├── IEnemyBehaviour           interface; current impl: MushroomEnemy
 ├── EnemyHealthComponent      implements IHeroAttackReceiver and IHeroDownslashResponder
 ├── EnemyRecoil               hit freeze / knockback / stun recovery
 ├── EnemyFeedbackController   enemy-local MMF hit, pogo, body-hit, and death players
+├── EnemyAttackController     optional authored attack-window runtime
+├── EnemyAttackHitbox         optional active-window hero damage collider
 ├── DamageHero                data marker for a collider that can hurt the hero
 └── EnemyContactDamage        persistent body-touch damage behaviour
 ```
 
-**Planned (Milestone 2):** `EnemyMotor` (Rigidbody2D velocity control), `EnemyPerception` (overlap / raycast detection, writes `alerted` to blackboard), and a full `EnemyBehaviour` state machine (Idle → Patrol → Chase → Attack → Hurt → Dead). `EnemyController.cs` has explicit wiring stubs for these in its `Awake` comment.
+`EnemyMotor` and `EnemyPerception` are implemented and wired by `EnemyController` when present. `MushroomEnemy` implements Idle, Patrol, Chase, Attack, Hurt, and Dead using `EnemyMotor`, `EnemyPerception`, and optional `EnemyAttackController`. It remains the first/basic enemy archetype, retains body-contact damage, and validates explicit authored attacks by entering `EnemyAttackController` from Chase when the hero is in range. Mushroom uses one authored attack clip with animation events for `OpenAttackWindow`, `CloseAttackWindow`, and `CompleteAttack`; timer fallback remains on `EnemyAttackController`. `Assets/_Project/Prefabs/Enemies/Mushroom.prefab` is the foundation validation prefab.
+
+Manual Unity validation on 2026-06-05 confirmed: Enemy AI foundation validator passed; Mushroom patrol, detection/chase, authored attack entry, startup inactive hitbox, active-window damage, duplicate-hit prevention, later-window damage after cooldown/i-frames, contact damage coexistence, contact+attack same-moment safety, hurt/death attack interrupts, death damage shutdown, and downslash pogo all worked. No hero feel values were changed.
+
+`EnemyAttackController` implements reusable authored attack windows (`Startup -> Active -> Recovery -> Cooldown`), animation-event methods (`OpenAttackWindow`, `CloseAttackWindow`, `CompleteAttack`), timer fallbacks, cooldown, and interrupt cleanup. `EnemyAttackHitbox` is disabled by default, uses `DamageHero` metadata, damages through `HeroBox`, and shares duplicate-hit prevention per active window.
+
+`EnemyController` is wiring/coordinator only. Enemy-specific behaviour components own state transitions. `EnemyMotor` owns normal enemy velocity writes; `EnemyRecoil` may temporarily override velocity through `EnemyMotor` during hit reaction.
 
 `EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. When called, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
 
@@ -428,7 +436,7 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 |---|---|---|---|
 | Camera | `Docs/FeatureSpecs/Camera.md` | 1 | Done |
 | Scene Transitions | — (described in this doc) | 1 | Done |
-| Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Partial |
+| Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation done (M0); world-state and UI in M4–5 | Partial |
 | HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 5 | Not started |

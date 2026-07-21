@@ -15,6 +15,8 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
     private Rigidbody2D body;
     private EnemyRecoil recoil;
     private Collider2D[] colliders;
+    private EnemyAttackController[] attackControllers;
+    private EnemyContactDamage[] contactDamageComponents;
     private SpriteFlash flasher;
     private int currentHealth;
 
@@ -29,6 +31,8 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         body = rigidbody;
         recoil = enemyRecoil;
         colliders = GetComponentsInChildren<Collider2D>(true);
+        attackControllers = GetComponentsInChildren<EnemyAttackController>(true);
+        contactDamageComponents = GetComponentsInChildren<EnemyContactDamage>(true);
         flasher = GetComponentInChildren<SpriteFlash>(true);
         currentHealth = config.maxHealth;
         if (feedbackController == null)
@@ -68,6 +72,8 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
     {
         blackboard.dead = true;
         recoil?.CancelRecoil();
+        InterruptAttacks();
+        DisableContactDamage();
 
         // Zero velocity and make static before disabling colliders to prevent physics glitches
         body.linearVelocity = Vector2.zero;
@@ -91,5 +97,34 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
     {
         yield return new WaitForSeconds(config.deathDestroyDelay);
         Destroy(gameObject);
+    }
+
+    private void InterruptAttacks()
+    {
+        if (attackControllers == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < attackControllers.Length; i++)
+        {
+            attackControllers[i]?.InterruptAttack(false);
+        }
+    }
+
+    private void DisableContactDamage()
+    {
+        if (contactDamageComponents == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < contactDamageComponents.Length; i++)
+        {
+            if (contactDamageComponents[i] != null)
+            {
+                contactDamageComponents[i].enabled = false;
+            }
+        }
     }
 }

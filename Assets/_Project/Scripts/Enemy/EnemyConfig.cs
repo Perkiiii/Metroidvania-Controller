@@ -25,4 +25,16 @@ public sealed class EnemyConfig : ScriptableObject
     [Header("Audio")]
     public AudioClip hurtSfx;
     public AudioClip deathSfx;
+
+    [Header("Behaviour")]
+    public float patrolSpeed = 1.5f;
+    public float chaseSpeed = 2.5f;
+    public float patrolIdleTime = 1.5f;
+    public float chaseTimeout = 3.0f;
+    public float attackRange = 1.2f;
+    public float attackCooldown = 1.0f;
+
+    [Header("Detection")]
+    public float detectionRadius = 5.0f;
+    public LayerMask terrainLayers;
 }

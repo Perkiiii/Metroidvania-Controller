@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WorldGraphEditor
 {
-    public class EventManager : IDisposable
+    internal class EventManager : IDisposable
     {
         private readonly Dictionary<EventType, SortedList<int, List<Func<CancellationToken, Task>>>> _eventHandlers = new();
         

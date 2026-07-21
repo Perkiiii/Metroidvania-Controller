@@ -15,6 +15,8 @@ public sealed class EnemyRecoil : MonoBehaviour
     private Rigidbody2D body;
     private Coroutine recoilCoroutine;
 
+    private EnemyMotor motor;
+
     public bool IsRecoiling => state == EnemyRecoilState.Recoiling || state == EnemyRecoilState.Frozen;
     public EnemyRecoilState State => state;
 
@@ -23,6 +25,7 @@ public sealed class EnemyRecoil : MonoBehaviour
         config = enemyConfig;
         blackboard = stateBlackboard;
         body = rigidbody;
+        motor = GetComponent<EnemyMotor>();
     }
 
     public void RecoilFromHit(HeroAttackHit hit)
@@ -64,6 +67,11 @@ public sealed class EnemyRecoil : MonoBehaviour
 
         state = EnemyRecoilState.Ready;
 
+        if (motor != null)
+        {
+            motor.ClearExternalVelocity();
+        }
+
         if (wasRecoiling)
         {
             OnRecoilEnded?.Invoke();
@@ -72,6 +80,31 @@ public sealed class EnemyRecoil : MonoBehaviour
 
     private void ApplyHitVelocity(HeroAttackHit hit)
     {
+        if (motor != null)
+        {
+            if (config.freezeOnHit)
+            {
+                state = EnemyRecoilState.Frozen;
+                motor.ApplyExternalVelocity(Vector2.zero);
+                return;
+            }
+
+            state = EnemyRecoilState.Recoiling;
+            Vector2 knockback = hit.ForceDirection * config.knockbackForce;
+            if (config.stopHorizontalVelocityOnUpwardRecoil && IsUpwardRecoil(hit.ForceDirection))
+            {
+                knockback.x = 0f;
+            }
+
+            if (Mathf.Abs(hit.ForceDirection.y) < 0.5f)
+            {
+                knockback.y += config.knockbackLift;
+            }
+
+            motor.ApplyExternalVelocity(knockback);
+            return;
+        }
+
         if (config.freezeOnHit)
         {
             state = EnemyRecoilState.Frozen;
@@ -80,18 +113,18 @@ public sealed class EnemyRecoil : MonoBehaviour
         }
 
         state = EnemyRecoilState.Recoiling;
-        Vector2 knockback = hit.ForceDirection * config.knockbackForce;
+        Vector2 fallbackKnockback = hit.ForceDirection * config.knockbackForce;
         if (config.stopHorizontalVelocityOnUpwardRecoil && IsUpwardRecoil(hit.ForceDirection))
         {
-            knockback.x = 0f;
+            fallbackKnockback.x = 0f;
         }
 
         if (Mathf.Abs(hit.ForceDirection.y) < 0.5f)
         {
-            knockback.y += config.knockbackLift;
+            fallbackKnockback.y += config.knockbackLift;
         }
 
-        body.linearVelocity = knockback;
+        body.linearVelocity = fallbackKnockback;
     }
 
     private IEnumerator RecoilRoutine()
@@ -103,6 +136,10 @@ public sealed class EnemyRecoil : MonoBehaviour
         blackboard.recoiling = false;
         recoilCoroutine = null;
         state = EnemyRecoilState.Ready;
+        if (motor != null)
+        {
+            motor.ClearExternalVelocity();
+        }
         OnRecoilEnded?.Invoke();
     }
 

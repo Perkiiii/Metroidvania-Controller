@@ -47,7 +47,7 @@ namespace WorldGraphEditor.Editor
             return image;
         }
 
-        public static void FillSceneStatusElement(HeaderWithListElement sceneStatusElement, WorldGraphContainer container, SceneCompletionData sceneCompletionData)
+        public static void FillSceneStatusElement(HeaderWithListElement sceneStatusElement, EditorGraph editorGraph, SceneCompletionData sceneCompletionData)
         {
             var message = OverlayUtility.GetSceneStatus(out var isSceneValid);
             var color = MessageColor.Default;
@@ -74,7 +74,7 @@ namespace WorldGraphEditor.Editor
                     iconName = INFO_ICON_NAME;
                 }
 
-                FillDuplicates(wrongPorts, sceneCompletionData, container, "Duplicates:");
+                FillDuplicates(wrongPorts, sceneCompletionData, editorGraph, "Duplicates:");
                 FillMissing(wrongPorts, sceneCompletionData, "Missing:");
 
                 var ratio = sceneCompletionData.Ratio;
@@ -95,7 +95,7 @@ namespace WorldGraphEditor.Editor
             sceneStatusElement.SetHeader(headerItems);
         }
 
-        private static void FillDuplicates(List<VisualElement> wrongPorts, SceneCompletionData sceneCompletionData, WorldGraphContainer container, string header)
+        private static void FillDuplicates(List<VisualElement> wrongPorts, SceneCompletionData sceneCompletionData, EditorGraph editorGraph, string header)
         {
             if (sceneCompletionData.Duplicates.Length == 0)
                 return;
@@ -107,9 +107,9 @@ namespace WorldGraphEditor.Editor
             {
                 if (duplicate is not MonoBehaviour beh)
                     continue;
-                
-                var name = container.EditorData.GetPortData(duplicate.GetGuid()).Name;
-                wrongPorts.Add(new DuplicateListElement(name, beh.gameObject));
+
+                if (editorGraph.TryGetPortData(duplicate.GetGuid(), out var data))
+                    wrongPorts.Add(new DuplicateListElement(data.Name, beh.gameObject));
             }
         }
 

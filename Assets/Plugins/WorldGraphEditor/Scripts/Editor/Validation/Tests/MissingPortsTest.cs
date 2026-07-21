@@ -11,7 +11,7 @@ namespace WorldGraphEditor.Editor.Tests
                 .Where(data => ports.All(port => port.GetGuid() != data.Guid));
 
             if (missing.Any())
-                return new TestResult(TestStatusType.Warning, "Scene contains missing ports.");
+                return new TestResult(TestStatusType.Warning, "Scene has missing ports.");
             
             return new TestResult(TestStatusType.Passed, "No missing ports found.");
         }

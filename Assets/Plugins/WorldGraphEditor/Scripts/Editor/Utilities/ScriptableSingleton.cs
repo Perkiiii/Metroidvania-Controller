@@ -9,11 +9,7 @@ namespace WorldGraphEditor.Editor
         public virtual string FolderPath => WGEAssetPathUtility.GetPath("Editor/Settings");
         public virtual string FileName => typeof(T).Name;
 
-        private string _assetPath => Path.Combine(FolderPath, $"{FileName}.asset");
-        
-        private static T _instance;
-
-        public static T Instance
+        public static bool HasInstance
         {
             get
             {
@@ -22,7 +18,15 @@ namespace WorldGraphEditor.Editor
                 
                 _instance = FindExistingInstance();
 
-                if (_instance != null)
+                return _instance != null;
+            }
+        }
+
+        public static T Instance
+        {
+            get
+            {
+                if (HasInstance)
                     return _instance;
                 
                 _instance = CreateNewInstance();
@@ -31,6 +35,10 @@ namespace WorldGraphEditor.Editor
                 return _instance;
             }
         }
+        
+        private string _assetPath => Path.Combine(FolderPath, $"{FileName}.asset");
+        
+        private static T _instance;
 
         private static T CreateNewInstance()
         {

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-05-26
+**Last audited:** 2026-06-05
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -16,7 +16,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | ScriptableObject tuning pipeline | Done |
 | Boot scene / persistent infrastructure | Done |
 | Camera system | Done |
-| Enemy AI framework | Partial |
+| Enemy AI framework | Foundation validated |
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
@@ -31,7 +31,7 @@ This is a living document. Update when milestones complete or priorities shift.
 
 These must happen before any milestone work begins. Both are preconditions for the systems they unblock.
 
-- [ ] Add `Interact` action (button) to the Player action map in `InputSystem_Actions.inputactions`. Bindings: E (keyboard), South button (gamepad). Expose `InteractPressedThisFrame` on `HeroInputReader` alongside the existing input signals.
+- [x] Add `Interact` action (button) to the Player action map in `InputSystem_Actions.inputactions`. Bindings: E (keyboard), North button (gamepad — not South; South is Jump). Expose `InteractPressedThisFrame` on `HeroInputReader` alongside the existing input signals. (Done — action, bindings, property, and enable/disable wiring all verified present)
 - [x] Write `Docs/FeatureSpecs/HUD.md` — boundary-setting spec: what the HUD subscribes to, Canvas hierarchy skeleton, vertical-slice scope (health only). (Done)
 - [x] Write `Docs/FeatureSpecs/Audio.md` — boundary-setting spec: `AudioManager` API, call site rules, music routing. (Done)
 
@@ -83,18 +83,23 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 **Goal:** At least one enemy the player can fight and kill; a checkpoint to respawn from.
 
-- [x] Implement `EnemyController`, `EnemyStateBlackboard`, `EnemyHealthComponent`, `EnemyRecoil`, `EnemyContactDamage`, `DamageHero`, `EnemyFeedbackController`, `IEnemyBehaviour`, and `MushroomEnemy` patrol behaviour. (Done — `EnemyMotor`, `EnemyPerception`, and full state machine are still planned)
+- [x] Implement `EnemyController`, `EnemyStateBlackboard`, `EnemyHealthComponent`, `EnemyRecoil`, `EnemyContactDamage`, `DamageHero`, `EnemyFeedbackController`, `IEnemyBehaviour`, and `MushroomEnemy` patrol behaviour. (Done)
 - [x] Create `EnemyConfig` SO for the first enemy type. (`MushroomConfig.asset` exists)
 - [x] Implement `IHeroDownslashResponder` on the first enemy (`EnemyHealthComponent` implements it). (Done)
-- [ ] Implement `EnemyMotor` — Rigidbody2D velocity control for enemy movement.
-- [ ] Implement `EnemyPerception` — overlap / raycast detection; writes `alerted` to blackboard.
-- [ ] Implement full `EnemyBehaviour` state machine — Idle → Patrol → Chase → Attack → Hurt → Dead.
+- [x] Implement `EnemyMotor` — Rigidbody2D velocity control for enemy movement. (Done)
+- [x] Implement `EnemyPerception` — overlap / raycast detection; exposes events and last known positions. (Done)
+- [x] Implement Mushroom enemy state loop — Idle → Patrol → Chase → Attack → Hurt → Dead using `EnemyMotor`, `EnemyPerception`, and optional `EnemyAttackController`. (Done; manually validated in Unity 2026-06-05)
+- [x] Implement explicit enemy attack-window architecture — Startup → Active → Recovery → Cooldown, enemy attack hitboxes, duplicate-hit prevention per active window, and interrupt cleanup on hurt/death. (Done; manually validated with Mushroom in Unity 2026-06-05)
+- [x] Use Mushroom as the first explicit-attacker validation archetype for authored attack timing, telegraphing, hitboxes, recovery, cooldown, and game-feel interactions with hero hurt / pogo. (`MushroomEnemy` + `Mushroom.prefab` + `Tools/Project/Validate Enemy AI Foundation`; manually validated in Unity 2026-06-05)
+- [x] Validate Mushroom contact damage and authored attack coexistence. Confirmed contact damage remains intentional, contact+attack do not double-hit unfairly, later contacts/attacks can damage after cooldown/i-frames, death disables both damage paths, downslash pogo remains reliable, and no hero feel values changed. (Manual Unity validation 2026-06-05)
 - [x] Implement `InteractableBase` base class. (Done)
 - [x] Implement `CheckpointInteractable` — sets active runtime respawn marker via `GameManager.SetActiveRespawnMarker` (which propagates the key to `SaveManager`); calls `SaveManager.Save()` on activation. (Done)
 - [ ] Implement trigger-updated active hazard respawn markers — optional follow-up that stores the live active marker on `GameManager`; save-key integration remains deferred.
 - [ ] Place a checkpoint and at least one enemy in the test level; validate the full loop: fight → die → respawn → fight.
 - [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule`. (Done)
-- [ ] Add basic action SFX (jump, land, dash, hurt) via `AudioManager.PlaySFX` in the relevant action classes.
+- [x] Add basic action SFX (jump, land, dash, hurt) via `HeroAudioController` in the relevant action classes. (Done — jump/double-jump in `HeroJumpAction`, dash in `HeroDashAction`, land/hurt/death in `HeroController`; also wall-jump, wall-slide, footsteps, attack slash, and terrain impact covered)
+
+**Enemy AI future boundaries:** wake/sleep activation, defeated-enemy persistence, pooling, bosses, and additional enemy archetypes remain planned/not implemented. The validated foundation currently targets Mushroom only.
 
 ---
 

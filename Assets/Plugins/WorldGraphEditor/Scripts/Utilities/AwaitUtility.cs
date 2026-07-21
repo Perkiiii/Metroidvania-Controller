@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace WorldGraphEditor
             operation.completed += _ => tcs.TrySetResult(true);
             return tcs.Task;
         }
-        
+
         public static Task AwaitByCoroutine(TransitionDelayData delayData, MonoBehaviour runner, CancellationToken token)
         {
             if (delayData.DelayType == DelayType.ThisFrame)

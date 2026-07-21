@@ -9,11 +9,13 @@ public sealed class EnemyContactDamage : MonoBehaviour
     [SerializeField] private float knockbackY = 4f;
 
     private DamageHero damageHero;
+    private EnemyStateBlackboard blackboard;
     private float cooldownRemaining;
 
     private void Awake()
     {
         damageHero = GetComponent<DamageHero>();
+        blackboard = GetComponentInParent<EnemyStateBlackboard>();
     }
 
     private void OnEnable()
@@ -42,6 +44,11 @@ public sealed class EnemyContactDamage : MonoBehaviour
     private void TryDamageHero(Collider2D other)
     {
         if (damageHero == null || damageHero.DamageDealt <= 0 || cooldownRemaining > 0f)
+        {
+            return;
+        }
+
+        if (blackboard != null && blackboard.dead)
         {
             return;
         }

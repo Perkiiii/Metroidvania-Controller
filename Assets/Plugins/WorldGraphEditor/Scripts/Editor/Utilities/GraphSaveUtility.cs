@@ -38,22 +38,87 @@ namespace WorldGraphEditor.Editor
             }
 
             var editorData = WorldGraphContainer.GetOrCreateNestedEditorData(existingContainer);
+            var previousPortsByNode = SnapshotPortsByNode(existingContainer);
             
             SaveNodes(existingContainer, editorData);
             SaveEdges(existingContainer, editorData);
             SaveErrorStatus(existingContainer);
+            existingContainer.RebuildGraphs();
             
             EditorUtility.SetDirty(existingContainer);
             AssetDatabase.SaveAssetIfDirty(existingContainer);
             
-            existingContainer.Initialize();
             RefreshPassages();
             OnContainerSaved?.Invoke();
+
+            if (WorldGraphEditorSettings.Instance.ForceRefreshAffectedScenesOnSave)
+            {
+                var affectedScenes = GetAffectedScenePaths(existingContainer, previousPortsByNode);
+                AffectedScenesRefresher.ForceRefresh(affectedScenes);
+            }
+        }
+
+        private static Dictionary<string, HashSet<string>> SnapshotPortsByNode(WorldGraphContainer container)
+        {
+            var snapshot = new Dictionary<string, HashSet<string>>();
+            var scenesData = container.EditorData?.SceneNodeData;
+
+            if (scenesData == null)
+                return snapshot;
+
+            foreach (var sceneNodeData in scenesData)
+            {
+                snapshot[sceneNodeData.Guid] = ToPortSignature(sceneNodeData.PortsData);
+            }
+
+            return snapshot;
+        }
+
+        private IEnumerable<string> GetAffectedScenePaths(WorldGraphContainer container,
+            Dictionary<string, HashSet<string>> previousPortsByNode)
+        {
+            var affectedPaths = new List<string>();
+
+            foreach (var node in _nodes)
+            {
+                if (node.SceneAsset == null)
+                    continue;
+
+                var nodeData = node.GetDataWithPorts(true);
+                var newSignature = ToPortSignature(nodeData.PortsData);
+
+                var hasPrevious = previousPortsByNode.TryGetValue(node.Guid, out var oldSignature);
+
+                if (hasPrevious && oldSignature.SetEquals(newSignature))
+                    continue;
+
+                var assetPath = AssetDatabase.GetAssetPath(node.SceneAsset);
+
+                if (!string.IsNullOrEmpty(assetPath))
+                    affectedPaths.Add(assetPath);
+            }
+
+            return affectedPaths;
+        }
+
+        private static HashSet<string> ToPortSignature(PortData[] portsData)
+        {
+            var signature = new HashSet<string>();
+
+            if (portsData == null)
+                return signature;
+
+            foreach (var portData in portsData)
+            {
+                signature.Add($"{portData.Guid}|{portData.Name}");
+            }
+
+            return signature;
         }
 
         internal static void RefreshPathAndBuildIndex(WorldGraphContainer container)
         {
-            var graphEditorData = container.EditorData.SceneNodeData.Select(sceneNodeData => new SceneNodeData(
+            var graphEditorData = container.EditorGraph.GetScenesData().Select(sceneNodeData => new SceneNodeData(
                 sceneNodeData, 
                 sceneNodeData.SceneAsset.GetFormattedPath(), 
                 sceneNodeData.SceneAsset.GetBuildIndex())).ToArray();
@@ -63,16 +128,16 @@ namespace WorldGraphEditor.Editor
             
             editorData.SetNodeData(graphEditorData);
             container.SaveNodes(runtimeData);
+            container.RebuildGraphs();
             
             EditorUtility.SetDirty(container);
             AssetDatabase.SaveAssets();
-            container.Initialize();
             RefreshPassages();
         }
 
         internal WorldGraphContainer LoadViaPath()
         {
-            var startDirectory = WGEAssetPathUtility.GetPath("Resources");
+            var startDirectory = Path.Combine("Assets", "WorldGraphEditor", "Resources");
             var absolutePath = EditorUtility.OpenFilePanel("Select World Container", startDirectory, "asset");
             var projectPath = Application.dataPath;
             var relativePath = "Assets" + absolutePath.Replace(projectPath, "").Replace("\\", "/");
@@ -96,7 +161,7 @@ namespace WorldGraphEditor.Editor
         {
             ClearGraph();
             
-            if (_container.EditorData != null)
+            if (_container.EditorGraph != null)
             {
                 CreateNodes();
                 ConnectPorts();
@@ -111,10 +176,10 @@ namespace WorldGraphEditor.Editor
         
         private void ConnectPorts()
         {
-            if (_container.EditorData?.EdgesData == null)
+            if (_container.EditorGraph?.GetEdgesData() == null)
                 return;
             
-            foreach (var edgeData in _container.EditorData.EdgesData)
+            foreach (var edgeData in _container.EditorGraph.GetEdgesData())
             {
                 _targetGraphView.InstantiateEdge(edgeData);
             }
@@ -122,10 +187,10 @@ namespace WorldGraphEditor.Editor
 
         private void CreateNodes()
         {
-            if (_container.EditorData?.SceneNodeData == null)
+            if (_container.EditorGraph?.GetEdgesData() == null)
                 return;
             
-            foreach (var nodeData in _container.EditorData.SceneNodeData)
+            foreach (var nodeData in _container.EditorGraph.GetScenesData())
             {
                 _targetGraphView.InstantiateNode(nodeData);
             }
@@ -154,7 +219,20 @@ namespace WorldGraphEditor.Editor
         private void SaveNodes(WorldGraphContainer container, ContainerEditorData containerEditorData)
         {
             var graphNodesData = _nodes.Select(node => node.GetDataWithPorts(true)).ToArray();
+
+#if WGE_ADDRESSABLES
+            foreach (var nodeData in graphNodesData)
+            {
+                if (AddressablesAddressResolver.IsAddressableScene(nodeData.SceneAssetGuid))
+                    nodeData.SceneAsset.DisableInBuild();
+            }
+
+            var nodesToAdd = graphNodesData
+                .Where(item => item.BuildIndex == -1 && !AddressablesAddressResolver.IsAddressableScene(item.SceneAssetGuid))
+                .ToArray();
+#else
             var nodesToAdd = graphNodesData.Where(item => item.BuildIndex == -1).ToArray();
+#endif
             
             if (nodesToAdd.Any())
             {
@@ -166,7 +244,7 @@ namespace WorldGraphEditor.Editor
                 {
                     foreach (var nodeData in nodesToAdd)
                     {
-                        nodeData.SceneAsset.AddSceneToBuild();
+                        nodeData.SceneAsset.AddToBuild();
                     }
                     
                     graphNodesData = _nodes.Select(node => node.GetDataWithPorts(true)).ToArray();
@@ -181,8 +259,8 @@ namespace WorldGraphEditor.Editor
         
         private void SaveErrorStatus(WorldGraphContainer container)
         {
-            var isGraphContainsErrors = _nodes.Any(node => node.ErrorData.HasErrors);
-            container.SaveErrors(isGraphContainsErrors);
+            var isGraphHasErrors = _nodes.Any(node => node.ErrorData.HasErrors);
+            container.SaveErrors(isGraphHasErrors);
         }
         
         private static void RefreshPassages()

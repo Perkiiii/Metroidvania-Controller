@@ -14,37 +14,23 @@ namespace WorldGraphEditor
         [SerializeField] private string[] _displayData;
         [SerializeField] private string[] _guidData;
         [SerializeField] private string _selectedName;
+
+        internal static bool ResolveChangedSelection;
 #endif
-        
+
         private List<(string Guid, string DisplayName)> _data;
         
         public string GetSelectedValue()
         {
 #if UNITY_EDITOR
-            if (_data == null || _data.Count == 0)
-                return null;
+            if (!HasLoadedPortCaches())
+                return GetPersistedGuidOrNull();
             
-            var selectedId = _data.FindIndex(item => item.DisplayName == _selectedName);
-            if (selectedId != -1)
-            {
-                _selectedGuid = _guidData[selectedId];
-                return _selectedGuid;
-            }
-
-            selectedId = _data.FindIndex(item => item.Guid == _selectedGuid);
-            if (selectedId != -1)
-            {
-                _selectedGuid = _guidData[selectedId];
-                return _selectedGuid;
-            }
-            
-            _selectedGuid = _guidData[0];
-            return _selectedGuid;
+            return ResolveSelection();
 #else
             return _selectedGuid;
 #endif
         }
-       
 
         public void SetData(IEnumerable<(string Guid, string DisplayName)> data)
         {
@@ -54,43 +40,58 @@ namespace WorldGraphEditor
                 _data = new();
                 _displayData = null;
                 _guidData = null;
-                
+
                 return;
             }
-            
+
             _data = data.ToList();
             _displayData = _data.Select(item => item.DisplayName).ToArray();
             _guidData = _data.Select(item => item.Guid).ToArray();
-            
+
             if (_data.Any(d => d.Guid == _selectedGuid && d.DisplayName == _selectedName))
                 return;
-            
-            RefreshSelectedData();
+
+            ResolveSelection();
 #endif
         }
-        
+
 #if UNITY_EDITOR
-        private void RefreshSelectedData()
+        private bool HasLoadedPortCaches()
         {
-            var selected = _data.FindIndex(item => item.DisplayName == _selectedName);
+            return _data != null && _data.Count > 0 && _guidData != null && _guidData.Length > 0;
+        }
+        
+        private string GetPersistedGuidOrNull()
+        {
+            return string.IsNullOrEmpty(_selectedGuid) ? null : _selectedGuid;
+        }
+        
+        private string ResolveSelection()
+        {
+            var byName = _data.FindIndex(item => item.DisplayName == _selectedName);
+            if (byName != -1)
+                return Apply(byName);
 
-            if (selected == -1)
-                selected = _data.FindIndex(item => item.Guid == _selectedGuid);
+            var byGuid = _data.FindIndex(item => item.Guid == _selectedGuid);
+            if (byGuid != -1)
+                return Apply(byGuid);
 
-            switch (selected)
+            return GetPersistedGuidOrNull();
+        }
+
+        private string Apply(int index)
+        {
+            var newGuid = _guidData[index];
+            var newName = _displayData[index];
+
+            if (_selectedGuid != newGuid || _selectedName != newName)
             {
-                case -1 when _data.Count == 0:
-                    _selectedName = "";
-                    _selectedGuid = "";
-                    return;
-                    
-                case -1 when _data.Count > 0:
-                    selected = 0;
-                    break;
+                _selectedGuid = newGuid;
+                _selectedName = newName;
+                ResolveChangedSelection = true;
             }
 
-            _selectedName = _data[selected].DisplayName;
-            _selectedGuid = _data[selected].Guid;
+            return _selectedGuid;
         }
 #endif
     }

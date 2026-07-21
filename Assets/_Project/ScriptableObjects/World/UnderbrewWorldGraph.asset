@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-4457843452463174348
+--- !u!114 &-3649234088410952803
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -18,29 +18,29 @@ MonoBehaviour:
     SceneAssetGuid: 44b939e0054a9af44893b91b8794ed83
     ScenePath: Assets/_Project/Scenes/Boot
     BuildIndex: 0
-    Guid: 28926fcb-de29-484b-913b-b09367563257
-    Position: {x: 404.80002, y: 96}
+    Guid: 7daa7a3d-ad04-4f38-b6ed-62dd7817214d
+    Position: {x: 210.4, y: 105.600006}
     PortsData: []
   - NodeName: SampleScene2
     SceneAsset: {fileID: 102900000, guid: a19d61ae3fca6e94ea8c4b1abb37849e, type: 3}
     SceneAssetGuid: a19d61ae3fca6e94ea8c4b1abb37849e
     ScenePath: Assets/_Project/Scenes/SampleScene2
     BuildIndex: 2
-    Guid: 28480ae3-5642-419c-b6ad-bf712dc5aa86
-    Position: {x: 730.4, y: 296}
+    Guid: 0902d42c-5648-4362-9a85-21ff8c20cc6d
+    Position: {x: 404, y: 297.6}
     PortsData:
     - Name: Left 0
-      Guid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
+      Guid: 68be6e2e-2440-4f65-b987-5bd652a097c8
       IsInput: 1
       IsHorizontal: 1
       IsAdditional: 0
     - Name: Bottom 0
-      Guid: b51dde29-5384-4923-8c31-c62785f04d94
+      Guid: 5ccee222-3500-4c91-9747-0b746570dcc2
       IsInput: 0
       IsHorizontal: 0
       IsAdditional: 0
     - Name: Right 0
-      Guid: 781f74c2-cbd2-4719-8890-99b0a813289e
+      Guid: bf998044-cbee-430e-9c71-8b17d138450d
       IsInput: 0
       IsHorizontal: 1
       IsAdditional: 0
@@ -49,93 +49,49 @@ MonoBehaviour:
     SceneAssetGuid: 99c9720ab356a0642a771bea13969a05
     ScenePath: Assets/_Project/Scenes/SampleScene
     BuildIndex: 1
-    Guid: 9be16b21-ebae-49a7-b969-078e4904ca6b
-    Position: {x: 225.59999, y: 428.8}
+    Guid: ffbb1a62-c007-41c5-a9f7-279e7ccf8298
+    Position: {x: 82.399994, y: 273.6}
     PortsData:
-    - Name: Right 0
-      Guid: 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
-      IsInput: 0
-      IsHorizontal: 1
-      IsAdditional: 0
     - Name: Top 0
-      Guid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
+      Guid: e299de18-548b-497b-b359-348116d0e07c
       IsInput: 1
       IsHorizontal: 0
+      IsAdditional: 0
+    - Name: Right 0
+      Guid: c6a379cc-35f6-449f-be7f-f853733735aa
+      IsInput: 0
+      IsHorizontal: 1
       IsAdditional: 0
   - NodeName: SampleScene3
     SceneAsset: {fileID: 102900000, guid: 877da1bbb8f61cf4ebac69ab8473ece3, type: 3}
     SceneAssetGuid: 877da1bbb8f61cf4ebac69ab8473ece3
     ScenePath: Assets/_Project/Scenes/SampleScene3
     BuildIndex: 3
-    Guid: efc226b1-e327-4754-ad8e-2fe185fadb00
-    Position: {x: 1258.3999, y: 296}
+    Guid: 91236b20-9d35-45a0-ae2b-ed2282cce4e1
+    Position: {x: 816, y: 297.6}
     PortsData:
     - Name: Left 0
-      Guid: c478de6a-980b-45bd-bcab-fd1beccc9f58
+      Guid: 01833b88-20ca-4b2a-8a60-3da478f863c7
       IsInput: 1
       IsHorizontal: 1
       IsAdditional: 0
   _edgesData:
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    ToPortGuid: 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
-    EdgeGuid: f38738c8-2a3b-475b-85f3-b90bd7ac872d
+    FromPortGuid: 68be6e2e-2440-4f65-b987-5bd652a097c8
+    ToPortGuid: c6a379cc-35f6-449f-be7f-f853733735aa
+    EdgeGuid: 4dd774a2-7241-4f9f-adcb-e29d1084b00e
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
-    ToPortGuid: b51dde29-5384-4923-8c31-c62785f04d94
-    EdgeGuid: 90810cba-f244-4ccd-b30f-d6c421ca32e9
+    FromPortGuid: e299de18-548b-497b-b359-348116d0e07c
+    ToPortGuid: 5ccee222-3500-4c91-9747-0b746570dcc2
+    EdgeGuid: e224f59d-e168-4c00-b9fd-92ced0e514ea
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
-    ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
-    EdgeGuid: 20b49edf-3bf1-48ea-a535-a96643917892
-  _testResults:
-  - Tested: 1
-    ScenePath: Assets/_Project/Scenes/Boot.unity
-    NodeName: Boot
-    ErrorsCount: 0
-    WarningsCount: 0
-    BuildIndex: 0
-    TestResults:
-    - Description: No missing ports found.
-      TestStatusType: 0
-    - Description: No duplicate ports found.
-      TestStatusType: 0
-  - Tested: 1
-    ScenePath: Assets/_Project/Scenes/SampleScene.unity
-    NodeName: SampleScene
-    ErrorsCount: 0
-    WarningsCount: 0
-    BuildIndex: 1
-    TestResults:
-    - Description: No missing ports found.
-      TestStatusType: 0
-    - Description: No duplicate ports found.
-      TestStatusType: 0
-  - Tested: 1
-    ScenePath: Assets/_Project/Scenes/SampleScene2.unity
-    NodeName: SampleScene2
-    ErrorsCount: 0
-    WarningsCount: 0
-    BuildIndex: 2
-    TestResults:
-    - Description: No missing ports found.
-      TestStatusType: 0
-    - Description: No duplicate ports found.
-      TestStatusType: 0
-  - Tested: 1
-    ScenePath: Assets/_Project/Scenes/SampleScene3.unity
-    NodeName: SampleScene3
-    ErrorsCount: 0
-    WarningsCount: 0
-    BuildIndex: 3
-    TestResults:
-    - Description: No missing ports found.
-      TestStatusType: 0
-    - Description: No duplicate ports found.
-      TestStatusType: 0
+    FromPortGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
+    ToPortGuid: bf998044-cbee-430e-9c71-8b17d138450d
+    EdgeGuid: b5e75128-ddb9-49a4-98a4-0505631cf1d4
+  _testResults: []
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,32 +105,52 @@ MonoBehaviour:
   m_Name: UnderbrewWorldGraph
   m_EditorClassIdentifier: WorldGraphEditor::WorldGraphEditor.WorldGraphContainer
   _scenesData:
-  - BuildIndex: 0
-    PortsGuid: []
-  - BuildIndex: 2
-    PortsGuid:
-    - 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    - b51dde29-5384-4923-8c31-c62785f04d94
-    - 781f74c2-cbd2-4719-8890-99b0a813289e
-  - BuildIndex: 1
-    PortsGuid:
-    - 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
-    - 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
-  - BuildIndex: 3
-    PortsGuid:
-    - c478de6a-980b-45bd-bcab-fd1beccc9f58
+  - SceneName: Boot
+    NodeName: Boot
+    BuildIndex: 0
+    PortsData: []
+  - SceneName: SampleScene2
+    NodeName: SampleScene2
+    BuildIndex: 2
+    PortsData:
+    - Name: Left 0
+      Guid: 68be6e2e-2440-4f65-b987-5bd652a097c8
+      IsAdditional: 0
+    - Name: Bottom 0
+      Guid: 5ccee222-3500-4c91-9747-0b746570dcc2
+      IsAdditional: 0
+    - Name: Right 0
+      Guid: bf998044-cbee-430e-9c71-8b17d138450d
+      IsAdditional: 0
+  - SceneName: SampleScene
+    NodeName: SampleScene
+    BuildIndex: 1
+    PortsData:
+    - Name: Top 0
+      Guid: e299de18-548b-497b-b359-348116d0e07c
+      IsAdditional: 0
+    - Name: Right 0
+      Guid: c6a379cc-35f6-449f-be7f-f853733735aa
+      IsAdditional: 0
+  - SceneName: SampleScene3
+    NodeName: SampleScene3
+    BuildIndex: 3
+    PortsData:
+    - Name: Left 0
+      Guid: 01833b88-20ca-4b2a-8a60-3da478f863c7
+      IsAdditional: 0
   _connectionsData:
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: 41a9e1e1-b5bd-460e-8b5c-1b758d894f1e
-    ToPortGuid: 7db2f7d9-0c62-4770-a5d7-a63a7dfe6d40
+    FromPortGuid: 68be6e2e-2440-4f65-b987-5bd652a097c8
+    ToPortGuid: c6a379cc-35f6-449f-be7f-f853733735aa
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: 6ffe0e91-fc0b-4c0f-abda-a22bce5a433f
-    ToPortGuid: b51dde29-5384-4923-8c31-c62785f04d94
+    FromPortGuid: e299de18-548b-497b-b359-348116d0e07c
+    ToPortGuid: 5ccee222-3500-4c91-9747-0b746570dcc2
   - TransitionType: 0
     IsFacingRight: 0
-    FromPortGuid: c478de6a-980b-45bd-bcab-fd1beccc9f58
-    ToPortGuid: 781f74c2-cbd2-4719-8890-99b0a813289e
+    FromPortGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
+    ToPortGuid: bf998044-cbee-430e-9c71-8b17d138450d
   _hasErrors: 0
-  _editorData: {fileID: -4457843452463174348}
+  _editorData: {fileID: -3649234088410952803}

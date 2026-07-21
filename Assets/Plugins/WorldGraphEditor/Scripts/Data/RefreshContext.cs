@@ -1,16 +1,23 @@
 ﻿#if UNITY_EDITOR
 
+using System;
 using UnityEngine.SceneManagement;
 
 namespace WorldGraphEditor
 {
     public readonly struct RefreshContext
     {
+        [Obsolete("Use EditorGraph property instead")]
         public readonly ITransitionManager Manager;
-
-        public RefreshContext(ITransitionManager manager)
+        public readonly EditorGraph EditorGraph;
+        
+        public RefreshContext(WGEProjectConfig resolver)
         {
-            Manager = manager;
+#pragma warning disable CS0618
+            Manager = null;
+#pragma warning restore CS1998 
+            
+            EditorGraph = resolver.GetEditorGraph();
         }
         
         /// <summary>
@@ -22,13 +29,14 @@ namespace WorldGraphEditor
         /// </remarks>
         public void FillPortsDropdownData(PortsDropdown dropdown)
         {
-            if (Manager?.Container == null)
+            if (EditorGraph == null)
             {
                 dropdown.SetData(null);
                 return;
             }
             
-            var data = Manager.Container.EditorData.GetPortsDropdownData(SceneManager.GetActiveScene().path);
+            var data = EditorGraph.GetPortsDropdownData(SceneManager.GetActiveScene().path);
+            
             dropdown.SetData(data);
         }
         
@@ -41,13 +49,13 @@ namespace WorldGraphEditor
         /// </remarks>
         public void FillAllPortsDropdownData(PortsDropdown dropdown)
         {
-            if (Manager?.Container == null)
+            if (EditorGraph == null)
             {
                 dropdown.SetData(null);
                 return;
             }
             
-            var data = Manager.Container.EditorData.GetAllPortsDropdownData();
+            var data = EditorGraph.GetAllPortsDropdownData();
             dropdown.SetData(data);
         }
     }

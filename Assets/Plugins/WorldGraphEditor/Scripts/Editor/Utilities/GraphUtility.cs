@@ -12,17 +12,7 @@ namespace WorldGraphEditor.Editor
     {
         internal static StyleSheet GetStyleSheet(string path)
         {
-            return WGEAssetPathUtility.LoadStyleSheet(path);
-        }
-
-        internal static void AddStyleSheet(VisualElement element, string path)
-        {
-            var styleSheet = GetStyleSheet(path);
-
-            if (styleSheet == null)
-                return;
-
-            element.styleSheets.Add(styleSheet);
+            return AssetDatabase.LoadAssetAtPath<StyleSheet>(path);
         }
 
         internal static VisualElement GetVisualElement(string style = "")
@@ -78,8 +68,7 @@ namespace WorldGraphEditor.Editor
             }
         }
 
-        internal static Port CreatePort(Direction direction, Orientation orientation, string portName, string guid,
-            bool isAdditional)
+        internal static Port CreatePort(Direction direction, Orientation orientation, string portName, string guid, bool isAdditional)
         {
             var port = Port.Create<ContextualEdge>(orientation, direction, Port.Capacity.Single, typeof(float));
             port.InitData();

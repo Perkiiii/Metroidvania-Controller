@@ -35,7 +35,7 @@ namespace WorldGraphEditor.Editor
             _ports = sceneNode.Ports.ToList();
         }
 
-        internal bool IsNodeContainsSceneDuplicate()
+        internal bool IsNodeHasSceneDuplicate()
         {
             return _sceneNode != null && _sceneNode.ErrorData.IsSceneDuplicate;
         }
@@ -67,6 +67,45 @@ namespace WorldGraphEditor.Editor
         {
             return _sceneNode != null && _sceneNode.ErrorData.IsEmptySceneAsset;
         }
+
+        internal void DeleteScenePreview()
+        {
+            if (_sceneAsset == null)
+                return;
+
+            var guid = _sceneAsset.GetUnityGuid();
+            SceneScreenshotUtility.DeleteScreenshot(guid);
+            _sceneNode?.ClearScenePreview();
+        }
+
+        internal bool IsAutoCaptureEnabled()
+        {
+            return _sceneAsset != null && SceneScreenshotsData.Instance.IsAutoCaptureEnabled(_sceneAsset.GetUnityGuid());
+        }
+
+        internal void SetAutoCaptureEnabled(bool enabled)
+        {
+            if (_sceneAsset == null)
+                return;
+
+            SceneScreenshotsData.Instance.SetAutoCaptureEnabled(_sceneAsset.GetUnityGuid(), enabled);
+        }
+
+#if WGE_ADDRESSABLES
+        internal bool IsAddressableScene()
+        {
+            return _sceneAsset != null &&
+                   AddressablesAddressResolver.IsAddressableScene(_sceneAsset.GetUnityGuid());
+        }
+
+        internal string GetAddressableAddress()
+        {
+            if (_sceneAsset == null)
+                return string.Empty;
+
+            return AddressablesAddressResolver.TryResolveSceneAddress(_sceneAsset.GetUnityGuid());
+        }
+#endif
         
         private void OnValidate()
         {

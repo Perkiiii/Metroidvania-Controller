@@ -17,4 +17,6 @@ MonoBehaviour:
   _enableExtensions: 1
   _showTransitionManagerShortcut: 0
   _showScenesDropdown: 1
+  _forceRefreshAffectedScenesOnSave: 1
   _customTests: []
+  _projectConfig: {fileID: 11400000, guid: d35111a3e0fcf534687d421008d839fc, type: 2}

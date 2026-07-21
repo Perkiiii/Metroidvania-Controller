@@ -11,26 +11,23 @@ namespace WorldGraphEditor
         [SerializeField, ReadOnlyField] private string _assignedGuid;
         [SerializeField, ReadOnlyField] private string _targetScene;
         
-        private WorldGraphContainer _container;
-        
         public virtual void Refresh(RefreshContext context)
         {
-            if (context.Manager != null)
-                _container = context.Manager.Container;
-            
-            if (_container == null)
+            if (context.EditorGraph == null)
                 return;
             
             context.FillPortsDropdownData(_assignedPort);
             
             var guid = _assignedPort.GetSelectedValue();
-            var transitionData = _container.EditorData.GetTransitionData(guid, false);
+
+            if (!context.EditorGraph.TryGetPassageTransitionData(guid, out var transitionData))
+                return;
             
             _assignedGuid = transitionData.CurrentPassageGuid;
             _targetScene = transitionData.TargetScenePath;
         }
 #endif
-        
+
         public string GetGuid()
         {
             return _assignedPort.GetSelectedValue();

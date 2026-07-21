@@ -50,7 +50,7 @@ namespace WorldGraphEditor.Editor
                 EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
                 
                 var sceneTestResults = testsArr.Select(test => test.Run(new TestContext(nodeData)));
-                var testResult = new SceneTestResult(sceneTestResults, nodeData.BuildIndex, nodeData.NodeName, scenePath);
+                var testResult = new SceneTestResult(sceneTestResults, nodeData.NodeName, scenePath);
                 results.Add(testResult);
             }
 
@@ -82,13 +82,13 @@ namespace WorldGraphEditor.Editor
             
             try
             {
-                for (var i = 0; i < sceneNodesData.Length; i++)
+                for (var index = 0; index < sceneNodesData.Length; index++)
                 {
-                    var nodeData = sceneNodesData[i];
+                    var nodeData = sceneNodesData[index];
                     if (EditorUtility.DisplayCancelableProgressBar(
-                            "Validate Scenes",
+                            $"Validate Scenes ({index + 1}/{sceneNodesData.Length})",
                             $"Processing {nodeData.SceneAsset.name}",
-                            (float) i / sceneNodesData.Length))
+                            (float) (index + 1) / sceneNodesData.Length))
                     {
                         cancelRequested = true;
                         break;
@@ -102,8 +102,7 @@ namespace WorldGraphEditor.Editor
                     EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
                     var sceneTestResults = testsArr.Select(test => test.Run(new TestContext(nodeData)));
-                    var testResult = new SceneTestResult(sceneTestResults, nodeData.BuildIndex, nodeData.NodeName,
-                        scenePath);
+                    var testResult = new SceneTestResult(sceneTestResults, nodeData.NodeName, scenePath);
 
                     results.Add(testResult);
                 }
@@ -128,21 +127,24 @@ namespace WorldGraphEditor.Editor
             var components = tarjan.GetStronglyConnectedComponents(container, ignoreAdditionalPorts, ignoreShortcuts);
             var results = new List<SCCGroup>();
             var sceneComponents = components.Select(item =>
-                (item.Select(scene => scene.BuildIndex), item.Select(scene => scene).ToList()));
+                (item.Select(scene => scene.NodeName), item.Select(scene => scene).ToList()));
             var index = 0;
 
-            foreach (var (buildIndexComponent, scenesComponent) in sceneComponents)
+            foreach (var (nodeNameComponent, scenesComponent) in sceneComponents)
             {
                 var sceneTestResults = new List<SceneTestResult>();
 
-                foreach (var buildIndex in buildIndexComponent)
+                foreach (var nodeName in nodeNameComponent)
                 {
+#pragma warning disable CS0618
                     foreach (var testResult in container.EditorData.SceneTestResults)
                     {
-                        if (testResult.BuildIndex != buildIndex) 
+#pragma warning restore CS0618
+                        
+                        if (testResult.NodeName != nodeName) 
                             continue;
                         
-                        scenesComponent.RemoveAll(scene => scene.BuildIndex == buildIndex);
+                        scenesComponent.RemoveAll(scene => scene.NodeName == nodeName);
                         sceneTestResults.Add(testResult);
                     }
                 }

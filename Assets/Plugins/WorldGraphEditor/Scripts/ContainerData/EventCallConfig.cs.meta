@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e9e3949c2c034156bf61e8d3e4a535cc
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: c5c43ce491144634fbb4f83258f6141a, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 306228
+  packageName: World Graph Editor
+  packageVersion: 1.3.0
+  assetPath: Assets/Plugins/WorldGraphEditor/Scripts/ContainerData/EventCallConfig.cs
+  uploadId: 949198

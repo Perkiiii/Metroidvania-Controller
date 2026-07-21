@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 03e064be9f51a7547a46a66a5990bf93
+guid: 6ce457a561e1dd24cae2de6f4d865aa7
 PrefabImporter:
   externalObjects: {}
   userData: 
@@ -9,6 +9,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 306228
   packageName: World Graph Editor
-  packageVersion: 1.2.0
-  assetPath: Assets/WorldGraphEditor/Resources/TransitionManager.prefab
-  uploadId: 891090
+  packageVersion: 1.3.0
+  assetPath: Assets/Plugins/WorldGraphEditor/Resources/TransitionManager.prefab
+  uploadId: 949198

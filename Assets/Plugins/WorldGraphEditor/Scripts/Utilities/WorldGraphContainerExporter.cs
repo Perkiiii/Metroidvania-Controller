@@ -62,6 +62,7 @@ namespace WorldGraphEditor
             containerEditorData.SetEdgesData(result._edgesData);
             worldGraphContainer.SaveNodes(GetRuntimeData(fixedNodeData));
             worldGraphContainer.SaveEdges(GetRuntimeData(result._edgesData));
+            worldGraphContainer.RebuildGraphs();
             
             EditorUtility.SetDirty(containerEditorData);
             EditorUtility.SetDirty(worldGraphContainer);
@@ -75,7 +76,17 @@ namespace WorldGraphEditor
             return data.Select(static item => new SceneRuntimeData
             {
                 BuildIndex = item.BuildIndex,
-                PortsGuid = item.PortsData.Select(static item => item.Guid).ToArray()
+                PortsData = GetRuntimeData(item.PortsData).ToArray()
+            });
+        }
+
+        public static IEnumerable<PortRuntimeData> GetRuntimeData(IEnumerable<PortData> data)
+        {
+            return data.Select(static item => new PortRuntimeData
+            {
+                Guid = item.Guid,
+                Name = item.Name,
+                IsAdditional = item.IsAdditional,
             });
         }
 

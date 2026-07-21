@@ -1,5 +1,4 @@
 ﻿using UnityEditor;
-using UnityEngine;
 
 namespace WorldGraphEditor.Editor
 {
@@ -8,15 +7,20 @@ namespace WorldGraphEditor.Editor
     {
         static PlayModeTerminator()
         {
-            EditorApplication.update += () =>
-            {
-                if (!EditorApplication.isPlaying || DataValidator.IsValid(out _, out var message))
-                    return;
-                
-                Debug.LogError(message.SetColor(MessageColor.Red));
-                
-                EditorApplication.isPlaying = false;
-            };
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged; 
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state != PlayModeStateChange.EnteredPlayMode)
+                return;
+            
+            if (DataValidator.IsValid(out var result))
+                return;
+
+            var message = DataValidator.GetMessage(result);
+            
+            WGEConsole.Warning(message);
         }
     }
 }

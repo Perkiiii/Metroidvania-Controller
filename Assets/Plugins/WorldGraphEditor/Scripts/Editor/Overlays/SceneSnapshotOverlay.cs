@@ -28,6 +28,10 @@ namespace WorldGraphEditor.Editor.Overlays
 
         private Label _infoLabel;
         private Label _sizeInfoLabel;
+        private Label _autoCaptureStatusLabel;
+        private Button _enableAutoCaptureButton;
+        private VisualElement _disabledPanel;
+        private VisualElement _enabledPanel;
         private Button _modeToggleButton;
         private Button _savePresetButton;
         private Button _saveAsDefaultButton;
@@ -36,7 +40,7 @@ namespace WorldGraphEditor.Editor.Overlays
         private static SceneSnapshotOverlay _instance;
 
         private static bool IsOverlayDisabled => _instance == null || !_instance.displayed || _instance.collapsed;
-        private static bool _isContainerExists => TransitionManager.LoadFromResources()?.Container != null;
+        private static bool _isContainerExists => WGEProjectConfig.Instance.Container != null;
         
         private enum CameraType
         {
@@ -96,6 +100,16 @@ namespace WorldGraphEditor.Editor.Overlays
             EditorSceneManager.sceneOpened += OnSceneOpened;
             Undo.postprocessModifications += OnPostProcessModifications;
             Undo.undoRedoPerformed += OnUndoRedo;
+            SceneScreenshotsData.AutoCaptureSettingsChanged += OnAutoCaptureSettingsChanged;
+        }
+
+        private void OnAutoCaptureSettingsChanged()
+        {
+            if (IsOverlayDisabled)
+                return;
+
+            RefreshAutoCaptureStatus();
+            RefreshInfoLabel();
         }
 
         private void OnUndoRedo()
@@ -104,6 +118,8 @@ namespace WorldGraphEditor.Editor.Overlays
                 return;
             
             ApplyScreenshotData(UndoRedoSnapshotOverlayData.Instance.ScreenshotSettings);
+            RefreshAutoCaptureStatus();
+            RefreshInfoLabel();
         }
 
         public override void OnWillBeDestroyed()
@@ -112,6 +128,7 @@ namespace WorldGraphEditor.Editor.Overlays
             EditorSceneManager.sceneOpened -= OnSceneOpened;
             Undo.postprocessModifications -= OnPostProcessModifications;
             Undo.undoRedoPerformed -= OnUndoRedo;
+            SceneScreenshotsData.AutoCaptureSettingsChanged -= OnAutoCaptureSettingsChanged;
         }
 
         private void OnSceneOpened(Scene scene, OpenSceneMode mode)
@@ -148,13 +165,21 @@ namespace WorldGraphEditor.Editor.Overlays
         
         private void TakeScreenshot()
         {
-            var tex = SceneScreenshotUtility.CaptureSceneScreenshot(GetScreenshotSettings());
-            SceneScreenshotUtility.SaveScreenshot(
-                tex, 
-                GetScreenshotSettings().NpotScale, 
-                AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path));
-            
-            RefreshInfoLabel();
+            SceneScreenshotsData.RaiseScreenshotAboutToCapture();
+
+            var texture = SceneScreenshotUtility.CaptureSceneScreenshot(GetScreenshotSettings());
+
+            try
+            {
+                SceneScreenshotUtility.SaveScreenshot(texture, GetScreenshotSettings().NpotScale,
+                    AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path));
+                RefreshInfoLabel();
+                SceneScreenshotsData.RaiseScreenshotCaptured();
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
         }
 
         private SceneScreenshotSettings GetScreenshotSettings()
@@ -236,6 +261,12 @@ namespace WorldGraphEditor.Editor.Overlays
 
             _infoLabel = new Label();
             _sizeInfoLabel = new Label();
+            _autoCaptureStatusLabel = new Label($"Scene preview is {"Disabled".SetColor(MessageColor.Yellow)} for this scene");
+            _enableAutoCaptureButton = new Button(EnableAutoCaptureForCurrentScene)
+            {
+                text = "Enable Auto-Preview",
+                tooltip = "Re-enable automatic scene preview capture for this scene."
+            };
 
             var cameraSettings = new Foldout {text = "Camera Settings"};
             var imageSettings = new Foldout {text = "Image Settings"};
@@ -250,20 +281,32 @@ namespace WorldGraphEditor.Editor.Overlays
             imageSettings.Add(_resolutionField);
             imageSettings.Add(_npotScaleField);
             
-            root.Add(new Separator());
-            root.Add(_modeToggleButton);
-            root.Add(new Separator());
-            root.Add(_infoLabel);
-            root.Add(_sizeInfoLabel);
-            root.Add(new Separator());
-            root.Add(cameraSettings);
-            root.Add(imageSettings);
-            root.Add(new Separator());
-            root.Add(buttonsTopRoot);
-            root.Add(new Separator());
-            root.Add(buttonsBottomRoot);
+            _disabledPanel = new VisualElement {style = {flexDirection = FlexDirection.Column}};
+            _disabledPanel.Add(new Separator());
+            _disabledPanel.Add(_autoCaptureStatusLabel);
+            _disabledPanel.Add(new Separator());
+            _disabledPanel.Add(_enableAutoCaptureButton);
+
+            _enabledPanel = new VisualElement {style = {flexDirection = FlexDirection.Column}};
+            _enabledPanel.Add(new Separator());
+            _enabledPanel.Add(_modeToggleButton);
+            _enabledPanel.Add(new Separator());
+            _enabledPanel.Add(_infoLabel);
+            _enabledPanel.Add(_sizeInfoLabel);
+            _enabledPanel.Add(new Separator());
+            _enabledPanel.Add(cameraSettings);
+            _enabledPanel.Add(imageSettings);
+            _enabledPanel.Add(new Separator());
+            _enabledPanel.Add(buttonsTopRoot);
+            _enabledPanel.Add(new Separator());
+            _enabledPanel.Add(buttonsBottomRoot);
+
+            root.Add(_disabledPanel);
+            root.Add(_enabledPanel);
 
             _centerField.style.minWidth = 350;
+
+            RefreshAutoCaptureStatus();
             
             return root;
         }
@@ -274,19 +317,34 @@ namespace WorldGraphEditor.Editor.Overlays
                 return;
             
             var sceneGuid = AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path);
-            var container = TransitionManager.LoadFromResources().Container;
+            var container = WGEProjectConfig.Instance.Container;
             var data = container == null ? SceneScreenshotSettings.Default : SceneScreenshotsData.Instance.GetScreenshotData(sceneGuid, out _);
 
             RefreshInfoLabel();
+            RefreshAutoCaptureStatus();
             ApplyScreenshotData(data);
+        }
+
+        private void EnableAutoCaptureForCurrentScene()
+        {
+            var sceneGuid = AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path);
+            SceneScreenshotsData.Instance.SetAutoCaptureEnabled(sceneGuid, true);
+        }
+
+        private void RefreshAutoCaptureStatus()
+        {
+            var sceneGuid = AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path);
+            var isEnabled = SceneScreenshotsData.Instance.IsAutoCaptureEnabled(sceneGuid);
+            _disabledPanel.style.display = isEnabled ? DisplayStyle.None : DisplayStyle.Flex;
+            _enabledPanel.style.display = isEnabled ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private void RefreshInfoLabel()
         {
             var sceneGuid = AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path);
-            var screenshot = SceneScreenshotUtility.GetSpriteForScreenshot(sceneGuid);
+            var texture = SceneScreenshotUtility.GetScreenshotTexture(sceneGuid);
             var storageSize = SceneScreenshotUtility.GetScreenshotFileSize(sceneGuid);
-            var gpuSize = screenshot == null ? 0 : (long) screenshot.texture.width * screenshot.texture.height / 2;
+            var gpuSize = texture == null ? 0 : (long) texture.width * texture.height / 2;
             SceneScreenshotsData.Instance.GetScreenshotData(sceneGuid, out var hasCustomData);
             RefreshInfoLabel(hasCustomData, storageSize, gpuSize);
         }
@@ -296,8 +354,8 @@ namespace WorldGraphEditor.Editor.Overlays
             var coloredMessage = hasCustomData ? "\"Custom\"".SetColor(MessageColor.Green) : "\"Global Default\"".SetColor(MessageColor.Yellow);
             var infoMessage = $"Using {coloredMessage} capture settings";
             var sizeMessage = storageSize > 0 
-                //? $"Screenshot size: {SceneScreenshotUtility.FormatFileSize(storageSize)} | {SceneScreenshotUtility.FormatFileSize(gpuSize)}" 
-                ? $"Screenshot size: {SceneScreenshotUtility.FormatFileSize(gpuSize)}" 
+                ? $"Screenshot size: {SceneScreenshotUtility.FormatFileSize(storageSize)} | {SceneScreenshotUtility.FormatFileSize(gpuSize)}" 
+                /*? $"Screenshot size: {SceneScreenshotUtility.FormatFileSize(gpuSize)}" */
                 : "Screenshot not found";
 
             _infoLabel.text = infoMessage;
@@ -326,6 +384,10 @@ namespace WorldGraphEditor.Editor.Overlays
         private void OnSceneGUI(SceneView sceneView)
         {
             if (IsOverlayDisabled)
+                return;
+
+            var sceneGuid = AssetDatabase.AssetPathToGUID(SceneManager.GetActiveScene().path);
+            if (!SceneScreenshotsData.Instance.IsAutoCaptureEnabled(sceneGuid))
                 return;
 
             Handles.color = Color.green;

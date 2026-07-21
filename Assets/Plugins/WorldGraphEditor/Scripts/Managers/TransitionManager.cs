@@ -2,13 +2,12 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using JetBrains.Annotations;
 using UnityEngine;
 using ColorUtility = UnityEngine.ColorUtility;
 
 namespace WorldGraphEditor
 {
-    public class TransitionManager : PersistentSingleton<TransitionManager>, ITransitionManager
+    public partial class TransitionManager : PersistentSingleton<TransitionManager>, ITransitionManager
     {
         [SerializeField] private WorldGraphContainer _container;
         [Space]
@@ -21,22 +20,26 @@ namespace WorldGraphEditor
         [SerializeField] private EventCallConfig _transitionEndedCallConfig;
         [Header("Editor Only")]
         [SerializeField] private bool _printTransitions = true;
-        
-        public static event Action OnInitialized;
-        public static event Action OnDestroyed;
-        public static event Action OnPortEntered;
-        public static event Action OnTransitionStarted;
-        public static event Action OnSceneLoaded; 
-        public static event Action OnTransitionEnded;
-        public static event Action OnPortLeaved;
+
+        public event Action Initialized;
+        public event Action PortEntered;
+        public event Action TransitionStarted;
+        public event Action SceneLoaded;
+        public event Action TransitionEnded;
+        public event Action PortLeaved;
+        public event Action Destroyed;
 
         public bool AutoLoad => _autoLoad;
 
+        public IWorldGraph Graph { get; private set; }
+        
         public TransitionPassStatusType TransitionPassStatus { get; private set; }
 
-        public Vector3 PlayerSpawnPosition { get; private set; }
-        
+        public Vector3 NextSpawnPosition { get; private set; }
+
         public ITransitionComponent InputTransitionComponent { get; private set; }
+
+
         public ITransitionComponent OutputTransitionComponent { get; private set; }
 
         public PushData PushData { get; private set; }
@@ -48,12 +51,12 @@ namespace WorldGraphEditor
 #if UNITY_EDITOR
                 if (_container == null)
                 {
+                    if (!UnityEditor.EditorApplication.isPlaying)
+                        return null;
+                    
                     WGEConsole.Error($"{nameof(TransitionManager)}.{nameof(Container)} is null");
                     return null;
                 }
-                
-                if (!_container.IsInitialized() && !_container.ContainsErrors())
-                    _container.Initialize();
 #endif
                 
                 return _container;
@@ -61,10 +64,10 @@ namespace WorldGraphEditor
         }
         
         private bool _isTransitionStarted;
-        private string _originPortGuid;
-        
+
         private static CancellationTokenSource _cts;
         private RuntimeTransitionData _cashedTransitionData;
+        private SceneLoader _sceneLoader;
         
         private static readonly EventManager _eventManager = new();
         private static readonly string _managerPath = Path.Combine("TransitionManager");
@@ -78,7 +81,7 @@ namespace WorldGraphEditor
         {
             if (Instance != null)
             {
-                WGEConsole.Log("Trying to create a new TransitionManager instance while it already exists.");
+                WGEConsole.Log("Trying to create a new TransitionManager instance while instance already exists.");
                 return Instance;
             }
 
@@ -86,10 +89,15 @@ namespace WorldGraphEditor
             Instantiate(manager);
             return manager;
         }
-        
-        public void GoFrom(string currentPortGuid, bool ignoreShortcuts, TransitionContext context = null)
+
+        public Task GoFromAsync(string currentPortGuid, ITransitionContext context = null)
         {
-            var canPass = _container.CanPassTransition(currentPortGuid, ignoreShortcuts, out var status);
+            return GoFromAsync(currentPortGuid, false, context);
+        }
+
+        public async Task GoFromAsync(string currentPortGuid, bool ignoreShortcuts, ITransitionContext context = null)
+        {
+            var canPass = Graph.CanPassTransition(currentPortGuid, ignoreShortcuts, out var status);
             TransitionPassStatus = status;
                 
             if (!canPass)
@@ -105,19 +113,25 @@ namespace WorldGraphEditor
                 return;
             }
             
-            _originPortGuid = currentPortGuid;
-            GoInternal(currentPortGuid, false, context);
+            var transitionContext = context as TransitionContext;
+
+            if (Graph.TryGetPassageTransitionData(currentPortGuid, out var data))
+            {
+                await GoInternalAsync(data, transitionContext);
+            }
         }
 
-        public void GoTo(string currentPortGuid, string targetPortGuid, TransitionContext context = null)
+        public async Task GoToAsync(string currentPortGuid, string targetPortGuid, ITransitionContext context = null)
         {
             TransitionPassStatus = TransitionPassStatusType.Allowed;
+
+            var transitionContext = context as TransitionContext;
             
-            _originPortGuid = currentPortGuid;
-            GoInternal(targetPortGuid, true, context);
+            var data = Graph.GetTeleportTransitionData(currentPortGuid, targetPortGuid);
+            await GoInternalAsync(data, transitionContext);
         }
 
-        public async Task LoadScene(int buildIndex, TransitionContext context = null)
+        public async Task LoadSceneAsync(int buildIndex, TransitionContext context = null)
         {
             _isTransitionStarted = true;
             
@@ -128,16 +142,16 @@ namespace WorldGraphEditor
 
             try
             {
-                await HandleTransitionEventAsync(portEnteredDelay, EventType.OnPortEntered, OnPortEntered);
+                await HandleTransitionEventAsync(portEnteredDelay, EventType.OnPortEntered, PortEntered);
                 _cts.Token.ThrowIfCancellationRequested();
-                await HandleTransitionEventAsync(transitionStartedDelay, EventType.OnTransitionStarted, OnTransitionStarted);
+                await HandleTransitionEventAsync(transitionStartedDelay, EventType.OnTransitionStarted, TransitionStarted);
                 _cts.Token.ThrowIfCancellationRequested();
                 await AwaitUtility.LoadSceneAsync(buildIndex, _cts.Token);
                 
-                PlayerSpawnPosition = GetPlayerSpawnPosition(null);
+                NextSpawnPosition = GetNextSpawnPosition(null);
                 
                 _cts.Token.ThrowIfCancellationRequested();
-                await HandleTransitionEventAsync(sceneLoadedDelay, EventType.OnSceneLoaded, OnSceneLoaded);
+                await HandleTransitionEventAsync(sceneLoadedDelay, EventType.OnSceneLoaded, SceneLoaded);
                 _cts.Token.ThrowIfCancellationRequested();
                 await HandleTransitionEventAsync(transitionEndedDelay, EventType.OnTransitionEnded, TrySpawnPlayerAndCallOnTransitionEndedEvent);
                 _cts.Token.ThrowIfCancellationRequested();
@@ -151,26 +165,9 @@ namespace WorldGraphEditor
                 WGEConsole.Error(e.Message);
             }
 
-            OnPortLeaved?.Invoke();
+            PortLeaved?.Invoke();
             _isTransitionStarted = false;
         }
-        
-        [Obsolete]
-        public static void RefreshPorts()
-        {
-        }
-        
-        /// <summary>
-        /// [Obsolete] Use <see cref="RegisterAsyncHandler(EventType, Func{CancellationToken, Task}, int)"/> instead.
-        /// </summary>
-        [Obsolete("Use RegisterAsyncHandler(EventType, Func<CancellationToken, Task>, int) instead.", true)]
-        public static void RegisterAsyncHandler(EventType eventType, Func<Task> func, int priority) { }
-
-        /// <summary>
-        /// [Obsolete] Use <see cref="UnregisterAsyncHandler(EventType, Func{CancellationToken, Task})"/> instead.
-        /// </summary>
-        [Obsolete("Use UnregisterAsyncHandler(EventType, Func<CancellationToken, Task>) instead.", true)]
-        public static void UnregisterAsyncHandler(EventType eventType, Func<Task> func) { }
 
         public static void RegisterAsyncHandler(EventType eventType, Func<CancellationToken, Task> func, int priority)
         {
@@ -185,18 +182,21 @@ namespace WorldGraphEditor
         private void Start()
         {
             if (_container != null)
-                _container.Initialize();
+            {
+                Graph = _container.GetWorldGraph();
+            }
             
-            PlayerSpawnPosition = GetDefaultSpawnPosition();
+            NextSpawnPosition = GetDefaultSpawnPosition();
             
             if (_playerPrefab.Enabled)
-                InstantiatePlayer(PlayerSpawnPosition);
+                InstantiatePlayer(NextSpawnPosition);
 
             _cts = new CancellationTokenSource();
-            OnInitialized?.Invoke();
+            _sceneLoader = new SceneLoader();
+            Initialized?.Invoke();
         }
         
-        private async void GoInternal(string targetPortGuid, bool isTargetPort, [CanBeNull] TransitionContext context)
+        private async Task GoInternalAsync(RuntimeTransitionData data, TransitionContext context)
         {
             if (_isTransitionStarted)
             {
@@ -205,8 +205,8 @@ namespace WorldGraphEditor
             }
             
             _isTransitionStarted = true;
-            InputTransitionComponent = FindTransitionComponent(_originPortGuid);
-            _cashedTransitionData = _container.GetTransitionData(targetPortGuid, isTargetPort);
+            _cashedTransitionData = data;
+            InputTransitionComponent = FindTransitionComponent(_cashedTransitionData.CurrentPassageGuid);
             
             var portEnteredDelay = _portEnteredCallConfig.ResolveDelay(context?.PortEnteredDelay);
             var transitionStartedDelay = _transitionStartedCallConfig.ResolveDelay(context?.TransitionStartedDelay);
@@ -215,23 +215,24 @@ namespace WorldGraphEditor
 
             try
             {
-                await HandleTransitionEventAsync(portEnteredDelay, EventType.OnPortEntered, OnPortEntered);
+                await HandleTransitionEventAsync(portEnteredDelay, EventType.OnPortEntered, PortEntered);
                 _cts.Token.ThrowIfCancellationRequested();
-                await HandleTransitionEventAsync(transitionStartedDelay, EventType.OnTransitionStarted, OnTransitionStarted);
+                await HandleTransitionEventAsync(transitionStartedDelay, EventType.OnTransitionStarted, TransitionStarted);
                 _cts.Token.ThrowIfCancellationRequested();
-                await AwaitUtility.LoadSceneAsync(_cashedTransitionData.TargetSceneBuildIndex, _cts.Token);
+                await _sceneLoader.LoadAsync(_cashedTransitionData, _cts.Token);
                 _cts.Token.ThrowIfCancellationRequested();
                 
-                OutputTransitionComponent = FindTransitionComponent(_cashedTransitionData.TargetPassageGuid, out var isTransitionCorrect);
-                PlayerSpawnPosition = GetPlayerSpawnPosition(OutputTransitionComponent);
+                OutputTransitionComponent = FindTransitionComponent(_cashedTransitionData.TargetPassageGuid);
+                NextSpawnPosition  = GetNextSpawnPosition(OutputTransitionComponent);
                 PushData = GetPushData(OutputTransitionComponent);
 
 #if UNITY_EDITOR
-                if (_printTransitions || !isTransitionCorrect)
-                    PrintTransitionMessage(_cashedTransitionData.TargetPassageGuid, isTransitionCorrect);
+                if (_printTransitions || OutputTransitionComponent == null)
+                    PrintTransitionMessage(OutputTransitionComponent != null);
 #endif
                 
-                await HandleTransitionEventAsync(sceneLoadedDelay, EventType.OnSceneLoaded, OnSceneLoaded);
+                await HandleTransitionEventAsync(sceneLoadedDelay, EventType.OnSceneLoaded, SceneLoaded);
+                SceneLoaded?.Invoke();
                 _cts.Token.ThrowIfCancellationRequested();
                 
                 await HandleTransitionEventAsync(transitionEndedDelay, EventType.OnTransitionEnded, TrySpawnPlayerAndCallOnTransitionEndedEvent);
@@ -246,7 +247,7 @@ namespace WorldGraphEditor
                 WGEConsole.Error(e.Message);
             }
 
-            OnPortLeaved?.Invoke();
+            PortLeaved?.Invoke();
             _isTransitionStarted = false;
         }
 
@@ -261,9 +262,9 @@ namespace WorldGraphEditor
         private void TrySpawnPlayerAndCallOnTransitionEndedEvent()
         {
             if (_playerPrefab.Enabled)
-                InstantiatePlayer(PlayerSpawnPosition);
+                InstantiatePlayer(NextSpawnPosition);
             
-            OnTransitionEnded?.Invoke();
+            TransitionEnded?.Invoke();
         }
         
         private void InstantiatePlayer(Vector3 spawnPosition)
@@ -271,7 +272,7 @@ namespace WorldGraphEditor
             Instantiate(_playerPrefab.Value, spawnPosition, Quaternion.identity);
         }
 
-        private static Vector3 GetPlayerSpawnPosition(ITransitionComponent port)
+        private static Vector3 GetNextSpawnPosition(ITransitionComponent port)
         {
             return port?.GetSpawnPosition() ?? GetDefaultSpawnPosition();
         }
@@ -289,48 +290,18 @@ namespace WorldGraphEditor
             await AwaitUtility.AwaitByCoroutine(callConfig, Instance, _cts.Token);
             await _eventManager.Invoke(eventType, _cts.Token);
         }
-        
-        private static ITransitionComponent FindTransitionComponent(string portGuid) => 
-            FindTransitionComponent(portGuid, out _);
-        
-        private static ITransitionComponent FindTransitionComponent(string portGuid, out bool isSceneHasPort)
+
+        private static ITransitionComponent FindTransitionComponent(string portGuid) => TransitionComponentUtility.FindByGuid(portGuid);
+
+#if UNITY_EDITOR
+        private void PrintTransitionMessage(bool isCorrect)
         {
-            var transitionComponents = ObjectUtility.FindObjectsByInterface<ITransitionComponent>();
-            ITransitionComponent result = null;
-            isSceneHasPort = false;
-
-#if UNITY_EDITOR
-            var context = new RefreshContext(Instance);
-#endif
-            foreach (var transitionComponent in transitionComponents)
-            {
-
-#if UNITY_EDITOR
-                transitionComponent.Refresh(context);
-#endif
-                
-                var guid = transitionComponent.GetGuid();
-                
-                if (guid != portGuid) 
-                    continue;
-
-                isSceneHasPort = true;
-                result = transitionComponent;
-                break;
-            }
+            _container.EditorGraph.TryGetPortData(_cashedTransitionData.TargetPassageGuid, out var targetPortData);
+            _container.EditorGraph.TryGetSceneDataByPortGuid(_cashedTransitionData.TargetPassageGuid, out var targetSceneData);
             
-            return result;
-        }
-
-#if UNITY_EDITOR
-        private void PrintTransitionMessage(string targetPort, bool isCorrect)
-        {
-            var targetPortData = _container.EditorData.GetPortData(targetPort);
-            var targetSceneData = _container.EditorData.GetSceneDataByPortGuid(targetPort);
+            _container.EditorGraph.TryGetPortData(_cashedTransitionData.CurrentPassageGuid, out var originPortData);
+            _container.EditorGraph.TryGetSceneDataByPortGuid(_cashedTransitionData.CurrentPassageGuid, out var originSceneData);
             
-            var originPortData = _container.EditorData.GetPortData(_originPortGuid);
-            var originSceneData = _container.EditorData.GetSceneDataByPortGuid(_originPortGuid);
-
             var color = isCorrect ? MessageColor.Green.GetColor() : MessageColor.Red.GetColor();
             var hex = ColorUtility.ToHtmlStringRGB(color);
 
@@ -353,8 +324,10 @@ namespace WorldGraphEditor
         private void OnDestroy()
         {
             _cts?.Cancel();
+            _sceneLoader?.Dispose();
+            _sceneLoader = null;
             _eventManager.Dispose();
-            OnDestroyed?.Invoke();
+            Destroyed?.Invoke();
         }
     }
 }

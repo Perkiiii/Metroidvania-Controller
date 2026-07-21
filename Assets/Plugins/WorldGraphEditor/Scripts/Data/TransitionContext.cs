@@ -1,6 +1,6 @@
 ﻿namespace WorldGraphEditor
 {
-    public class TransitionContext
+    public class TransitionContext : ITransitionContext
     {
         public TransitionDelayData PortEnteredDelay;
         public TransitionDelayData TransitionStartedDelay;

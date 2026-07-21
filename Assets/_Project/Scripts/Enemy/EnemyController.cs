@@ -6,6 +6,8 @@ public sealed class EnemyController : MonoBehaviour
 {
     [SerializeField] private EnemyConfig config;
 
+    public EnemyConfig Config => config;
+
     private EnemyStateBlackboard blackboard;
     private EnemyHealthComponent health;
     private EnemyRecoil recoil;
@@ -25,8 +27,27 @@ public sealed class EnemyController : MonoBehaviour
         blackboard = GetOrAdd<EnemyStateBlackboard>();
         recoil = GetOrAdd<EnemyRecoil>();
         health = GetOrAdd<EnemyHealthComponent>();
+
+        EnemyMotor motor = GetComponent<EnemyMotor>();
+        if (motor != null)
+        {
+            motor.Initialize(config, body);
+        }
+
+        EnemyPerception perception = GetComponent<EnemyPerception>();
+        if (perception != null)
+        {
+            perception.Initialize(config);
+        }
+
         recoil.Initialize(config, blackboard, body);
         health.Initialize(config, blackboard, body, recoil);
+
+        EnemyAttackController attackController = GetComponent<EnemyAttackController>();
+        if (attackController != null)
+        {
+            attackController.Initialize(config, blackboard, motor);
+        }
 
         MonoBehaviour[] behaviours = GetComponents<MonoBehaviour>();
         for (int i = 0; i < behaviours.Length; i++)

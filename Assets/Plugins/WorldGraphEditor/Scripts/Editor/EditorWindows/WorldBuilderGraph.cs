@@ -145,7 +145,7 @@ namespace WorldGraphEditor.Editor
         private void GenerateToolBar()
         {
             var toolbar = new UnityEditor.UIElements.Toolbar();
-            GraphUtility.AddStyleSheet(toolbar, "Scripts/Editor/EditorWindows/Styles/Toolbar.uss");
+            toolbar.styleSheets.Add(WGEAssetPathUtility.LoadStyleSheet("Scripts/Editor/EditorWindows/Styles/Toolbar.uss"));
 
             var leftContainer = new VisualElement {style = { flexDirection = FlexDirection.Row, flexGrow = 1}};
             var rightContainer = new VisualElement {style = { flexDirection = FlexDirection.Row, flexGrow = 1, justifyContent = Justify.FlexEnd}};
@@ -153,8 +153,7 @@ namespace WorldGraphEditor.Editor
             var saveButton = new Button(() => RequestDataOperation(true)) {text = "Save"};
             var loadButton = new Button(() => RequestDataOperation(false)) {text = "Open"};
             _refreshScenePreviewButton = new Button(RefreshScenePreviews) {text = "Refresh Preview"};
-            _captureScenesButton = new Button(CaptureAllScenes) {text = "Capture Scene Previews"};
-            var miniMapButton = new Button(() => _graphView.ToggleMiniMap()) {text = "MiniMap"};
+            _captureScenesButton = new Button(CaptureAvailableScenes) {text = "Capture Scene Previews"};
             _refreshScenePreviewButton.SetEnabled(false);
             _captureScenesButton.SetEnabled(false);
             
@@ -170,7 +169,6 @@ namespace WorldGraphEditor.Editor
                 
                 rightContainer.Add(_captureScenesButton);
                 rightContainer.Add(_refreshScenePreviewButton);
-                rightContainer.Add(miniMapButton);
             
                 toolbar.Add(leftContainer);
                 toolbar.Add(rightContainer);
@@ -179,8 +177,15 @@ namespace WorldGraphEditor.Editor
             });
         }
 
+        private void CaptureAvailableScenes()
+        {
+            _graphView.ClearNodePreviews();
+            SceneScreenshotUtility.CaptureAvailableScenes(_container);
+        }
+
         private void CaptureAllScenes()
         {
+            _graphView.ClearNodePreviews();
             SceneScreenshotUtility.CaptureAllScenes(_container);
         }
 
@@ -192,7 +197,7 @@ namespace WorldGraphEditor.Editor
         private void RequestDataOperation(bool isSaveOperation)
         {
             var saveUtility = GraphSaveUtility.GetInstance(_graphView);
-
+            
             if (isSaveOperation)
                 saveUtility.Save(_container);
             else

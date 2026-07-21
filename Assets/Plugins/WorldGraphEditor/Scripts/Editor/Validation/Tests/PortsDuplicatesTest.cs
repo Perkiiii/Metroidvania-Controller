@@ -13,7 +13,7 @@ namespace WorldGraphEditor.Editor.Tests
                 .SelectMany(group => group);
 
             if (duplicates.Any())
-                return new TestResult(TestStatusType.Error, "Scene contains duplicate ports.");
+                return new TestResult(TestStatusType.Error, "Scene has duplicate ports.");
 
             return new TestResult(TestStatusType.Passed, "No duplicate ports found.");
         }

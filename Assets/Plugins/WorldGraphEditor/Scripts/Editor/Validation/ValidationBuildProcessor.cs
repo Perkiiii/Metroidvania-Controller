@@ -14,19 +14,20 @@ namespace WorldGraphEditor.Editor
         
         public void OnPreprocessBuild(BuildReport report)
         {
-            if (DataValidator.IsValid(out var result, out var message)) 
+            if (DataValidator.IsValid(out var result)) 
                 return;
             
-            if (result == ValidationResult.DataMismatch)
+            if (result == ValidationResult.BuildSettingsMismatch)
             {
-                _container = TransitionManager.LoadFromResources().Container;
-                var sceneNodeData = _container.EditorData.SceneNodeData;
+                _container = WGEProjectConfig.Instance.Container;
+                var sceneNodeData = _container.EditorGraph.GetScenesData();
                 var enabledScenes = EditorBuildSettings.scenes.Where(item => item.enabled).ToArray();
                     
                 HandleMismatch(sceneNodeData, enabledScenes);
             }
             else
             {
+                var message = DataValidator.GetMessage(result); 
                 throw new BuildFailedException(message.SetColor(MessageColor.Red));
             }
         }

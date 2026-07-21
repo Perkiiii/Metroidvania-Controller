@@ -153,7 +153,7 @@ MonoBehaviour:
   audioManagerPrefab: {fileID: 7688381351352745638, guid: 7dc6fe541e5dd1340a5e4cd34cf88d45, type: 3}
   gameCamerasPrefab: {fileID: 1013261421592569327, guid: 3ad94c63a988c0f4d9a2fa182705e149, type: 3}
   interactManagerPrefab: {fileID: 3161705671875251235, guid: 421adfa9447ddc340be9f43f7296e185, type: 3}
-  worldGraphContainer: {fileID: 11400000, guid: 54ce382d84817344eb5155810ad536e2, type: 2}
+  worldGraphContainer: {fileID: 11400000, guid: a37ba883263f9954cbba283166a03edf, type: 2}
   firstScene: SampleScene
 --- !u!4 &1141527649
 Transform:

@@ -30,14 +30,14 @@ public static class TransitionGateLinkValidator
         WorldGraphContainer container = LoadWorldGraphContainer();
         if (container == null)
         {
-            Debug.LogError("[TransitionGateLinkValidator] No WorldGraphContainer is assigned on Assets/WorldGraphEditor/Resources/TransitionManager.prefab.");
+            Debug.LogError("[TransitionGateLinkValidator] No WorldGraphContainer is assigned on WGEProjectConfig. Check Project Settings > World Graph Editor.");
             return;
         }
 
+        WorldGraph worldGraph;
         try
         {
-            if (!container.IsInitialized())
-                container.Initialize();
+            worldGraph = container.GetWorldGraph();
         }
         catch (System.Exception e)
         {
@@ -68,7 +68,7 @@ public static class TransitionGateLinkValidator
                     sceneEntry.Value,
                     enabledScenesByBuildIndex,
                     gatesByScene,
-                    container);
+                    worldGraph);
             }
         }
         finally
@@ -85,8 +85,7 @@ public static class TransitionGateLinkValidator
 
     private static WorldGraphContainer LoadWorldGraphContainer()
     {
-        WorldGraphEditor.TransitionManager manager = WorldGraphEditor.TransitionManager.LoadFromResources();
-        return manager != null ? manager.Container : null;
+        return WGEProjectConfig.Instance?.Container;
     }
 
     private static Dictionary<string, string> GetEnabledBuildScenesByName()
@@ -190,7 +189,7 @@ public static class TransitionGateLinkValidator
         List<GateInfo> gates,
         Dictionary<int, string> enabledScenesByBuildIndex,
         Dictionary<string, List<GateInfo>> gatesByScene,
-        WorldGraphContainer container)
+        WorldGraph worldGraph)
     {
         int issues = 0;
 
@@ -200,7 +199,7 @@ public static class TransitionGateLinkValidator
             if (string.IsNullOrWhiteSpace(guid))
                 continue;
 
-            if (!container.CanPassTransition(guid, false, out TransitionPassStatusType status))
+            if (!worldGraph.CanPassTransition(guid, false, out TransitionPassStatusType status))
             {
                 Debug.LogError($"[TransitionGateLinkValidator] Scene '{sceneName}' gate '{gate.ObjectPath}' cannot pass WGE transition for GUID '{guid}'. Status: {status}.");
                 issues++;
@@ -210,7 +209,12 @@ public static class TransitionGateLinkValidator
             RuntimeTransitionData data;
             try
             {
-                data = container.GetTransitionData(guid, false);
+                if (!worldGraph.TryGetPassageTransitionData(guid, out data))
+                {
+                    Debug.LogError($"[TransitionGateLinkValidator] Scene '{sceneName}' gate '{gate.ObjectPath}' failed WGE transition lookup for GUID '{guid}': TryGetPassageTransitionData returned false.");
+                    issues++;
+                    continue;
+                }
             }
             catch (System.Exception e)
             {

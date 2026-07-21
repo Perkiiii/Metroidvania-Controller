@@ -1,11 +1,9 @@
-﻿using System.Linq;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEditor.Overlays;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
-using WorldGraphEditor.Editor.Tests;
 
 namespace WorldGraphEditor.Editor.Overlays
 {
@@ -15,6 +13,7 @@ namespace WorldGraphEditor.Editor.Overlays
         private VisualElement _root;
         private VisualElement _topElement;
         private VisualElement _containerStatusElement;
+        private VisualElement _managerStatusElement;
         private HeaderWithListElement _sceneStatusElement;
         private VisualElement _bottomElement;
         
@@ -22,6 +21,7 @@ namespace WorldGraphEditor.Editor.Overlays
         {
             EditorSceneManager.sceneOpened += OnSceneOpened;
             GraphSaveUtility.OnContainerSaved += RefreshElements;
+            WGEEditorEvents.SettingsChanged += OnSettingsChanged;
             EditorApplication.hierarchyChanged += RefreshElements;
             Undo.postprocessModifications += OnPostProcessModifications;
             
@@ -51,21 +51,30 @@ namespace WorldGraphEditor.Editor.Overlays
         {
             EditorSceneManager.sceneOpened -= OnSceneOpened;
             GraphSaveUtility.OnContainerSaved -= RefreshElements;
+            WGEEditorEvents.SettingsChanged -= OnSettingsChanged;
             EditorApplication.hierarchyChanged -= RefreshElements;
             Undo.postprocessModifications -= OnPostProcessModifications;
             
             base.OnWillBeDestroyed();
         }
 
-        private void OnSceneOpened(Scene scene, OpenSceneMode mode) => RefreshElements();
+        private void OnSceneOpened(Scene scene, OpenSceneMode mode)
+        {
+            RefreshElements();
+        }
+
+        private void OnSettingsChanged(WGEEditorChangeType changeType)
+        {
+            if (changeType.HasFlag(WGEEditorChangeType.ProjectConfig))
+            {
+                RefreshElements();
+            }
+        }
 
         private void RefreshElements()
         {
             RefreshTopElement();
-            
-            var container = TransitionManager.LoadFromResources()?.Container;
-            
-            RefreshBottomElement(container);
+            RefreshBottomElement();
         }
         
         private void CreateMarkup()
@@ -73,6 +82,7 @@ namespace WorldGraphEditor.Editor.Overlays
             _root = new VisualElement();
             _topElement = new VisualElement();
             _containerStatusElement = new VisualElement();
+            _managerStatusElement = new VisualElement();
             _sceneStatusElement = new HeaderWithListElement();
             _bottomElement = new VisualElement();
 
@@ -82,6 +92,7 @@ namespace WorldGraphEditor.Editor.Overlays
             _bottomElement.style.flexDirection = FlexDirection.Row;
             _bottomElement.style.justifyContent = Justify.Center;
             _containerStatusElement.style.flexDirection = FlexDirection.Row;
+            _managerStatusElement.style.flexDirection = FlexDirection.Row;
             
             _root.Add(new Separator());
             _root.Add(_topElement);
@@ -89,83 +100,50 @@ namespace WorldGraphEditor.Editor.Overlays
             _root.Add(_bottomElement);
         }
         
-        private void RefreshBottomElement(WorldGraphContainer container)
+        private void RefreshBottomElement()
         {
             _bottomElement.Clear();
 
-            var validateButton = new Button(() => GetOrCreateValidationAsset(container))
+            _bottomElement.Add(new Button(() => SettingsService.OpenProjectSettings("Project/World Graph Editor"))
             {
-                text = "Validate",
-                style = { flexGrow = 1}
-            };
-            validateButton.SetEnabled(container != null && !container.ContainsErrors() && container.HasData);
-
-            _bottomElement.Add(validateButton);
-            
-            _bottomElement.Add(new Button(TransitionManagerPrefabCreator.CreateOrOpenPrefab)
-            {
-                text = "Open TM",
-                style = { flexGrow = 1}
+                text = "Project Settings",
+                style = { flexGrow = 1 }
             });
-        }
-        
-        private static void GetOrCreateValidationAsset(WorldGraphContainer container)
-        {
-            var containerTests = WorldGraphEditorSettings.Instance.Tests?.Where(item => item != null);
-            
-            if (containerTests != null)
-            {
-                var tests = new ISceneTest[] {new MissingPortsTest(), new PortsDuplicatesTest()}.Concat(containerTests);
-                var testsData = SceneCompletionValidator.GetAllSceneTestResults(container.EditorData.SceneNodeData, tests);
-
-                if (testsData == null)
-                    return;
-                
-                container.EditorData.SetTestsData(testsData);
-            }
-
-            var result = ProjectValidationResult.Instance;
-            
-            result.SetContainer(container);
-            
-            EditorUtility.SetDirty(result);
-            EditorUtility.SetDirty(container);
-            
-            AssetDatabase.SaveAssetIfDirty(result);
-            AssetDatabase.SaveAssetIfDirty(container);
-            
-            AssetDatabase.Refresh();
-            EditorGUIUtility.PingObject(result);
         }
 
         private void RefreshTopElement()
         {
             _containerStatusElement.Clear();
+            _managerStatusElement.Clear();
             _sceneStatusElement.Dispose();
             _topElement.Clear();
             
             var containerStatus = OverlayUtility.GetContainerStatus(out var isDataValid);
-            var containerInfoLabel =
-                UIToolkitUtility.CreateLabel(containerStatus, isDataValid ? MessageColor.Default : MessageColor.Red);
+            var managerStatus = OverlayUtility.GetManagerStatus();
+            var managerMessage = $"Transition Manager: {managerStatus}";
+            var managerInfoLabel = UIToolkitUtility.CreateLabel(managerMessage, MessageColor.Default);
+            var containerInfoLabel = UIToolkitUtility.CreateLabel(containerStatus, isDataValid ? MessageColor.Default : MessageColor.Red);
             var containerIconName = isDataValid ? UIToolkitUtility.INFO_ICON_NAME : UIToolkitUtility.ERROR_ICON_NAME;
 
             _containerStatusElement.Add(UIToolkitUtility.CreateIcon(containerIconName, 20));
             _containerStatusElement.Add(containerInfoLabel);
+            _managerStatusElement.Add(UIToolkitUtility.CreateIcon(UIToolkitUtility.INFO_ICON_NAME, 20));
+            _managerStatusElement.Add(managerInfoLabel);
 
             if (isDataValid)
             {
-                var container = TransitionManager.LoadFromResources().Container;
-                var sceneData = container.EditorData
-                    .GetSceneDataByPath(SceneManager.GetActiveScene().path, out var isDataExists);
+                var editorGraph = WGEProjectConfig.Instance.GetEditorGraph()!;
+                var hasData = editorGraph.TryGetSceneDataByPath(SceneManager.GetActiveScene().path, out var sceneData);
                 
-                var sceneCompletionData = isDataExists
+                var sceneCompletionData = hasData
                     ? SceneCompletionValidator.GetCurrentSceneCompletionData(sceneData)
                     : default;
                 
-                UIToolkitUtility.FillSceneStatusElement(_sceneStatusElement, container, sceneCompletionData);
+                UIToolkitUtility.FillSceneStatusElement(_sceneStatusElement, editorGraph, sceneCompletionData);
             }
 
             _topElement.Add(_containerStatusElement);
+            _topElement.Add(_managerStatusElement);
             _topElement.Add(_sceneStatusElement);
         }
     }

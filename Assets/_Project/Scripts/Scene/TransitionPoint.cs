@@ -203,6 +203,12 @@ public sealed class TransitionPoint : PassageBase, ITransitionComponent
             return false;
         }
 
+        // Bail before the push-back path while a scene transition is loading or placing/entering
+        // the hero (Loading/EnteringLevel). Without this, a destination gate's own trigger firing
+        // during placement or scripted entry motion would push the hero via HeroMotor.PushOut,
+        // fighting the concurrently-running scripted entry velocity. See ApplyPushBack below.
+        if (GameManager.Instance.State != GameState.Playing) return false;
+
         // Push-back path: hero is in a state where the transition would mis-fire.
         // Auto gates nudge the hero out of the trigger; door interact gates reject
         // without directional displacement.
@@ -212,8 +218,6 @@ public sealed class TransitionPoint : PassageBase, ITransitionComponent
                 ApplyPushBack(hero, heroCollider);
             return false;
         }
-
-        if (GameManager.Instance.State != GameState.Playing) return false;
 
         string graphGuid = GetGuid();
         if (string.IsNullOrEmpty(graphGuid))

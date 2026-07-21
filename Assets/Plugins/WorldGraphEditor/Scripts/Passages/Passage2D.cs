@@ -12,6 +12,7 @@ namespace WorldGraphEditor
         [SerializeField, HideInInspector] private BoxCollider2D _boxCollider;
 
         private bool _canBeUsed;
+        private TransitionManager _manager;
 
         protected void OnValidate()
         {
@@ -25,8 +26,8 @@ namespace WorldGraphEditor
         public PushData GetPushData() => _pushForce.Enabled ? new PushData(_pushForce.Value) : default;
 
         public void Traverse()
-        {
-            TransitionManager.Instance.GoFrom(GetGuid(), true);
+        { 
+            _ = _manager.GoFromAsync(GetGuid(), true);
         }
         
         private void Awake()
@@ -36,17 +37,18 @@ namespace WorldGraphEditor
         
         private void OnEnable()
         {
-            TransitionManager.OnSceneLoaded += OnSceneLoaded;
+            _manager = TransitionManager.Instance;
+            _manager.SceneLoaded += OnSceneLoaded;
         }
 
-        private void OnDestroy()
+        private void OnDisable()
         {
-            TransitionManager.OnSceneLoaded -= OnSceneLoaded;
+            _manager.SceneLoaded -= OnSceneLoaded;
         }
         
         private void OnSceneLoaded()
         {
-            if (TransitionManager.Instance.OutputTransitionComponent?.GetGuid() == GetGuid())
+            if (this.IsOutput(_manager))
                 _canBeUsed = false;
         }
         

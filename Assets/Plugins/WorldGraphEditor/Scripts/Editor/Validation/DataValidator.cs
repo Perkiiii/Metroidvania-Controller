@@ -1,69 +1,123 @@
-﻿namespace WorldGraphEditor.Editor
+﻿using System;
+
+namespace WorldGraphEditor.Editor
 {
     internal static class DataValidator
     {
-        public static bool IsValid(out ValidationResult result, out string message)
+        internal static bool IsValid(out ValidationResult result)
         {
-            var manager = TransitionManager.LoadFromResources();
-            var isContainerHasErrors = true;
-            WorldGraphContainer container = null;
+            var wgeProjectConfig = WGEProjectConfig.Instance;
+            
+            if (wgeProjectConfig == null)
+            {
+                result = ValidationResult.WGEConfigNotFound;
+                return false;
+            }
+            
+            if (WGEProjectConfig.Instance.IsCustomManagerEnabled)
+                return IsCustomSettingsValid(wgeProjectConfig, out result);
+
+            return IsDefaultSettingsValid(wgeProjectConfig, out result);
+        }
+
+        internal static string GetMessage(ValidationResult result)
+        {
+            switch (result)
+            {
+                case ValidationResult.Ok:
+                    return "WGE data is valid.";
+                case ValidationResult.WGEConfigNotFound:
+                    return $"{nameof(WGEProjectConfig)} is missing from Resources. " +
+                           $"Ensure {nameof(WGEProjectConfig)}.asset exists at {WGEAssetPathUtility.GetPath("Resources")}/.";
+                case ValidationResult.ManagerIsNull:
+                    return "The TransitionManager instance is missing. To fix this, create a new TransitionManager " +
+                           "via the context menu: \"Tools/World Graph Editor/Create Transition Manager Prefab\".";
+                case ValidationResult.DefaultSettingsContainerIsNull:
+                    return "\"The \"Container\" field in TransitionManager is not assigned. " +
+                           "Please specify a valid World Graph Container.";
+                case ValidationResult.CustomSettingsContainerIsNull:
+                    return "\"The \"Container\" field in WGE Project Settings is not assigned. " +
+                           "Please specify a valid World Graph Container.";
+                case ValidationResult.ContainerHasErrors:
+                    return "The \"Container\" has validation errors. " +
+                           "In the Word Graph Editor window, select the node highlighted in red to get more detailed information. " +
+                           "Please review the container's data and fix the detected errors.";
+                case ValidationResult.BuildSettingsMismatch:
+                    return "The saved scene data does not match the scenes in the Build Settings. " +
+                           "Please click the \"Refresh Build Settings\" button in the \"Container\" " +
+                           "field to resolve this issue.";
+                case ValidationResult.NoData:
+                    return "The \"Container\" has no stored nodes or edges.";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(result), result, null);
+            }
+        }
+
+        private static bool IsCustomSettingsValid(WGEProjectConfig wgeProjectConfig, out ValidationResult result)
+        {
             result = ValidationResult.Ok;
-            message = "";
+            var container = wgeProjectConfig.Container;
+            
+            if (container == null)
+            {
+                result = ValidationResult.CustomSettingsContainerIsNull;
+                return false;
+            }
+            
+            return IsContainerValid(ref result, container);
+        }
 
-            if (manager != null)
-                container = manager.Container;
-
-            if (container != null)
-                isContainerHasErrors = container.ContainsErrors();
-
-            if (ScenesValidationHelper.IsAllScenesValid(container) && !isContainerHasErrors)
-                return true;
-
-            if (manager == null)
+        private static bool IsDefaultSettingsValid(WGEProjectConfig wgeProjectConfig, out ValidationResult result)
+        {
+            result = ValidationResult.Ok;
+            var container = wgeProjectConfig.Container;
+            
+            if (TransitionManager.LoadFromResources() == null)
             {
                 result = ValidationResult.ManagerIsNull;
-                message =
-                    "The TransitionManager instance is missing. To fix this, create a new TransitionManager " +
-                    "via the context menu: \"Tools/World Graph Editor/Create Transition Manager Prefab\".";
+                return false;
             }
-            else if (container == null)
+            
+            if (container == null)
             {
-                result = ValidationResult.ContainerIsNull;
-                message = "\"The \"Container\" field in TransitionManager is not assigned. Please specify a valid World Graph Container.";
+                result = ValidationResult.DefaultSettingsContainerIsNull;
+                return false;
             }
-            else if (!container.HasData)
+            
+            return IsContainerValid(ref result, container);
+        }
+
+        private static bool IsContainerValid(ref ValidationResult result, WorldGraphContainer container)
+        {
+            if (!container.HasData)
             {
                 result = ValidationResult.NoData;
-                message = "The \"Container\" has no stored nodes or edges.";
-            }
-            else if (container.ContainsErrors())
-            {
-                result = ValidationResult.ContainerHasErrors;
-                message =
-                    "The \"Container\" contains validation errors. " +
-                    "In the Word Graph Editor window, select the node highlighted in red to get more detailed information. " +
-                    "Please review the container's data and fix the detected errors.";
-            }
-            else
-            {
-                result = ValidationResult.DataMismatch;
-                message =
-                    "The saved scene data does not match the scenes in the Build Settings. " +
-                    "Please click the \"Refresh Build Settings\" button in the \"Container\" " +
-                    "field in TransitionManager to resolve this issue.";
+                return false;
             }
 
+            if (container.HasErrors())
+            {
+                result = ValidationResult.ContainerHasErrors;
+                return false;
+            }
+
+            if (ScenesValidationHelper.IsAllScenesValid(container)) 
+                return true;
+            
+            result = ValidationResult.BuildSettingsMismatch;
             return false;
         }
     }
     
-    public enum ValidationResult
+    internal enum ValidationResult
     {
         Ok,
+        WGEConfigNotFound,
         ManagerIsNull,
-        ContainerIsNull,
+        DefaultSettingsContainerIsNull,
+        CustomSettingsContainerIsNull,
         ContainerHasErrors,
-        DataMismatch,
+        BuildSettingsMismatch,
         NoData
     }
 }

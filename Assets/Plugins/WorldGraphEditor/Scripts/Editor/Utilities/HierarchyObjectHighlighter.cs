@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -9,16 +9,28 @@ namespace WorldGraphEditor.Editor
     {
         private static Texture2D _gradientTexture;
         private static GUIStyle _portStyle;
-        private static TransitionManager _transitionManager;
         private static WorldGraphContainer _container;
-
+        
         private const float _OPACITY = .3f;
 
         static HierarchyObjectHighlighter()
         {
             EditorApplication.contextualPropertyMenu += HandlePropChanged;
+            WGEEditorEvents.SettingsChanged += OnProjectSettingChanged;
+            
+#if UNITY_6000_5_OR_NEWER
+            EditorApplication.hierarchyWindowItemByEntityIdOnGUI += HandleHierarchyWindowItemOnGUI;
+#else
             EditorApplication.hierarchyWindowItemOnGUI += HandleHierarchyWindowItemOnGUI;
+#endif
+            
             CreateGradientTexture();
+        }
+
+        private static void OnProjectSettingChanged(WGEEditorChangeType obj)
+        {
+            if ((obj & WGEEditorChangeType.ProjectConfig) != 0 || (obj & WGEEditorChangeType.GraphEditor) != 0)
+                EditorApplication.RepaintHierarchyWindow();
         }
 
         private static void HandlePropChanged(GenericMenu menu, SerializedProperty property)
@@ -27,7 +39,7 @@ namespace WorldGraphEditor.Editor
         }
 
         private static GUIStyle GetGuiStyle()
-        {
+        { 
             return new GUIStyle(EditorStyles.label)
             {
                 fontStyle = FontStyle.Normal,
@@ -39,24 +51,37 @@ namespace WorldGraphEditor.Editor
                 fontSize = 12
             };
         }
-
+        
         private static WorldGraphContainer GetContainer()
         {
-            if (_transitionManager == null)
-                _transitionManager = TransitionManager.LoadFromResources();
-
-            return _transitionManager?.Container;
+            return WGEProjectConfig.Instance.Container;
         }
 
+#if UNITY_6000_5_OR_NEWER
+        private static void HandleHierarchyWindowItemOnGUI(EntityId entityId, Rect selectionRect)
+        {
+            if (EditorUtility.EntityIdToObject(entityId) is not GameObject gameObject ||
+                !gameObject.TryGetComponent<ITransitionComponent>(out var component))
+                return;
+            
+            DrawTransitionComponentInfo(selectionRect, component);
+        }
+#else
         private static void HandleHierarchyWindowItemOnGUI(int instanceID, Rect selectionRect)
         {
-            if (ResolveEditorObject(instanceID) is not GameObject gameObject ||
+            if (EditorUtility.InstanceIDToObject(instanceID) is not GameObject gameObject ||
                 !gameObject.TryGetComponent<ITransitionComponent>(out var component))
                 return;
 
+            DrawTransitionComponentInfo(selectionRect, component);
+        }
+#endif
+
+        private static void DrawTransitionComponentInfo(Rect selectionRect, ITransitionComponent component)
+        {
             if (WorldGraphEditorSettings.Instance.HierarchyHighlighterMode == InspectorHighlighterMode.Nothing)
                 return;
-
+            
             _portStyle ??= GetGuiStyle();
             _container = GetContainer();
 
@@ -67,20 +92,20 @@ namespace WorldGraphEditor.Editor
                 UpdateGradientTexture(Color.clear, endColor);
                 GUI.DrawTexture(selectionRect, _gradientTexture);
             }
-
+            
             EditorGUI.LabelField(selectionRect, $"({name})", _portStyle);
         }
 
         private static (string Name, Color EndColor) DeterminePortLabelAndColor(ITransitionComponent component)
         {
             var errorColor = new Color(1f, 0f, 0f, _OPACITY);
-
+            
             if (_container == null)
             {
                 return ("CONTAINER NOT FOUND", errorColor);
             }
-
-            if (_container.ContainsErrors())
+            
+            if (_container.HasErrors())
             {
                 return ("CONTAINER ERRORS", errorColor);
             }
@@ -90,7 +115,8 @@ namespace WorldGraphEditor.Editor
                 return ("NO DATA", errorColor);
             }
 
-            var sceneData = _container.EditorData.GetSceneDataByPath(SceneManager.GetActiveScene().path, out var hasData);
+            var hasData = _container.EditorGraph.TryGetSceneDataByPath(SceneManager.GetActiveScene().path, out var sceneData);
+            
             if (!hasData)
             {
                 return ("NO DATA FOR SCENE", errorColor);
@@ -100,13 +126,13 @@ namespace WorldGraphEditor.Editor
             {
                 return ("NO PORTS", errorColor);
             }
-
-            var data = _container.EditorData.GetPortData(component.GetGuid());
-            var endColor = data.GetColor(_OPACITY);
-
-            return (data.Name, endColor);
+            
+            if (_container.EditorGraph.TryGetPortData(component.GetGuid(), out var data))
+                return (data.Name, data.GetColor(_OPACITY));
+                
+            return ("UNSET", errorColor);
         }
-
+        
         private static void CreateGradientTexture()
         {
             if (_gradientTexture == null)
@@ -127,15 +153,6 @@ namespace WorldGraphEditor.Editor
                 _gradientTexture.SetPixel(i, 0, Color.Lerp(startColor, endColor, t));
             }
             _gradientTexture.Apply();
-        }
-
-        private static Object ResolveEditorObject(int id)
-        {
-#if UNITY_6000_3_OR_NEWER
-            return EditorUtility.EntityIdToObject(id);
-#else
-            return EditorUtility.InstanceIDToObject(id);
-#endif
         }
     }
 }

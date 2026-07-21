@@ -26,6 +26,18 @@ namespace WorldGraphEditor.Editor
             _nodeNameProperty = serializedObject.FindProperty("_nodeName");
             _sceneAssetProperty = serializedObject.FindProperty("_sceneAsset");
             _ports = serializedObject.FindProperty("_portsData");
+
+            Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        private void OnDisable()
+        {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+        }
+
+        private void OnUndoRedo()
+        {
+            Repaint();
         }
 
         public override void OnInspectorGUI()
@@ -43,7 +55,7 @@ namespace WorldGraphEditor.Editor
             
             if (EditorGUI.EndChangeCheck()) 
                 EditorUtility.SetDirty(_inspectorHelper);
-
+            
             serializedObject.ApplyModifiedProperties();
         }
 
@@ -54,22 +66,86 @@ namespace WorldGraphEditor.Editor
                 return;
 
             var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(sceneAsset));
-            var texture = WGEAssetPathUtility.LoadAsset<Texture2D>($"Editor/Screenshots/{guid}.png", false);
-
-            if (texture == null)
-                return;
-
-            var maxWidth = EditorGUIUtility.currentViewWidth - 24;
-            var aspect = (float) texture.width / texture.height;
-            var height = maxWidth / aspect;
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(SceneScreenshotUtility.GetScreenshotAssetPath(guid));
+            var isTextureExists = texture != null;
+            var isAutoCaptureEnabled = _inspectorHelper.IsAutoCaptureEnabled();
 
             GUILayout.Space(12);
             GUILayout.Label("Scene Preview", _guiHeaderStyle);
             GUILayout.Space(4);
 
-            var rect = GUILayoutUtility.GetRect(maxWidth, height, GUILayout.ExpandWidth(false),
-                GUILayout.ExpandHeight(false));
+            if (isTextureExists && isAutoCaptureEnabled)
+            {
+                DrawTexture(texture);
+                GUILayout.Space(12);
+            }
+            
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+
+            var buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fixedHeight = 28,
+            };
+            
+            if (DrawEditorUtility.DrawButton("Delete Preview", isTextureExists, buttonStyle))
+            {
+                DeleteScenePreview();
+            }
+
+            if (isAutoCaptureEnabled)
+            {
+                if (GUILayout.Button("Disable Auto-Preview", buttonStyle))
+                {
+                    _inspectorHelper.SetAutoCaptureEnabled(false);
+                    Repaint();
+                }
+            }
+            else
+            {
+                if (GUILayout.Button("Enable Auto-Preview", buttonStyle))
+                {
+                    _inspectorHelper.SetAutoCaptureEnabled(true);
+                    Repaint();
+                }
+            }
+            
+            EditorGUILayout.EndHorizontal();
+
+            var (message, messageType) = GetScenePreviewMessage(isTextureExists, isAutoCaptureEnabled);
+
+            EditorGUILayout.HelpBox(message, messageType);
+            EditorGUILayout.EndVertical();
+        }
+
+        private (string, MessageType) GetScenePreviewMessage(bool isTextureExists, bool isAutoCaptureEnabled)
+        {
+            if (!isAutoCaptureEnabled && isTextureExists)
+                return ("Auto-capture is off. The preview is hidden on the graph node and this scene is skipped by batch capture. The screenshot file is kept on disk.", MessageType.Info);
+
+            if (!isAutoCaptureEnabled)
+                return ("Auto-capture is off and no screenshot exists for this scene. The graph node stays empty and this scene is excluded from batch capture.", MessageType.Info);
+
+            if (!isTextureExists)
+                return ("Auto-capture is on, but no screenshot was found. Capture a preview for this scene, or run \"Capture Scene Previews\" from the graph window.", MessageType.Warning);
+
+            return ("Auto-capture is on. The preview is shown on the graph node and this scene is included in batch capture.", MessageType.Info);
+        }
+
+        private static void DrawTexture(Texture2D texture)
+        {
+            var maxWidth = EditorGUIUtility.currentViewWidth - 24;
+            var aspect = (float) texture.width / texture.height;
+            var height = maxWidth / aspect;
+
+            var rect = GUILayoutUtility.GetRect(maxWidth, height, GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(false));
             GUI.DrawTexture(rect, texture, ScaleMode.ScaleToFit, false);
+        }
+
+        private void DeleteScenePreview()
+        {
+            _inspectorHelper.DeleteScenePreview();
+            Repaint();
         }
 
         private void CreateHeaderStyle()
@@ -93,7 +169,27 @@ namespace WorldGraphEditor.Editor
             
             EditorGUILayout.PropertyField(_nodeNameProperty, new GUIContent("Name"));
             EditorGUILayout.PropertyField(_sceneAssetProperty, new GUIContent("Scene Asset"));
+#if WGE_ADDRESSABLES
+            DrawAddressableInfo();
+#endif
         }
+
+#if WGE_ADDRESSABLES
+        private void DrawAddressableInfo()
+        {
+            if (_inspectorHelper.SceneAsset == null || !_inspectorHelper.IsAddressableScene())
+                return;
+
+            var address = _inspectorHelper.GetAddressableAddress();
+            var message = string.IsNullOrEmpty(address)
+                ? "This scene is loaded via Addressables at runtime. It is not required in Build Settings."
+                : "This scene is loaded via Addressables at runtime. It is not required in Build Settings.\n" +
+                  $"Address: {address}";
+
+            GUILayout.Space(6);
+            EditorGUILayout.HelpBox(message, MessageType.Info);
+        }
+#endif
 
         private void DrawPorts()
         {
@@ -181,7 +277,7 @@ namespace WorldGraphEditor.Editor
                     "Port names must be unique and cannot be empty or consist only of spaces.", MessageType.Error);
             }
 
-            if (_inspectorHelper.IsNodeContainsSceneDuplicate())
+            if (_inspectorHelper.IsNodeHasSceneDuplicate())
             {
                 GUILayout.Space(12);
                 EditorGUILayout.HelpBox(

@@ -6,7 +6,8 @@ namespace WorldGraphEditor.Editor
 {
     internal static class TransitionManagerPrefabCreator
     {
-        private static string PrefabPath => WGEAssetPathUtility.GetPath("Resources/TransitionManager.prefab");
+        private static readonly string _prefabPath =
+            Path.Combine("Assets", "WorldGraphEditor", "Resources", "TransitionManager.prefab");
 
         [MenuItem("Tools/World Graph Editor/Create Transition Manager Prefab")]
         public static void CreateOrOpenPrefab()
@@ -23,12 +24,11 @@ namespace WorldGraphEditor.Editor
             var go = new GameObject("TransitionManager");
             go.AddComponent<TransitionManager>();
 
-            WGEAssetPathUtility.EnsureFolder("Resources");
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, _prefabPath);
             
             if (prefab != null)
             {
-                Debug.Log($"TransitionManager prefab created at \"{PrefabPath}\".");
+                Debug.Log($"TransitionManager prefab created at \"{_prefabPath}\".");
                 Selection.activeObject = prefab;
                 EditorGUIUtility.PingObject(prefab);
             }

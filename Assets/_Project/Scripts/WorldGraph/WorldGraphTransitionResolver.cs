@@ -30,10 +30,10 @@ public static class WorldGraphTransitionResolver
             return false;
         }
 
+        WorldGraph worldGraph;
         try
         {
-            if (!container.IsInitialized())
-                container.Initialize();
+            worldGraph = container.GetWorldGraph();
         }
         catch (Exception e)
         {
@@ -41,7 +41,7 @@ public static class WorldGraphTransitionResolver
             return false;
         }
 
-        if (!container.CanPassTransition(sourcePortGuid, ignoreShortcuts, out TransitionPassStatusType status))
+        if (!worldGraph.CanPassTransition(sourcePortGuid, ignoreShortcuts, out TransitionPassStatusType status))
         {
             request = new WorldGraphTransitionRequest(
                 sourcePortGuid,
@@ -52,11 +52,15 @@ public static class WorldGraphTransitionResolver
         RuntimeTransitionData data;
         try
         {
-            data = container.GetTransitionData(sourcePortGuid, false);
+            if (!worldGraph.TryGetPassageTransitionData(sourcePortGuid, out data))
+            {
+                request = new WorldGraphTransitionRequest(sourcePortGuid, "TryGetPassageTransitionData returned false.");
+                return false;
+            }
         }
         catch (Exception e)
         {
-            request = new WorldGraphTransitionRequest(sourcePortGuid, $"GetTransitionData threw: {e.Message}");
+            request = new WorldGraphTransitionRequest(sourcePortGuid, $"TryGetPassageTransitionData threw: {e.Message}");
             return false;
         }
 

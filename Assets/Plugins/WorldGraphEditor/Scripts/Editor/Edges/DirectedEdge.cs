@@ -35,7 +35,7 @@ namespace WorldGraphEditor.Editor
             RegisterCallback<ContextualMenuPopulateEvent>(OnContextManuPopulate);
             this.SetGuid(guid);
             
-            GraphUtility.AddStyleSheet(this, "Scripts/Editor/EditorWindows/Styles/CustomEdgeStyle.uss");
+            styleSheets.Add(WGEAssetPathUtility.LoadStyleSheet("Scripts/Editor/EditorWindows/Styles/CustomEdgeStyle.uss"));
             AddToClassList("selected-edge");
         }
 

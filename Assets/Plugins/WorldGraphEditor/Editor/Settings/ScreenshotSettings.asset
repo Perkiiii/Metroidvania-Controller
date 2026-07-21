@@ -38,3 +38,15 @@ MonoBehaviour:
     Rotation: {x: 0.70710677, y: 0, z: 0, w: -0.70710677}
     Size: {x: 18, y: 10}
     SceneGuid: 4d1d334901cd835429a776e61bf9d8d7
+  _autoCaptureDisabledSceneGuids:
+  - fb726d49029b5134db440a93b92a1fd5
+  - 1dc96c9c8ed22034384c1279c1344bbe
+  - 23c741fbafb38e849b5674cac5899aa0
+  - d8ddc89b1eb370242a6076ae0aae6235
+  - 7ed7253913ceac044935ee6464d16d87
+  - 8a3196b9b4a509f42b5ec020d29ba5f0
+  - 4d1d334901cd835429a776e61bf9d8d7
+  - c4b248421a7225442b9d939a2e1c6e09
+  - d951d8402ed18e546b3638c3812860fa
+  - d4bf37ce5f3e95247b641ddb73e9cf3f
+  - a778c7bcad65ff4409cf574b90cc6eb0

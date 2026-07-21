@@ -13,16 +13,11 @@ namespace WorldGraphEditor
         [SerializeField, ReadOnlyField] private string _assignedGuid;
         [SerializeField, ReadOnlyField] private string _targetGuid;
         
-        private WorldGraphContainer _container;
-        
         public string TargetName { get; private set; }
 
         public virtual void Refresh(RefreshContext context)
         {
-            if (context.Manager != null)
-                _container = context.Manager.Container;
-
-            if (_container == null)
+            if (context.EditorGraph == null)
                 return;
 
             context.FillPortsDropdownData(_assignedPort);
@@ -31,8 +26,8 @@ namespace WorldGraphEditor
             var currentGuid = _assignedPort.GetSelectedValue();
             var targetGuid = _goTo.GetSelectedValue();
 
-            var assignedPortData = _container.EditorData.GetPortData(currentGuid);
-            var gotoPortData = _container.EditorData.GetPortData(targetGuid);
+            _ = context.EditorGraph.TryGetPortData(currentGuid, out var assignedPortData);
+            _ = context.EditorGraph.TryGetPortData(targetGuid, out var gotoPortData);
 
             _assignedGuid = assignedPortData.Guid;
             _targetGuid = gotoPortData.Guid;

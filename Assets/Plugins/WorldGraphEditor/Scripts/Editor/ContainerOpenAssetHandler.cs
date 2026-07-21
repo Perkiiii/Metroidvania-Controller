@@ -1,30 +1,42 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEditor.Callbacks;
+
+#if UNITY_6000_5_OR_NEWER
 using UnityEngine;
+#endif
 
 namespace WorldGraphEditor.Editor
 {
     internal static class ContainerOpenAssetHandler
     {
+        
+#if UNITY_6000_5_OR_NEWER
         [OnOpenAsset(1)]
-        public static bool OnContainerOpen(int id, int line)
+        public static bool OnContainerOpen(EntityId id)
         {
-            var obj = ResolveEditorObject(id);
-
-            if (obj is not WorldGraphContainer saveFile)
+            Debug.Log("entity");
+            
+            var obj = EditorUtility.EntityIdToObject(id);
+            
+            if (obj is not WorldGraphContainer saveFile) 
                 return false;
-
+            
             WorldBuilderGraph.OpenWindow(saveFile);
             return true;
         }
-
-        private static Object ResolveEditorObject(int id)
-        {
-#if UNITY_6000_3_OR_NEWER
-            return EditorUtility.EntityIdToObject(id);
 #else
-            return EditorUtility.InstanceIDToObject(id);
-#endif
+
+        [OnOpenAsset(1)]
+        public static bool OnContainerOpen(int id)
+        {
+            var obj = EditorUtility.InstanceIDToObject(id);
+            
+            if (obj is not WorldGraphContainer saveFile) 
+                return false;
+            
+            WorldBuilderGraph.OpenWindow(saveFile);
+            return true;
         }
+#endif
     }
 }

@@ -25,7 +25,6 @@ namespace WorldGraphEditor.Editor
         
         public void Refresh()
         {
-            _container.Initialize();
             _scc = SceneCompletionValidator.GetSccFormattedData(_container, !_considerAdditionalPorts, _ignoreShortcuts).ToArray();
         }
         

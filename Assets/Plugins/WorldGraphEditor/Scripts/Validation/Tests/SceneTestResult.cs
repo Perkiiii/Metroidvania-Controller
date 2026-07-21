@@ -14,15 +14,13 @@ namespace WorldGraphEditor
         public string NodeName;
         public int ErrorsCount;
         public int WarningsCount;
-        public int BuildIndex;
         
         public TestResult[] TestResults;
         
-        public SceneTestResult(IEnumerable<TestResult> testResults, int buildIndex, string nodeName, string scenePath)
+        public SceneTestResult(IEnumerable<TestResult> testResults, string nodeName, string scenePath)
         {
             NodeName = nodeName;
             ScenePath = scenePath;
-            BuildIndex = buildIndex;
 
             TestResults = testResults
                 .OrderByDescending(static item => item.TestStatusType == TestStatusType.Error && item.TestStatusType != TestStatusType.Passed)
@@ -39,7 +37,6 @@ namespace WorldGraphEditor
         {
             NodeName = sceneNodeData.NodeName;
             ScenePath = AssetDatabase.GetAssetPath(sceneNodeData.SceneAsset);
-            BuildIndex = sceneNodeData.BuildIndex;
             
             TestResults = null;
             ErrorsCount = -1;

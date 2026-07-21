@@ -30,10 +30,10 @@ namespace WorldGraphEditor.Editor
 
         public List<List<SceneNodeData>> GetStronglyConnectedComponents(WorldGraphContainer container, bool ignoreAdditionalPorts, bool ignoreShortcuts)
         {
-            PrepareAdditionalPortNodes(container.EditorData.SceneNodeData);
+            PrepareAdditionalPortNodes(container.EditorGraph.GetScenesData());
             BuildGraph(container, ignoreShortcuts);
 
-            foreach (var nodeData in  container.EditorData.SceneNodeData)
+            foreach (var nodeData in  container.EditorGraph.GetScenesData())
             {
                 if (!_index.ContainsKey(nodeData))
                     StrongConnect(nodeData, ignoreAdditionalPorts);
@@ -50,21 +50,22 @@ namespace WorldGraphEditor.Editor
 
         private void BuildGraph(WorldGraphContainer container, bool ignoreShortcuts)
         {
-            foreach (var nodeData in container.EditorData.SceneNodeData)
+            foreach (var nodeData in container.EditorGraph.GetScenesData())
             {
                 _graph[nodeData] = new List<SceneNodeData>();
             }
 
-            foreach (var nodeData in container.EditorData.SceneNodeData)
+            foreach (var nodeData in container.EditorGraph.GetScenesData())
             {
-                var neighbours = container.EditorData.GetNeighboursData(nodeData.BuildIndex, ignoreShortcuts);
+                var neighbours = container.EditorGraph.GetNeighboursData(nodeData, ignoreShortcuts);
+
                 foreach (var neighbour in neighbours)
                 {
                     _graph[nodeData].Add(neighbour);
                 }
             }
         }
-
+        
         private void StrongConnect(SceneNodeData vNodeData, bool ignoreAdditionalPorts)
         {
             _index[vNodeData] = _currentIndex;

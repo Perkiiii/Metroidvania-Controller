@@ -5,6 +5,7 @@
         Allowed,
         BlockedByShortcut,
         BlockedByDirection,
-        BlockedByAdditionalPort
+        BlockedByAdditionalPort,
+        BlockedByPortNotFound
     }
 }
