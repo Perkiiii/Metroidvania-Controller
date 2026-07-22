@@ -221,4 +221,16 @@ Run this against the Mushroom test room after any HeroConfig change. All items m
 ### Damage
 
 - [ ] **Hurt recovery** — take a hit from Mushroom contact damage. Hero should stagger for `hurtStunDuration` (0.35s), receive knockback, then regain control. I-frames should prevent a second hit during the stun.
-- [ ] **Death and respawn** — let health reach zero. Hero should die, respawn at checkpoint, full health restored.
+- [ ] **Recoverable hazard** — touch a `RecoverLocal` hazard. Health should reduce (bonus health consumed first if present) and resource should be unaffected; hero repositions locally without a full death sequence.
+- [ ] **Death and respawn** — let health reach zero. Hero should die, respawn at checkpoint, full health restored, bonus health cleared, and resource emptied (see `Docs/FeatureSpecs/PlayerHealthAndResource.md`).
+
+### Bind and Resource
+
+- [ ] **Bind start** — while grounded with resource ≥ the configured cost and health below maximum, hold the Bind input. Hero should hold stationary (movement suppressed) and play the Bind animation.
+- [ ] **Bind completion** — hold Bind for the full configured duration without interruption. Resource should spend and health should heal exactly once, at completion only.
+- [ ] **Bind cancel — input release** — start Bind, release the input before completion. No resource spent, no health healed, movement suppression released immediately.
+- [ ] **Bind cancel — damage/hazard** — start Bind, take a hit or hazard damage before completion. Bind cancels immediately with no spend/heal.
+- [ ] **Bind cancel — loss of ground** — start Bind, get knocked/pushed airborne before completion. Bind cancels immediately.
+- [ ] **Bind cancel — scene transition** — start Bind, cross a transition gate before completion. Bind cancels without leaking movement suppression into the new scene.
+- [ ] **Resource generation** — land an accepted hit on an enemy configured for resource generation. Resource bar should visibly fill by the configured amount; a blocked/invulnerable/ignored hit should not generate resource.
+- [ ] **Resource bar at empty** — spend resource to zero. The bar should remain visible (not hidden) and show empty.

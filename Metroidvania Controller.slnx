@@ -14,9 +14,9 @@
   <Project Path="VInspector.csproj" />
   <Project Path="Lofelt.NiceVibrations.Demo.csproj" />
   <Project Path="Kybernetik.Animancer.FSM.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="SingularityGroup.HotReload.Runtime.Public.csproj" />
   <Project Path="Lofelt.NiceVibrations.csproj" />
   <Project Path="Sirenix.OdinInspector.Modules.UnityMathematics.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
 </Solution>

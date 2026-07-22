@@ -16,6 +16,7 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
 
     [Header("Combat / Utility")]
     public bool spiritCastUnlocked = false;
+    public bool bindUnlocked = false;
 
     public event Action<AbilityId, bool> AbilityChanged;
 
@@ -30,6 +31,7 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
             AbilityId.DoubleJump => doubleJumpUnlocked,
             AbilityId.DriftCloak => driftCloakUnlocked,
             AbilityId.SpiritCast => spiritCastUnlocked,
+            AbilityId.Bind       => bindUnlocked,
             _                    => false
         };
     }
@@ -52,6 +54,7 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
             case AbilityId.DoubleJump: doubleJumpUnlocked = unlocked; break;
             case AbilityId.DriftCloak: driftCloakUnlocked = unlocked; break;
             case AbilityId.SpiritCast: spiritCastUnlocked = unlocked; break;
+            case AbilityId.Bind:       bindUnlocked       = unlocked; break;
         }
 
         AbilityChanged?.Invoke(ability, unlocked);
@@ -68,6 +71,7 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
         doubleJumpUnlocked = false;
         driftCloakUnlocked = false;
         spiritCastUnlocked = false;
+        bindUnlocked       = false;
     }
 
     public void GatherSaveData(SaveData data)
@@ -82,6 +86,7 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
         data.abilities.doubleJumpUnlocked = doubleJumpUnlocked;
         data.abilities.driftCloakUnlocked = driftCloakUnlocked;
         data.abilities.spiritCastUnlocked = spiritCastUnlocked;
+        data.abilities.bindUnlocked       = bindUnlocked;
     }
 
     public void ApplySaveData(SaveData data)
@@ -95,5 +100,6 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
         SetUnlocked(AbilityId.DoubleJump, data.abilities.doubleJumpUnlocked);
         SetUnlocked(AbilityId.DriftCloak, data.abilities.driftCloakUnlocked);
         SetUnlocked(AbilityId.SpiritCast, data.abilities.spiritCastUnlocked);
+        SetUnlocked(AbilityId.Bind,       data.abilities.bindUnlocked);
     }
 }

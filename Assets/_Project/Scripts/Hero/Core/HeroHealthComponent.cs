@@ -7,23 +7,27 @@ using UnityEngine;
 public sealed class HeroHealthComponent : MonoBehaviour
 {
     public event Action<int, Vector2> OnDamaged;
-    public event Action<int, int> OnHealthChanged;
     public event Action<DamageResult> OnHazardDamaged;
     public event Action OnDeath;
 
     private HeroConfig config;
-    private int currentHealth;
+    private PlayerHealthState healthState;
     private readonly HashSet<object> iFrameSources = new HashSet<object>();
     private readonly Dictionary<object, Coroutine> iFrameCoroutines = new Dictionary<object, Coroutine>();
 
-    public int CurrentHealth => currentHealth;
-    public int MaxHealth => config != null ? config.maxHealth : 0;
+    public int CurrentHealth => healthState != null ? healthState.CurrentHealth : 0;
+    public int MaxHealth => healthState != null ? healthState.MaximumHealth : 0;
+    public int BonusHealth => healthState != null ? healthState.BonusHealth : 0;
     public bool IsInvincible => iFrameSources.Count > 0;
 
-    public void Initialize(HeroConfig heroConfig)
+    public void Initialize(HeroConfig heroConfig, PlayerHealthState playerHealthState)
     {
         config = heroConfig;
-        currentHealth = config.maxHealth;
+        healthState = playerHealthState;
+        ClearIFrames();
+
+        if (healthState == null)
+            Debug.LogError("[HeroHealthComponent] PlayerHealthState is not assigned. Health gameplay will remain inactive.", this);
     }
 
     public void TakeDamage(int amount, object iFrameSource, Vector2 knockbackForce = default)
@@ -50,7 +54,7 @@ public sealed class HeroHealthComponent : MonoBehaviour
         }
         else
         {
-            OnDamaged?.Invoke(currentHealth, knockbackForce);
+            OnDamaged?.Invoke(CurrentHealth, knockbackForce);
         }
     }
 
@@ -73,50 +77,36 @@ public sealed class HeroHealthComponent : MonoBehaviour
     // Bypasses health and invincibility — called by HazardZone on pit/kill-zone contact.
     public void TriggerHazardDeath()
     {
-        if (currentHealth <= 0)
-        {
+        if (healthState == null || !healthState.ForceDeplete())
             return;
-        }
 
-        int previousHealth = currentHealth;
-        currentHealth = 0;
-        NotifyHealthChanged(previousHealth);
         OnDeath?.Invoke();
     }
 
     public void RestoreFullHealth()
     {
-        if (config == null)
-        {
-            return;
-        }
+        healthState?.FullRestore();
+    }
 
-        int previousHealth = currentHealth;
-        currentHealth = config.maxHealth;
-        NotifyHealthChanged(previousHealth);
+    public int Heal(int amount)
+    {
+        return healthState != null ? healthState.Heal(amount) : 0;
+    }
+
+    public void RestoreAfterDeath()
+    {
+        healthState?.FullRestore(preserveBonus: false);
     }
 
     private DamageResult ApplyDamage(int amount)
     {
-        if (amount <= 0 || currentHealth <= 0)
-        {
+        int currentHealth = CurrentHealth;
+        if (healthState == null || amount <= 0 || healthState.IsDepleted)
             return new DamageResult(currentHealth, currentHealth, 0, true);
-        }
 
         int previousHealth = currentHealth;
-        currentHealth = Mathf.Max(0, currentHealth - amount);
-        NotifyHealthChanged(previousHealth);
-        return new DamageResult(previousHealth, currentHealth, previousHealth - currentHealth, false);
-    }
-
-    private void NotifyHealthChanged(int previousHealth)
-    {
-        if (previousHealth == currentHealth)
-        {
-            return;
-        }
-
-        OnHealthChanged?.Invoke(currentHealth, MaxHealth);
+        int damageApplied = healthState.ApplyDamage(amount);
+        return new DamageResult(previousHealth, CurrentHealth, damageApplied, damageApplied <= 0);
     }
 
     // Grants invincibility for an explicit duration without requiring a damage hit.
@@ -155,5 +145,17 @@ public sealed class HeroHealthComponent : MonoBehaviour
         yield return new WaitForSeconds(duration);
         iFrameSources.Remove(source);
         iFrameCoroutines.Remove(source);
+    }
+
+    private void ClearIFrames()
+    {
+        foreach (Coroutine coroutine in iFrameCoroutines.Values)
+        {
+            if (coroutine != null)
+                StopCoroutine(coroutine);
+        }
+
+        iFrameCoroutines.Clear();
+        iFrameSources.Clear();
     }
 }

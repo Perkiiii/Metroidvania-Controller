@@ -39,6 +39,7 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     public float altAttackTime;
     public bool wallSliding;
     public bool wallJumping;
+    public bool binding;
     public bool recoiling;
     public HeroAttackDirection attackDirection = HeroAttackDirection.Side;
 
@@ -52,7 +53,9 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     {
         wasGrounded = grounded;
         grounded = isGrounded;
-        if (actorState == HeroActorState.Hurt || actorState == HeroActorState.Dead)
+        if (actorState == HeroActorState.Hurt
+            || actorState == HeroActorState.Dead
+            || actorState == HeroActorState.Binding)
         {
             return;
         }

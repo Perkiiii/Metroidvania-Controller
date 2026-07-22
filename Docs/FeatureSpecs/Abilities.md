@@ -22,6 +22,7 @@ The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exis
 | Spirit cast | Planned | Forward projectile ability; should use a separate spell/cast config, not `HeroAbilityConfig` |
 | Double-jump | **Implemented (First Pass)** | `HeroJumpAction`; gate: `PlayerAbilityState.doubleJumpUnlocked` (default false); one double jump per airtime; coyote jump takes priority |
 | Drift Cloak | Planned | — |
+| Bind | **Gated** | `HeroBindAction`; gate: `PlayerAbilityState.bindUnlocked` (default false); grounded, hold-to-heal |
 | Directional attack variants | Partial | Up/Down/Side all present; gating not implemented |
 
 ---
@@ -30,24 +31,25 @@ The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exis
 
 ### AbilityId (`Assets/_Project/Scripts/Hero/Core/AbilityId.cs`)
 ```csharp
-public enum AbilityId { Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast }
+public enum AbilityId { Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast, Bind }
 ```
 
 ### PlayerAbilityState (`Assets/_Project/Scripts/Hero/Core/PlayerAbilityState.cs`)
 ScriptableObject at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` (create via CreateAssetMenu after compile; wire into HeroController Inspector field).
 
-Fields: `dashUnlocked` (default true), `wallClingUnlocked` (default true), `sprintUnlocked`, `wallLatchUnlocked`, `doubleJumpUnlocked`, `driftCloakUnlocked`, `spiritCastUnlocked` (all default false).
+Fields: `dashUnlocked` (default true), `wallClingUnlocked` (default true), `sprintUnlocked`, `wallLatchUnlocked`, `doubleJumpUnlocked`, `driftCloakUnlocked`, `spiritCastUnlocked`, `bindUnlocked` (all default false).
 
 Methods: `IsUnlocked(AbilityId)`, `Unlock(AbilityId)`, `Lock(AbilityId)`, `SetUnlocked(AbilityId, bool)`, `ResetToDefaults()`.
 
 Event: `AbilityChanged(AbilityId, bool)` — fired by `SetUnlocked` only when the value actually changes. Scene objects (e.g. `AbilityGate`) subscribe to this event to react at runtime without polling.
 
-**Save integration:** `PlayerAbilityState` implements `ISaveTarget`. `GatherSaveData(SaveData)` copies the 7 bool fields into `data.abilities`. `ApplySaveData(SaveData)` calls `SetUnlocked(AbilityId, bool)` for each flag (never direct field assignment), so runtime subscribers receive `AbilityChanged` events when values change. Initial scene gates are correct after load because `AbilityGate.OnEnable()` calls `Refresh()` against the already-applied state. `SaveManager` holds a serialized reference to this asset and calls both methods at save/load time. `ResetToDefaults()` is intentionally excluded from the save pipeline — it does not fire events and is reserved for editor/debug resets only.
+**Save integration:** `PlayerAbilityState` implements `ISaveTarget`. `GatherSaveData(SaveData)` copies the 8 bool fields into `data.abilities`. `ApplySaveData(SaveData)` calls `SetUnlocked(AbilityId, bool)` for each flag (never direct field assignment), so runtime subscribers receive `AbilityChanged` events when values change. Initial scene gates are correct after load because `AbilityGate.OnEnable()` calls `Refresh()` against the already-applied state. `SaveManager` holds a serialized reference to this asset and calls both methods at save/load time. `ResetToDefaults()` is intentionally excluded from the save pipeline — it does not fire events and is reserved for editor/debug resets only.
 
 ### Unlock flag model
 - **Dash** uses `dashUnlocked`. Covers both ground dash and air dash — there are no separate `groundDashUnlocked` or `airDashUnlocked` flags.
 - **Wall-slide and wall-jump** share `wallClingUnlocked`. There are no separate `wallSlideUnlocked` or `wallJumpUnlocked` flags.
-- Sprint, WallLatch, DoubleJump, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
+- Sprint, WallLatch, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
+- **Bind** uses `bindUnlocked`. Checked in `HeroBindAction.CanStart()` only (not `CanContinue()`), matching the dash/wall-cling convention of gating on entry.
 
 ### AbilityPickup (`Assets/_Project/Scripts/World/AbilityPickup.cs`)
 MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId ability`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` on trigger.

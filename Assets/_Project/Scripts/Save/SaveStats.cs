@@ -21,6 +21,7 @@ public class SaveStats
         if (a.doubleJumpUnlocked) count++;
         if (a.driftCloakUnlocked) count++;
         if (a.spiritCastUnlocked) count++;
+        if (a.bindUnlocked)       count++;
 
         return new SaveStats
         {

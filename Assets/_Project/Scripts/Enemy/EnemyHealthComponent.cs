@@ -39,14 +39,16 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
             feedbackController = GetComponentInChildren<EnemyFeedbackController>(true);
     }
 
-    public void ReceiveHeroAttack(HeroAttackHit hit)
+    public HeroAttackResult ReceiveHeroAttack(HeroAttackHit hit)
     {
-        if (blackboard.dead)
+        if (config == null || blackboard == null || body == null || blackboard.dead || currentHealth <= 0 || hit.Damage <= 0)
         {
-            return;
+            return HeroAttackResult.Ignored;
         }
 
+        int healthBeforeHit = currentHealth;
         currentHealth = Mathf.Max(0, currentHealth - hit.Damage);
+        int damageApplied = healthBeforeHit - currentHealth;
 
         flasher?.FlashHit();
         AudioManager.Instance?.PlaySFX(config.hurtSfx);
@@ -55,12 +57,12 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         if (currentHealth <= 0)
         {
             StartDeath();
+            return HeroAttackResult.Killed(damageApplied);
         }
-        else
-        {
-            recoil?.RecoilFromHit(hit);
-            OnDamaged?.Invoke();
-        }
+
+        recoil?.RecoilFromHit(hit);
+        OnDamaged?.Invoke();
+        return HeroAttackResult.Damaged(damageApplied);
     }
 
     public void ReceiveHeroDownslash(HeroAttackHit hit)

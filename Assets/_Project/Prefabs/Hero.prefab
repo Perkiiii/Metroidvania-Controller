@@ -304,6 +304,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 5282099552787422397}
   slashClip: {fileID: 8300000, guid: fce3123aac54f5d48aa1bf1284952226, type: 3}
   slashPitchRange: {x: 0.95, y: 1.05}
+  resourceGenerationMode: 1
+  resourceGainParts: 1
 --- !u!1 &527555587958444250
 GameObject:
   m_ObjectHideFlags: 0
@@ -517,6 +519,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 7602353890028864646}
   slashClip: {fileID: 8300000, guid: 01908877a8104f14789ce441f31fe794, type: 3}
   slashPitchRange: {x: 0.95, y: 1.05}
+  resourceGenerationMode: 1
+  resourceGainParts: 1
 --- !u!1 &1047472032619032358
 GameObject:
   m_ObjectHideFlags: 0
@@ -1065,6 +1069,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 7625699462304788702}
   slashClip: {fileID: 8300000, guid: 6a96eef4b2cda3f4b9151d554d67a1dc, type: 3}
   slashPitchRange: {x: 0.95, y: 1.05}
+  resourceGenerationMode: 1
+  resourceGainParts: 1
 --- !u!1 &1765501986548639457
 GameObject:
   m_ObjectHideFlags: 0
@@ -1301,6 +1307,9 @@ MonoBehaviour:
   abilityConfig: {fileID: 11400000, guid: eb3ba5082fa88d7449e201bd518c9dfa, type: 2}
   animationLibrary: {fileID: 11400000, guid: 4b4d865263be9644e9d7ba018c804137, type: 2}
   abilityState: {fileID: 11400000, guid: 124b34d0890feaf40bab9ab174f421c4, type: 2}
+  healthState: {fileID: 11400000, guid: cee54eb6324705d4aabc766c56ae0d23, type: 2}
+  resourceState: {fileID: 11400000, guid: 1caae1f2f1c32df4abb37115d051346d, type: 2}
+  resourceConfig: {fileID: 11400000, guid: b6c03d51e940b7a4ba516d2331ca4534, type: 2}
   spriteRoot: {fileID: 8379539586560624462}
 --- !u!114 &560400785479554271
 MonoBehaviour:
@@ -1339,6 +1348,7 @@ MonoBehaviour:
   altAttackTime: 0
   wallSliding: 0
   wallJumping: 0
+  binding: 0
   recoiling: 0
   attackDirection: 0
   jumpStepsElapsed: 0
@@ -1361,6 +1371,8 @@ MonoBehaviour:
   attackAction: {fileID: 0}
   dashAction: {fileID: 0}
   sprintAction: {fileID: 0}
+  interactAction: {fileID: 0}
+  bindAction: {fileID: 0}
 --- !u!114 &2358962535115874825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2999,6 +3011,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 8922226864395703546}
   slashClip: {fileID: 8300000, guid: f065e59c01e4e0743b3284bfa0ed5c60, type: 3}
   slashPitchRange: {x: 0.95, y: 1.05}
+  resourceGenerationMode: 1
+  resourceGainParts: 1
 --- !u!1 &8052821094617077130
 GameObject:
   m_ObjectHideFlags: 0

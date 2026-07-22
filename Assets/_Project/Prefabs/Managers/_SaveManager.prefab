@@ -44,5 +44,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28b74d5680b05c34b8d7c63ed74259cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SaveManager
-  abilityState: {fileID: 11400000, guid: 124b34d0890feaf40bab9ab174f421c4, type: 2}
+  saveTargets:
+  - {fileID: 11400000, guid: 124b34d0890feaf40bab9ab174f421c4, type: 2}
+  - {fileID: 11400000, guid: cee54eb6324705d4aabc766c56ae0d23, type: 2}
+  - {fileID: 11400000, guid: 1caae1f2f1c32df4abb37115d051346d, type: 2}
   saveOnApplicationQuit: 1

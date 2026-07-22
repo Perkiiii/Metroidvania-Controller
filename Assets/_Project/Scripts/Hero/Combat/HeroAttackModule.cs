@@ -24,6 +24,10 @@ public sealed class HeroAttackModule : MonoBehaviour
     public AudioClip slashClip;
     public Vector2 slashPitchRange = new Vector2(0.95f, 1.05f);
 
+    [Header("Resource Generation")]
+    public HeroResourceGenerationMode resourceGenerationMode = HeroResourceGenerationMode.None;
+    [Min(0)] public int resourceGainParts;
+
     private Vector3 initialLocalPosition;
     private Vector3 initialLocalEulerAngles;
     private Vector3 initialLocalScale;

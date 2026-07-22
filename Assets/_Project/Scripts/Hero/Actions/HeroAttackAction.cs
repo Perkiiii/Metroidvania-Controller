@@ -18,6 +18,7 @@ public sealed class HeroAttackAction
     private readonly Transform ownerTransform;
     private readonly HeroAttackModule[] attackModules;
     private readonly float failSafeTimeout;
+    private readonly PlayerResourceState resourceState;
 
     private readonly HeroAttackImpactFeedbackController impactFeedback;
     private readonly Collider2D[] terrainHitBuffer = new Collider2D[8];
@@ -30,6 +31,7 @@ public sealed class HeroAttackAction
     private bool downslashBounceConsumedThisAttack;
     private bool terrainImpactPlayedThisSwing;
     private bool connectFeedbackPlayedThisSwing;
+    private bool resourceAwardedThisAttack;
     private int attackVersion;
     private HeroAttackDirection currentDirection;
     private HeroAttackModule currentModule;
@@ -45,7 +47,8 @@ public sealed class HeroAttackAction
         GameObject ownerObject,
         Transform ownerRoot,
         HeroAttackModule[] modules,
-        float attackFailSafeTimeout)
+        float attackFailSafeTimeout,
+        PlayerResourceState playerResourceState)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
@@ -56,6 +59,7 @@ public sealed class HeroAttackAction
         ownerTransform = ownerRoot;
         attackModules = modules ?? new HeroAttackModule[0];
         failSafeTimeout = Mathf.Max(0.1f, attackFailSafeTimeout);
+        resourceState = playerResourceState;
 
         int maxHits = Mathf.Max(1, config != null ? config.maxHitsPerSwing : DefaultMaxAttackHits);
         damageHitBuffer = new Collider2D[maxHits];
@@ -221,6 +225,7 @@ public sealed class HeroAttackAction
         downslashBounceConsumedThisAttack = false;
         terrainImpactPlayedThisSwing = false;
         connectFeedbackPlayedThisSwing = false;
+        resourceAwardedThisAttack = false;
         cooldownTimer = config.attackCooldown;
         recoveryTimer = config.attackRecovery;
         blackboard.attackRecovering = true;
@@ -252,6 +257,7 @@ public sealed class HeroAttackAction
         downslashBounceConsumedThisAttack = false;
         terrainImpactPlayedThisSwing = false;
         connectFeedbackPlayedThisSwing = false;
+        resourceAwardedThisAttack = false;
         blackboard.attacking = false;
         blackboard.upAttacking = false;
         blackboard.downAttacking = false;
@@ -307,8 +313,12 @@ public sealed class HeroAttackAction
                 hitCollider.ClosestPoint(referencePoint),
                 GetForceDirection());
 
-            receiver.ReceiveHeroAttack(hit);
-            TriggerConnectFeel(hit, false);
+            HeroAttackResult result = receiver.ReceiveHeroAttack(hit);
+            if (result.WasAccepted)
+            {
+                TriggerConnectFeel(hit, false);
+            }
+            TryAwardResource(result);
             IHeroDownslashResponder downslashResponder = FindDownslashResponder(hitCollider, receiver);
             NotifyDownslashResponder(downslashResponder, hit);
             TryApplyDownslashBounce(downslashResponder);
@@ -364,6 +374,31 @@ public sealed class HeroAttackAction
         if (!found) return;
 
         PlayTerrainImpactAt(bestContact);
+    }
+
+    private void TryAwardResource(HeroAttackResult result)
+    {
+        if (resourceState == null
+            || currentModule == null
+            || !result.WasAccepted
+            || !result.ResourceEligible
+            || currentModule.resourceGenerationMode == HeroResourceGenerationMode.None
+            || currentModule.resourceGainParts <= 0)
+        {
+            return;
+        }
+
+        if (currentModule.resourceGenerationMode == HeroResourceGenerationMode.FirstSuccessfulHitPerAttack
+            && resourceAwardedThisAttack)
+        {
+            return;
+        }
+
+        int gained = resourceState.Gain(currentModule.resourceGainParts);
+        if (gained > 0 && currentModule.resourceGenerationMode == HeroResourceGenerationMode.FirstSuccessfulHitPerAttack)
+        {
+            resourceAwardedThisAttack = true;
+        }
     }
 
     private bool TryGetDirectionalTerrainSurface(int maskValue, out Vector2 contact)

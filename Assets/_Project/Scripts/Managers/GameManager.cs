@@ -18,6 +18,11 @@ public sealed class GameManager : MonoBehaviour
     [SerializeField] private FadeProfile startupFadeProfile;
     [SerializeField] private FadeProfile respawnFadeProfile;
 
+    [Header("Persistent State")]
+    [Tooltip("Same asset referenced by the Hero prefab and the persistent HUD. Used only to " +
+        "normalize a loaded save that captured zero health (see ResolveLoadedHealthState).")]
+    [SerializeField] private PlayerHealthState healthState;
+
     private Coroutine _hitStopCoroutine;
     private SceneLoader _sceneLoader;
     private SceneTransitionManager _sceneTransitionManager;
@@ -71,6 +76,19 @@ public sealed class GameManager : MonoBehaviour
         _activeRespawnMarker = marker;
         string sceneName = marker != null ? marker.gameObject.scene.name : "";
         SaveManager.Instance?.SetActiveRespawnPoint(sceneName, marker?.Key);
+    }
+
+    // Zero-health save protection. Called exactly once by Bootstrap, immediately after
+    // SaveManager.LoadOrCreate and before any gameplay scene (and therefore any Hero) exists.
+    // A save can capture CurrentHealth == 0 if a quit-save or checkpoint-save races a death
+    // sequence (before ResetAfterRespawn restores it) — SaveDataMigrator does not normalize
+    // this, so without this seam a loaded save could resume gameplay on a dead hero. Running
+    // this before scene load means no death/respawn event or duplicate HUD mutation is possible;
+    // PlayerHealthState.NormalizeDepletedContinue is itself idempotent (no-op unless depleted).
+    public void ResolveLoadedHealthState()
+    {
+        if (healthState != null && healthState.NormalizeDepletedContinue())
+            Debug.Log("[GameManager] Loaded save had zero health; normalized to full health before first scene load.");
     }
 
     private void Awake()
@@ -344,10 +362,7 @@ public sealed class GameManager : MonoBehaviour
         }
 
         if (_heroHealth != null)
-        {
-            _heroHealth.RestoreFullHealth();
             _heroHealth.GrantDefaultInvincibility(this);
-        }
 
         if (_hero != null)
             _hero.ResetAfterRespawn();

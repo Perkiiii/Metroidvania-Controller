@@ -4,7 +4,7 @@
 
 ## Responsibilities
 
-`HeroController` is the root coordinator for the hero character. It owns nothing directly except the `HeroConfig` and `HeroAnimationLibrary` references; all logic lives in the subsystems it creates and ticks.
+`HeroController` is the root coordinator for the hero character. It owns serialized references to tuning, animation, and persistent state assets only; all gameplay logic lives in the subsystems it creates and ticks.
 
 Subsystem responsibilities:
 
@@ -25,6 +25,8 @@ Subsystem responsibilities:
 - `Rigidbody2D` and `Collider2D` — required components (`[RequireComponent]` enforced)
 - `AnimancerComponent` — added automatically if not present
 - `HeroConfig` (ScriptableObject) — all tuning parameters
+- `PlayerHealthState` / `PlayerResourceState` (ScriptableObjects) — persistent values passed to the health facade and actions
+- `PlayerResourceConfig` (ScriptableObject) — temporary Bind cost, duration, and normal-health heal tuning
 - `HeroAnimationLibrary` (ScriptableObject) — animation clip references
 - Unity Input System — `InputActionAsset` at `Assets/_Project/Input/InputSystem_Actions.inputactions`
 
@@ -69,7 +71,7 @@ Subsystem responsibilities:
 
 ## Hero Hurtbox
 
-- `HeroHealthComponent` stays on the Hero root and owns health, i-frames, damage events, and death events.
+- `PlayerHealthState` is the sole owner of current, maximum, and bonus health. `HeroHealthComponent` stays on the Hero root as the scene-side facade for i-frames, damage/hazard context, and death events; `HeroController` injects the state asset during initialization without resetting it.
 - `HeroBox` lives on the `Hero/Herobox` child and marks the collider that can receive enemy contact damage, instant-death hazards, and recoverable local hazard damage.
 - Hero attack polygons, sensors, VFX, and other child colliders must not have `HeroBox`; they should not be treated as the hero body.
 
@@ -78,6 +80,7 @@ Subsystem responsibilities:
 ## Extension Points
 
 - **New traversal action** — create a `Hero<Name>Action` plain C# class, instantiate it in `HeroActionController.Initialize`, and tick it in `Tick` / `FixedTick`.
+- **Bind action** — `HeroBindAction` is a plain C# action owned by `HeroActionController`. It is grounded-only, suppresses voluntary movement through the blackboard/motor path, and spends resource plus heals normal health only once after the configured uninterrupted hold completes. Input release, damage, hazards, death, transitions, control locks, loss of ground, and incompatible actions cancel without mutation.
 - **New blackboard field** — add to `HeroStateBlackboard`; it is inspector-visible by default (Odin Inspector available).
 - **New tuning parameter** — add to `HeroConfig`; inject via existing `Initialize` signatures (no new wiring required if the subsystem already holds a config reference).
 

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-06-05
+**Last audited:** 2026-07-21
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -10,7 +10,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Layer | Status |
 |---|---|
 | Hero movement (walk, run, jump, coyote, dash, wall-slide) | Done |
-| Directional melee combat (Side / Up / Down swings) | Done |
+| Directional melee combat (Side / Up / Down swings) | Done (result contract, attacker-side resource generation, and Bind spending migration) |
 | Animancer-driven animation (locomotion, action states) | Done |
 | Input System integration (KB+Mouse, Gamepad) | Done |
 | ScriptableObject tuning pipeline | Done |
@@ -22,7 +22,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation; world-state and UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | Not started |
+| UI (HUD, menus) | HUD presentation foundation implemented; menus not started |
 | Audio system | Partial |
 
 ---
@@ -32,7 +32,7 @@ This is a living document. Update when milestones complete or priorities shift.
 These must happen before any milestone work begins. Both are preconditions for the systems they unblock.
 
 - [x] Add `Interact` action (button) to the Player action map in `InputSystem_Actions.inputactions`. Bindings: E (keyboard), North button (gamepad — not South; South is Jump). Expose `InteractPressedThisFrame` on `HeroInputReader` alongside the existing input signals. (Done — action, bindings, property, and enable/disable wiring all verified present)
-- [x] Write `Docs/FeatureSpecs/HUD.md` — boundary-setting spec: what the HUD subscribes to, Canvas hierarchy skeleton, vertical-slice scope (health only). (Done)
+- [x] Write `Docs/FeatureSpecs/HUD.md` — state ownership, direct event subscriptions, persistent Canvas boundary, and health/resource presentation rules. (Done)
 - [x] Write `Docs/FeatureSpecs/Audio.md` — boundary-setting spec: `AudioManager` API, call site rules, music routing. (Done)
 
 ---
@@ -63,7 +63,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)
 - [x] Implement `RespawnMarker` — full component with `Key` (string), `RespawnPosition`, and `FacingDirection`. (Done)
 - [x] Implement `HazardRespawnMarker` — placed near recoverable hazards and referenced directly by `HazardZone`. (Done; trigger-updated active hazard marker persistence remains deferred.)
-- [x] Implement `HeroHealthComponent` — TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnHealthChanged, OnDamaged, OnHazardDamaged / OnDeath events. (Done)
+- [x] Implement `HeroHealthComponent` — scene-side facade for TakeDamage, TakeHazardDamage, TriggerHazardDeath, i-frames, OnDamaged, OnHazardDamaged, and OnDeath; authoritative values and neutral change notifications live in `PlayerHealthState`. (Done; ownership migrated.)
 - [x] Implement hero hurt response in `HeroController`. (Done)
 - [x] Implement basic respawn sequence on OnDeath — `GameManager.BeginRespawnSequence` uses the saved checkpoint scene + marker key as source of truth, supports cross-scene checkpoint respawn, and falls back to an authored marker in the loaded scene when needed. (Done)
 - [x] Hazard recovery hardening pass (2026-05-20):
@@ -129,8 +129,13 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - [x] Implement `SaveManager` and `ISaveTarget` interface. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
 - [x] Implement save data classes: `MetaSaveData`, `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `SaveData`. (Done)
-- [x] Implement `SaveSerializer` (JsonUtility), `SaveFileStore` (synchronous + `.bak` backup), `SaveDataMigrator` (version 2 + null normalization + respawn-scene migration), `SaveStats`. (Done)
+- [x] Implement `SaveSerializer` (JsonUtility), `SaveFileStore` (synchronous + `.bak` backup), `SaveDataMigrator` (version 3 + null normalization + respawn-scene migration), `SaveStats`. (Done)
 - [x] Wire `PlayerAbilityState` as `ISaveTarget` — ability flags persist and round-trip correctly. Verified: edit JSON → reload → `PlayerAbilityState` Inspector shows loaded values; `AbilityGate`s refresh to the loaded state. (Done)
+- [x] Add `PlayerHealthState` and `PlayerResourceState` save foundations — version-3 schema sections, asset-defined fresh defaults, loaded-value normalization, and neutral state-application notifications. Health gameplay ownership, attacker-side resource generation, Bind spending, and the HUD presentation foundation are wired. Lifecycle policy (New Game reset, zero-health Continue normalization, death/hazard/checkpoint/transition resource and bonus-health rules) is implemented in Milestone 7 — see `Docs/FeatureSpecs/PlayerHealthAndResource.md`. (Done.)
+- [x] Migrate gameplay health ownership to `PlayerHealthState` — `HeroHealthComponent` retains i-frames and contextual damage/hazard/death events without mirrored value storage; scene initialization preserves loaded health; normal respawn restores once and clears bonus health through the facade. (Done in health ownership Milestone 2; Hero prefab assignment verified.)
+- [x] Add attacker-side resource generation — `HeroAttackAction` reads accepted, resource-eligible `HeroAttackResult`s and applies each module's `None`, `PerSuccessfulTarget`, or `FirstSuccessfulHitPerAttack` policy to the injected `PlayerResourceState`. (Done in resource generation Milestone 4; Bind spending and HUD presentation are implemented. Partial-resource decay remains an intentional scope exclusion, not pending work — see `Docs/FeatureSpecs/PlayerHealthAndResource.md` Deferred Work.)
+- [x] Add grounded hold-to-heal Bind — `HeroBindAction` uses `PlayerResourceConfig`, consumes the configured cost only after the uninterrupted hold completes, heals normal health once, and cancels safely on input/state interruptions, including on death, hazard, scene transition, and control-lock cancellation triggers. (Done in Milestone 5; the temporary direct-keyboard Bind fallback in `HeroInputReader` was removed in Milestone 7 once the real Input System Bind action was verified wired.)
+- [x] Generalize `SaveManager` registration to an Inspector-ordered `ScriptableObject` target list. Null, invalid, and duplicate entries are warned and skipped; future `WorldStateRegistry` registration requires only an Inspector assignment. (Done)
 - [x] Checkpoint save trigger — `CheckpointInteractable.Interact()` calls `SaveManager.Save()`; `GameManager.SetActiveRespawnMarker` forwards scene + marker key to `SaveManager` via an atomic plain-string seam. (Done)
 - [x] Cross-session / cross-scene respawn marker resolution — `GameManager.ResolveActiveRespawnMarkerFromSave()` resolves saved key only in the saved checkpoint scene; normal death can load that scene before placing the hero. (Done)
 - [x] Hero placement at saved position on boot/continue — `PlaceHeroAtSavedRespawnIfRequested()` single-use flag set by `Bootstrap`, consumed on first scene load. Camera snaps to correct position automatically via `TransitionRoutine`. (Done)
@@ -147,7 +152,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 ## Milestone 5 — Polish Pass
 
-- [ ] HUD: health display wired to `HeroHealthComponent` events.
+- [x] Persistent health and resource HUD — UGUI views subscribe directly to `PlayerHealthState` and `PlayerResourceState`; Canvas hierarchy and Inspector wiring are built into `_GameCameras.prefab` (Milestone 6, verified during Milestone 7). Final art polish remains explicitly out of scope.
 - [ ] Pause menu wired through `GameManager.Pause()` / `Unpause()`.
 - [ ] Main menu scene — loaded from boot on fresh start; "New Game" calls `SaveManager.CreateFreshSave(0)` and `BeginSceneTransition(firstScene)`; "Continue" calls `SaveManager.LoadOrCreate(0)` and `BeginSceneTransition(SaveManager.GetStartupScene(firstScene))`.
 - [ ] Save slot UI — show `SaveStats` (scene, play time, ability count) per slot; `SaveManager.GetSaveStats(slot)` for read-only previews.
@@ -157,6 +162,30 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [ ] Game feel: hit-pause, screen shake on landing/hit, particle VFX on impacts.
 - [ ] Performance: profile and optimise FixedUpdate sensor raycasts for large levels.
 
+## Milestone 6 — Persistent Health and Resource HUD
+
+**Status:** Implemented and verified (Milestone 7 pass confirmed exactly one HUD instance, Overlay camera configuration, and no duplicate subscriptions). Placeholder artwork remains Editor/art work, out of scope.
+
+- [x] Add `PersistentHudRoot`, `HealthDisplay`, and `ResourceDisplay` under `Assets/_Project/Scripts/UI/`.
+- [x] Render dynamic normal/bonus health slots and a single always-visible horizontal resource fill bar (`ResourceBarView`) — the earlier discrete pip/orb presentation (`ResourcePipView`) was removed as obsolete in Milestone 7.
+- [x] Subscribe directly to persistent state change events with explicit initial refresh and neutral save/reset handling.
+- [x] Create the persistent HUD Canvas hierarchy and Inspector assignments on `_GameCameras.prefab`, including the `HUDCamera` Overlay/stack configuration.
+- [x] Automated coverage of persistence, gain/spend, damage/heal, zero-capacity, and duplicate-subscription behavior (`HudDisplayTests`). Placeholder artwork and full in-Editor Play Mode visual validation remain manual/Editor work.
+
+---
+
+## Milestone 7 — Lifecycle Integration, Regression Validation, Cleanup, and Documentation
+
+**Status:** Done. See `Docs/FeatureSpecs/PlayerHealthAndResource.md` for the full lifecycle policy table and validation checklist.
+
+- [x] Resource now clears to zero exactly once on normal death, lethal recoverable hazards, and forced-death hazards, via `PlayerResourceState.Clear()` called from the single authoritative `HeroController.ResetAfterRespawn()` call site (previously resource was never cleared on death — a genuine gap fixed this milestone).
+- [x] Zero-health save protection — `GameManager.ResolveLoadedHealthState()` (called once by `Bootstrap.Start()` right after `SaveManager.LoadOrCreate`, before any scene/Hero exists) normalizes a loaded save captured at zero health via `PlayerHealthState.NormalizeDepletedContinue()`, using the neutral `StateApplied` reason so the HUD never presents it as healing.
+- [x] Validated (already correctly implemented, no code changes needed): New Game reset, ordinary save/load restore + clamping, room-transition preservation, checkpoint marker-before-save ordering and no-heal/no-refill behavior, recoverable-hazard preservation, lethal/forced-hazard funneling into the single death path, and the full Bind cancellation matrix.
+- [x] Removed the temporary direct-keyboard Bind fallback from `HeroInputReader` (the real Input System Bind action was verified wired and functional).
+- [x] Removed obsolete `ResourcePipView.cs`/`.prefab` (superseded by the resource bar refactor; confirmed zero references).
+- [x] Fixed two pre-existing flaky HUD tests (`HudDisplayTests`) whose "stops when disabled" assertions relied on `OnDisable` firing synchronously from `SetActive`/`enabled` outside Play Mode — not guaranteed by the Editor. Tests now invoke the lifecycle method directly; production code was already correct.
+- [x] Added focused tests: `PlayerResourceState.Clear()`, `PlayerHealthState.NormalizeDepletedContinue()`, and `GameManager.ResolveLoadedHealthState()`.
+
 ---
 
 ## Known Technical Debt
@@ -165,7 +194,9 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **`HeroController.ResolveDependencies` AssetDatabase fallback.** Lines 126–131 and 138–142 fall back to editor-only `AssetDatabase.LoadAssetAtPath<>` calls for `HeroConfig` and `HeroAnimationLibrary`. This masks missing prefab Inspector assignments. Fix: wire both in the Hero prefab Inspector and remove the fallback blocks. Guard: `#if UNITY_EDITOR` ensures no runtime impact in builds, but the silent fallback makes it easy to ship without the prefab correctly wired.
 
-- **`GameManager` health coupling.** `BeginRespawnSequence()` calls `_heroHealth.RestoreFullHealth()` and grants default post-respawn i-frames directly. This is a temporary coupling. Long-term, a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) should own current health, and `ApplySaveData` should restore health rather than `GameManager` calling into `HeroHealthComponent`. `HitStop` and `BeginRespawnSequence` are also beyond the stated "four responsibilities" boundary — document or relocate when `PlayerHealthState` is implemented.
+- **`GameManager` respawn sequencing.** Direct health restoration coupling has been removed: `GameManager` places the hero, grants scene-local post-respawn i-frames, then calls `HeroController.ResetAfterRespawn()` once; that coordinator routes restoration through `HeroHealthComponent` to `PlayerHealthState`, clears bonus health, and clears current resource through `PlayerResourceState.Clear()` — the same single call site reached by normal death, lethal recoverable hazards, and forced-death hazards. `HitStop`, the respawn/recovery sequence methods, and the narrow `ResolveLoadedHealthState()` zero-health-save seam remain beyond the stated "four responsibilities" boundary.
+
+- **Unsupported future save versions are not rejected.** `SaveDataMigrator` stamps any deserialized save to the current version. `Docs/FeatureSpecs/SaveSystem.md` previously described future versions as corrupt, but the implementation has no such guard. This Milestone 1 schema addition does not require changing that behavior; decide and implement a forward-version policy separately.
 
 - **Bootstrap still has no main-menu routing.** Boot now resolves a saved startup scene directly, but once a main menu exists, `Bootstrap` should load the menu; the menu should route to `firstScene` for New Game or the saved startup scene for Continue.
 
@@ -183,8 +214,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **`AbilityPickup` world-state gap.** `AbilityPickup` unlocks the ability in the current session but the unlocked state only persists if the player reaches a checkpoint before quitting. Once `WorldStateRegistry` tracks `collectedPickupIds`, pickups can be suppressed on scene load if already collected.
 
-- **HUD / UI wiring not implemented.** `HeroHealthComponent` exposes neutral `OnHealthChanged` plus `OnDamaged` / `OnDeath`, but `HealthDisplay` and HUD subscription are not yet in place.
+- **HUD placeholder artwork remains Editor/art work.** `PersistentHudRoot`, `HealthDisplay`, and `ResourceDisplay` provide direct persistent-state subscriptions and neutral initial/state-applied refreshes; the `_GameCameras` Canvas hierarchy and Inspector assignments are already built and verified (Milestone 7). Only final visual artwork/animation polish remains, and it is explicitly out of scope.
 
-- **Prefab / Inspector wiring.** `Bootstrap` now requires five prefab references (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`) and one string field (`firstScene`). `SaveManager` prefab requires the `PlayerAbilityState` asset in its `Ability State` field. Verify all in-editor after any prefab refactor.
+- **Prefab / Inspector wiring.** `Bootstrap` requires five prefab references (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`) and one string field (`firstScene`). `SaveManager` prefab requires its ordered target list to contain `PlayerAbilityState`, `PlayerHealthState`, and `PlayerResourceState`. The Hero prefab's `HeroController.healthState` field must reference the same `PlayerHealthState.asset`. Verify all in-editor after any prefab refactor.
 
 - **Engine/API compatibility.** Code uses `FindObjectsByType` / `FindFirstObjectByType` (Unity 2023+). Building outside the Unity Editor (e.g. `dotnet build`) will fail due to missing Unity runtime assemblies — verify compilation inside the Unity Editor only.

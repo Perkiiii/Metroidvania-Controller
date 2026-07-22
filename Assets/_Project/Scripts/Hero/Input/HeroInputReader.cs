@@ -12,6 +12,7 @@ public sealed class HeroInputReader : MonoBehaviour
     [SerializeField] private InputActionReference dashAction;
     [SerializeField] private InputActionReference sprintAction;
     [SerializeField] private InputActionReference interactAction;
+    [SerializeField] private InputActionReference bindAction;
 
     private HeroConfig config;
     private float jumpBufferTimer;
@@ -27,6 +28,9 @@ public sealed class HeroInputReader : MonoBehaviour
     public bool DashPressedThisFrame { get; private set; }
     public bool SprintHeld { get; private set; }
     public bool InteractPressedThisFrame { get; private set; }
+    public bool BindPressedThisFrame { get; private set; }
+    public bool BindHeld { get; private set; }
+    public bool BindReleasedThisFrame { get; private set; }
     public bool HasBufferedJump => jumpBufferTimer > 0f;
     public bool HasBufferedAttack => attackBufferTimer > 0f;
 
@@ -72,6 +76,9 @@ public sealed class HeroInputReader : MonoBehaviour
         DashPressedThisFrame = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
         SprintHeld = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
         InteractPressedThisFrame = ReadPressedThisFrame(GetAction(interactAction, "Interact"), false);
+        BindPressedThisFrame = ReadPressedThisFrame(GetAction(bindAction, "Bind"), false);
+        BindHeld = ReadHeld(GetAction(bindAction, "Bind"), false);
+        BindReleasedThisFrame = ReadReleasedThisFrame(GetAction(bindAction, "Bind"), false);
         MoveVector = ReadMove();
 
         if (JumpPressedThisFrame)
@@ -166,13 +173,18 @@ public sealed class HeroInputReader : MonoBehaviour
 
     private static bool ReadReleasedThisFrame(InputAction action)
     {
+        return ReadReleasedThisFrame(action, true);
+    }
+
+    private static bool ReadReleasedThisFrame(InputAction action, bool useJumpFallback)
+    {
         if (action != null)
         {
             return action.WasReleasedThisFrame();
         }
 
         Keyboard keyboard = Keyboard.current;
-        return keyboard != null && keyboard.spaceKey.wasReleasedThisFrame;
+        return useJumpFallback && keyboard != null && keyboard.spaceKey.wasReleasedThisFrame;
     }
 
     private static bool ReadHeld(InputAction action)
@@ -230,6 +242,7 @@ public sealed class HeroInputReader : MonoBehaviour
         SetActionEnabled(GetAction(dashAction, "Dash"), enabled);
         SetActionEnabled(GetAction(sprintAction, "Sprint"), enabled);
         SetActionEnabled(GetAction(interactAction, "Interact"), enabled);
+        SetActionEnabled(GetAction(bindAction, "Bind"), enabled);
     }
 
     private InputAction GetAction(InputActionReference reference, string actionName)

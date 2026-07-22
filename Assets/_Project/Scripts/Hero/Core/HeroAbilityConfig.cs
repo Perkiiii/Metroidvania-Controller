@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Stores tuning for progression-gated traversal abilities (dash, wall-slide, wall-jump, double-jump).
 // Unlock flags live in PlayerAbilityState. Core movement/combat tuning lives in HeroConfig.
-// Spirit Cast should use a separate spell/cast config when implemented.
+// Bind/Spirit Cast tuning lives in PlayerResourceConfig rather than this traversal asset.
 [CreateAssetMenu(menuName = "Hero/Hero Ability Config", fileName = "HeroAbilityConfig")]
 public sealed class HeroAbilityConfig : ScriptableObject
 {

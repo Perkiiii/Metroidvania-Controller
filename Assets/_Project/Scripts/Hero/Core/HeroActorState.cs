@@ -5,6 +5,7 @@ public enum HeroActorState
     Dashing,
     WallSliding,
     Attacking,
+    Binding,
     Hurt,
     Dead
 }

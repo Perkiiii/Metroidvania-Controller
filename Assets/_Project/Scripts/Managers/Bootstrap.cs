@@ -27,6 +27,7 @@ public sealed class Bootstrap : MonoBehaviour
     private void Start()
     {
         SaveManager.Instance.LoadOrCreate(0);
+        GameManager.Instance.ResolveLoadedHealthState();
 
         if (worldGraphContainer == null)
             Debug.LogError("[Bootstrap] worldGraphContainer is not assigned. Scene transitions will not resolve. Assign UnderbrewWorldGraph.asset to this component in the Boot scene Inspector.", this);

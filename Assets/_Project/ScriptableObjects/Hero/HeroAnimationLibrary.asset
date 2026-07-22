@@ -25,3 +25,4 @@ MonoBehaviour:
   attackDown: {fileID: 7400000, guid: 54c5306d4773d38499210eb648b71185, type: 2}
   hurt: {fileID: 7400000, guid: 7c762d4d6ac2b514685c9c2c7a7743fe, type: 2}
   death: {fileID: 7400000, guid: ea4569092f6c0aa4f938f67052f6a4fa, type: 2}
+  bind: {fileID: 7400000, guid: e26d1efc56528b64791b77927c248679, type: 2}

@@ -59,6 +59,8 @@ public sealed class HeroConfig : ScriptableObject
     public float sensorInset = 0.02f;
 
     [Header("Health")]
+    [Tooltip("Legacy serialized value. PlayerHealthState is the authoritative maximum-health owner.")]
+    [System.Obsolete("Use PlayerHealthState.MaximumHealth. This field remains serialized for migration safety.")]
     public int maxHealth = 5;
     public float iFrameDuration = 1.5f;
 

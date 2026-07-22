@@ -6,5 +6,6 @@ public enum AbilityId
     WallLatch,
     DoubleJump,
     DriftCloak,
-    SpiritCast
+    SpiritCast,
+    Bind
 }

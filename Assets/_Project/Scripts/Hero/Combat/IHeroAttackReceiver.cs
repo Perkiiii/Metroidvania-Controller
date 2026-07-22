@@ -1,4 +1,4 @@
 public interface IHeroAttackReceiver
 {
-    void ReceiveHeroAttack(HeroAttackHit hit);
+    HeroAttackResult ReceiveHeroAttack(HeroAttackHit hit);
 }

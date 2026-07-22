@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -6,8 +7,10 @@ public sealed class SaveManager : MonoBehaviour
 {
     public static SaveManager Instance { get; private set; }
 
-    [SerializeField] private PlayerAbilityState abilityState;
+    [SerializeField] private List<ScriptableObject> saveTargets = new List<ScriptableObject>();
     [SerializeField] private bool saveOnApplicationQuit = true;
+
+    private readonly List<ISaveTarget> registeredSaveTargets = new List<ISaveTarget>();
 
     public SaveData CurrentSave { get; private set; }
     public int CurrentSlot { get; private set; }
@@ -31,9 +34,15 @@ public sealed class SaveManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        CacheSaveTargets(logWarnings: true);
 
         if (saveOnApplicationQuit)
             Application.quitting += SaveOnQuit;
+    }
+
+    private void OnValidate()
+    {
+        CacheSaveTargets(logWarnings: true);
     }
 
     private void OnDestroy()
@@ -100,7 +109,11 @@ public sealed class SaveManager : MonoBehaviour
 
         GatherSaveData();
         CurrentSave.meta.lastSavedUtc = DateTime.UtcNow.ToString("o");
-        CurrentSave.player.currentScene = SceneManager.GetActiveScene().name;
+        // Boot is a composition root, not a playable scene. Do not overwrite the
+        // last playable location when Unity exits while the bootstrap scene is active.
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.buildIndex != 0)
+            CurrentSave.player.currentScene = activeScene.name;
         SaveDataMigrator.Migrate(CurrentSave);
 
         if (!SaveSerializer.TrySerialize(CurrentSave, out string json))
@@ -151,7 +164,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public string GetStartupScene(string fallbackScene)
     {
+        Scene activeScene = SceneManager.GetActiveScene();
         string respawnScene = CurrentSave?.player?.activeRespawnSceneName ?? "";
+        if (activeScene.buildIndex == 0 && respawnScene == activeScene.name)
+            respawnScene = "";
+
         if (!string.IsNullOrEmpty(respawnScene) && Application.CanStreamedLevelBeLoaded(respawnScene))
         {
             Debug.Log($"[SaveManager] Startup scene resolved from active respawn scene: {respawnScene}");
@@ -159,6 +176,12 @@ public sealed class SaveManager : MonoBehaviour
         }
 
         string currentScene = CurrentSave?.player?.currentScene ?? "";
+        if (activeScene.buildIndex == 0 && currentScene == activeScene.name)
+        {
+            Debug.LogWarning($"[SaveManager] Ignoring saved bootstrap scene '{currentScene}' and using fallback '{fallbackScene}'.");
+            currentScene = "";
+        }
+
         if (!string.IsNullOrEmpty(currentScene) && Application.CanStreamedLevelBeLoaded(currentScene))
         {
             Debug.Log($"[SaveManager] Startup scene resolved from current scene: {currentScene}");
@@ -201,27 +224,59 @@ public sealed class SaveManager : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // Ability state gather / apply
+    // Save targets
     // -------------------------------------------------------------------------
 
     private void GatherSaveData()
     {
-        if (abilityState == null)
-        {
-            Debug.LogWarning("[SaveManager] PlayerAbilityState not assigned — ability data will not be saved.");
-            return;
-        }
-        ((ISaveTarget)abilityState).GatherSaveData(CurrentSave);
+        for (int i = 0; i < registeredSaveTargets.Count; i++)
+            registeredSaveTargets[i].GatherSaveData(CurrentSave);
     }
 
     private void ApplySaveData()
     {
-        if (abilityState == null)
+        for (int i = 0; i < registeredSaveTargets.Count; i++)
+            registeredSaveTargets[i].ApplySaveData(CurrentSave);
+    }
+
+    private void CacheSaveTargets(bool logWarnings)
+    {
+        registeredSaveTargets.Clear();
+
+        if (saveTargets == null || saveTargets.Count == 0)
         {
-            Debug.LogWarning("[SaveManager] PlayerAbilityState not assigned — ability data will not be applied.");
+            if (logWarnings)
+                Debug.LogWarning("[SaveManager] No save targets assigned — persistent ScriptableObject state will not be gathered or applied.", this);
             return;
         }
-        ((ISaveTarget)abilityState).ApplySaveData(CurrentSave);
+
+        HashSet<ScriptableObject> seenAssets = new HashSet<ScriptableObject>();
+        for (int i = 0; i < saveTargets.Count; i++)
+        {
+            ScriptableObject asset = saveTargets[i];
+            if (asset == null)
+            {
+                if (logWarnings)
+                    Debug.LogWarning($"[SaveManager] Save target at index {i} is missing and will be ignored.", this);
+                continue;
+            }
+
+            if (!seenAssets.Add(asset))
+            {
+                if (logWarnings)
+                    Debug.LogWarning($"[SaveManager] Duplicate save target '{asset.name}' at index {i} will be ignored.", asset);
+                continue;
+            }
+
+            if (!(asset is ISaveTarget saveTarget))
+            {
+                if (logWarnings)
+                    Debug.LogWarning($"[SaveManager] Assigned asset '{asset.name}' at index {i} does not implement ISaveTarget and will be ignored.", asset);
+                continue;
+            }
+
+            registeredSaveTargets.Add(saveTarget);
+        }
     }
 
     // -------------------------------------------------------------------------

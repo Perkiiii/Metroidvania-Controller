@@ -147,6 +147,22 @@ public sealed class HeroMotor : MonoBehaviour
         normalMovementSuppressed = suppressed;
     }
 
+    // Bind owns the action state; the motor remains the only component that writes
+    // the rigidbody while the state requests a stationary hold.
+    public void HoldStationary()
+    {
+        if (body == null)
+        {
+            return;
+        }
+
+        body.linearVelocity = Vector2.zero;
+        if (blackboard != null)
+        {
+            blackboard.velocity = Vector2.zero;
+        }
+    }
+
     public void SetGravitySuspended(bool suspended)
     {
         if (body == null)
@@ -413,6 +429,12 @@ public sealed class HeroMotor : MonoBehaviour
     {
         if (body == null || config == null || blackboard == null)
         {
+            return;
+        }
+
+        if (blackboard.binding)
+        {
+            HoldStationary();
             return;
         }
 

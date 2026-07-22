@@ -1,6 +1,6 @@
 # Feature Spec — Combat
 
-**Last audited:** 2026-05-19
+**Last audited:** 2026-07-21
 
 ## Responsibilities
 
@@ -14,7 +14,9 @@ Melee combat for the hero: swing initiation, directional hit detection, VFX/SFX 
 |---|---|
 | `HeroAttackAction` | State machine for a single swing (plain C# class) |
 | `HeroAttackModule` | Scene GameObject representing one directional hitbox |
+| `HeroResourceGenerationMode` | Per-attack resource award policy |
 | `HeroAttackHit` | Value type carrying hit data to receivers |
+| `HeroAttackResult` | Result value returned by attack receivers |
 | `IHeroAttackReceiver` | Interface for anything that can take damage |
 | `IHeroAttackClashReceiver` | Interface for parry/block reactions |
 | `IHeroDownslashResponder` | Interface for downslash-specific reactions (e.g. bounce) |
@@ -69,28 +71,38 @@ Use **Context Menu → "Create Default Attack Modules"** on `HeroActionControlle
 - `AnimancerComponent` for the VFX animation clip
 - Layer masks: `damageLayers`, `clashLayers`
 
+### Resource Generation
+
+Each attack module carries a `HeroResourceGenerationMode` and integer `resourceGainParts` value. `None` never awards resource. `PerSuccessfulTarget` awards the configured parts once for each distinct receiver whose `HeroAttackResult` is accepted and resource-eligible. `FirstSuccessfulHitPerAttack` awards once for the first eligible result in the attack execution, including across later hit windows. The tracker resets when a new attack starts.
+
+`HeroAttackAction` owns the award decision and receives the injected `PlayerResourceState`; receivers never call back into hero-side resource code. Existing per-swing receiver deduplication happens before result handling, so multiple colliders on one target cannot award more than once. Awards are clamped by `PlayerResourceState.Gain`, and no award occurs for misses, rejected results, clashes, pogo by itself, or non-positive configured gain. Resource generation does not change damage, feedback, death, or attack timing.
+
 ---
 
 ## Hit Delivery
 
-`HeroAttackHit` is passed to `IHeroAttackReceiver.ReceiveHeroAttack`. It contains:
+`HeroAttackHit` is passed to `IHeroAttackReceiver.ReceiveHeroAttack`, which returns a `HeroAttackResult`. It contains:
 - `Source` — hero GameObject
 - `Direction` — Side / Up / Down
 - `Damage` — from `HeroConfig.attackDamage`
 - `Point` — closest point on the hit collider to the damage reference point
 - `ForceDirection` — normalised vector away from the hero (used for knockback)
 
+`HeroAttackResult.Outcome` is `Ignored`, `Blocked`, `Invulnerable`, `Damaged`, or `Killed`. The current repository's `EnemyHealthComponent` returns `Ignored` for invalid or already-dead targets, `Damaged` for accepted nonlethal damage, and `Killed` when accepted damage causes death. `Blocked` and `Invulnerable` are reserved for future receiver implementations; no blocking or target-invulnerability system is implemented here. `DamageApplied` is the positive amount actually accepted, and `ResourceEligible` is true only for accepted `Damaged` or `Killed` outcomes. `HeroAttackResult` itself never mutates `PlayerResourceState` — the receiver only reports eligibility; `HeroAttackAction` reads that flag and decides whether to call `PlayerResourceState.Gain` per its configured `HeroResourceGenerationMode` (see Resource Generation above).
+
 If direction is Down and the hit target also implements `IHeroDownslashResponder`, `ReceiveHeroDownslash` is called on the same frame.
 
 ### First-Connect Impact Feel
 
-`HeroAttackAction` owns global attack-connect feel through `connectFeedbackPlayedThisSwing`. On the first confirmed enemy hit or clash in a swing, it:
+`HeroAttackAction` owns global attack-connect feel through `connectFeedbackPlayedThisSwing`. On the first accepted enemy hit (`Damaged` or `Killed`) or clash in a swing, it:
 
 - calls `GameManager.HitStop` using `HeroConfig.attackHitStopDuration` or `attackClashHitStopDuration`
 - requests `CameraShakeIntensity.Small` through `CameraEventService`
 - calls `HeroAttackImpactFeedbackController.PlayConnectFeedback` for optional non-camera feedback
 
 Enemy health components must not trigger generic player-attack hit-stop or camera shake. They own target-local results such as damage, flash, hurt/death audio, enemy feedback, recoil, and death.
+
+The receiver is added to the per-swing `HashSet` before the result is returned. This preserves one interaction per target and terrain-impact suppression even when a receiver returns `Ignored`. Downslash notification and pogo eligibility remain independent of the result; clash receivers continue through their separate contract.
 
 Terrain hits are handled separately by `HeroAttackAction.EvaluateTerrainImpact()`, which plays terrain impact feedback and calls `HeroAudioController.PlayTerrainImpact()` once per swing when the attack whiffs into terrain.
 

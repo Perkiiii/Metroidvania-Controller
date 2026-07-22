@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-06-05
+**Last audited:** 2026-07-22
 
 ## Overview
 
@@ -39,10 +39,10 @@ HeroController (MonoBehaviour — coordinator)
 ## Key Data Types
 
 ### HeroConfig (ScriptableObject)
-Core baseline tuning at `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`. Contains shared controller parameters: walk/run speeds, base jump, gravity, attack, downslash pogo, sensor probes, health/hurt, and animation fade durations. All subsystems receive a reference at initialization.
+Core baseline tuning at `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`. Contains shared controller parameters: walk/run speeds, base jump, gravity, attack, downslash pogo, sensor probes, health response, and animation fade durations. All subsystems receive a reference at initialization. Its serialized `maxHealth` field is legacy data retained for migration safety and is not read by gameplay; maximum health belongs to `PlayerHealthState`.
 
 ### HeroAbilityConfig (ScriptableObject)
-Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`. Holds numeric parameters for dash, wall-slide, wall-jump, and double-jump. Wired into `HeroController` via a serialized Inspector field alongside `HeroConfig`. Absent from core movement logic — actions and the motor use it only for the ability-specific behaviours it governs.
+Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`. Holds numeric parameters for dash, wall-slide, wall-jump, and double-jump. Wired into `HeroController` via a serialized Inspector field alongside `HeroConfig`. Absent from core movement logic — actions and the motor use it only for the ability-specific behaviours it governs. Bind tuning is intentionally held in the separate `PlayerResourceConfig` asset.
 
 - **HeroConfig** = core baseline movement and combat config (always required)
 - **HeroAbilityConfig** = gated traversal ability tuning (dash, wall-slide, wall-jump, double-jump); abilities are disabled gracefully if missing
@@ -51,8 +51,15 @@ Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAb
 ### HeroStateBlackboard (MonoBehaviour)
 Single source of truth for the hero's runtime state. Written by Sensors, Motor, and Action classes; read by everything else, including AnimationController. Keeps subsystems decoupled — no direct references between Motor and ActionController, for example.
 
+### Persistent Player State (ScriptableObjects)
+`PlayerHealthState` and `PlayerResourceState` are persistent-value owners implementing `ISaveTarget`. Health is the sole owner of current, maximum, and temporary bonus health; `HeroHealthComponent` delegates value mutations to it while retaining scene-local damage context and i-frames. Resource stores current and maximum integer parts; `HeroAttackAction` receives the injected resource state and awards configured parts only from accepted, resource-eligible attack results. `HeroBindAction` spends resource and heals normal health once after a valid grounded hold; it is a plain C# action owned by `HeroActionController`. Both states enforce invariants, apply fresh-save defaults, and emit a neutral `StateApplied` notification after save application.
+
+### Persistent HUD
+
+`PersistentHudRoot` is a presentation composition root intended as a child of the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `GameCameras` remains camera-only. `PlayerResourceConfig.partsPerPip` controls visual grouping and is not saved persistent state. See `Docs/FeatureSpecs/HUD.md` for the Editor hierarchy and placeholder-art setup.
+
 ### HeroAnimationLibrary (ScriptableObject)
-Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, attackSide, attackUp, attackDown) to `AnimationClip` references. Swapping a clip does not require code changes.
+Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, attackSide, attackUp, attackDown, bind) to `AnimationClip` references. Swapping a clip does not require code changes.
 
 ### HeroAttackHit (readonly struct)
 Value type passed to hit-reaction interfaces. Contains: `Source` (GameObject), `Direction` (HeroAttackDirection), `Damage` (int), `Point` (Vector2), `ForceDirection` (Vector2).
@@ -71,6 +78,8 @@ HeroAttackAction (logic)
     - AudioClip          slashClip   (played via AudioManager.PlaySFX on activation, not AudioSource.Play)
     - direction          (Side | Up | Down)
     - mirrorWithFacing   (Side module mirrors on X)
+    - resourceGenerationMode (None | PerSuccessfulTarget | FirstSuccessfulHitPerAttack)
+    - resourceGainParts  (integer parts awarded by an eligible result)
 ```
 
 Attack direction is determined at swing start from the vertical component of `MoveVector` against `HeroConfig.attackDirectionThreshold`. Hit detection runs every `FixedUpdate` during the active window using `PolygonCollider2D.Overlap`.
@@ -83,17 +92,19 @@ Hit receivers are tracked per-swing in a `HashSet` to prevent multi-hit on the s
 
 | Interface | When called |
 |---|---|
-| `IHeroAttackReceiver` | Collider overlaps the damage collider |
+| `IHeroAttackReceiver` | Collider overlaps the damage collider; returns a `HeroAttackResult` |
 | `IHeroAttackClashReceiver` | Collider overlaps the clash collider |
 | `IHeroDownslashResponder` | Damage hit occurs and direction is Down |
 
 Implement on any MonoBehaviour in the hit object's hierarchy. `HeroAttackAction` walks up the parent chain to find them.
 
+Resource generation is attacker-owned. `HeroController` passes the Inspector-assigned `PlayerResourceState` through `HeroActionController` into `HeroAttackAction`. No resource controller, singleton, receiver callback, or global combat event bus is used. `HeroAttackAction` applies the active module's generation policy only after an accepted result reports `ResourceEligible`.
+
 ---
 
 ## Animation
 
-`HeroAnimationController` drives Animancer directly — no Animator parameters. Locomotion uses a `LinearMixerState` keyed on horizontal speed (idle → walk → run thresholds from `HeroConfig`). Action states (attack, dash, wall-slide, jump, fall) are played as one-shots with configurable fade durations.
+`HeroAnimationController` drives Animancer directly — no Animator parameters. Locomotion uses a `LinearMixerState` keyed on horizontal speed (idle → walk → run thresholds from `HeroConfig`). Action states (attack, dash, wall-slide, Bind, jump, fall) are played as one-shots with configurable fade durations. Bind uses an Animancer end-event as a completion signal and a duration timer as a fail-safe; missing Bind clips disable the action rather than silently falling back.
 
 Attack animation completion is signalled back to `HeroAttackAction.CompleteAttackFromAnimation` via an Animancer end-event. A fail-safe timer forces the attack to end if the event does not fire within the expected duration.
 
@@ -113,26 +124,27 @@ Attack animation completion is signalled back to `HeroAttackAction.CompleteAttac
 
 ## Hero Health, Hurt, Death, and Respawn
 
-`HeroHealthComponent` (MonoBehaviour) owns the player-side damage intake. `HeroController` receives a reference at init; it does not own any health fields directly.
+`PlayerHealthState` is the authoritative owner of current, maximum, and bonus health. `HeroHealthComponent` (MonoBehaviour) is the scene-side damage facade: it owns combat i-frames and gameplay-context events, but contains no mirrored health values. `HeroController` passes the already-loaded state asset into the facade at initialization and does not expose or mutate health values directly.
 
 ```
 HeroController
 └── HeroHealthComponent
-    ├── maxHealth, currentHealth    (tuned in HeroConfig)
+    ├── PlayerHealthState           (authoritative current/max/bonus values)
     ├── IsInvincible                (reference-counted by source object, not a raw timer)
-    ├── OnHealthChanged (event)     → neutral UI/state notification
     ├── OnDamaged (event)           → hurt animation, knockback, i-frames
     ├── OnHazardDamaged (event)     → hazard-only flash, audio, shake, hurt pose
     └── OnDeath   (event)           → death sequence
+
+PlayerHealthState.Changed            → neutral value notification with change reason
 ```
 
 **Normal damage flow:**
 1. An enemy attack calls `HeroHealthComponent.TakeDamage(amount, iFrameSource)`.
-2. If not invincible: subtract health, grant i-frames keyed to `iFrameSource`, fire `OnDamaged`.
+2. If not invincible: delegate bonus-first damage to `PlayerHealthState`, grant i-frames keyed to `iFrameSource`, and fire `OnDamaged`.
 3. `HeroController` subscribes to `OnDamaged` → writes `HeroActorState.Hurt` to the blackboard, applies knockback via `HeroMotor`, adds a control lock for the stun duration.
 4. If health ≤ 0: fire `OnDeath`; transition to `HeroActorState.Dead` and begin respawn.
 
-**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, fires `OnHealthChanged`, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards fire `OnHazardDamaged` for feedback, then pass a `HazardContact` to `GameManager.BeginHazardRecoverySequence()` for an impact delay, fade, local reposition, camera snap, and hero reset without restoring health. `HeroBox.HandleHazard` intentionally discards any buffered normal/contact damage before processing the hazard — hazards take priority over same-step enemy hits buffered for `FixedUpdate`. `BeginHazardRecoverySequence` immediately grants temporary invincibility so enemy contact damage cannot reach the hero through a `FixedUpdate` flush during the recovery window. Hazard recovery tuning (impact delay, black-screen hold, fade durations, i-frame duration) lives in `HazardRecoveryProfile` (SO), referenced by `HazardZone` and carried in `HazardContact` — `GameManager` is a sequence coordinator, not a tuning database. Key defaults: `ImpactDelay` 0.18 s (recommended 0.18–0.20 s), `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1 (use camera default), `FadeInDuration` −1 (use camera default); if no profile is assigned the code falls back to these values. Set `FadeInDuration` to 0.35–0.45 s on a profile for a snappier local recovery feel relative to the longer scene-transition fade-in. Create a shared `HazardRecoveryProfile.asset` under `Assets/_Project/ScriptableObjects/World/` and assign it to each recoverable `HazardZone`. `GameManager` caches the hero's post-placement position on every scene load (`_sceneFallbackPosition`) as a last-resort fallback if no `RespawnMarker` or `HazardRespawnMarker` is found; scenes with recoverable hazards should always author at least one `RespawnMarker`.
+**Hazards:** `HazardZone` supports `InstantDeath` and `RecoverLocal`. Instant-kill hazards call `HeroHealthComponent.TriggerHazardDeath()`, which atomically clears normal and bonus health and emits one `PlayerHealthState.Changed` notification with reason `ForcedDepletion`. Recoverable hazards call `HeroHealthComponent.TakeHazardDamage()`, which ignores normal combat i-frames, delegates damage to the state, skips `OnDamaged`, and only fires `OnDeath` if health reaches zero. Nonfatal recoverable hazards fire `OnHazardDamaged` for feedback, then pass a `HazardContact` to `GameManager.BeginHazardRecoverySequence()` for an impact delay, fade, local reposition, camera snap, and hero reset without restoring health. `HeroBox.HandleHazard` intentionally discards any buffered normal/contact damage before processing the hazard — hazards take priority over same-step enemy hits buffered for `FixedUpdate`. `BeginHazardRecoverySequence` immediately grants temporary invincibility so enemy contact damage cannot reach the hero through a `FixedUpdate` flush during the recovery window. Hazard recovery tuning (impact delay, black-screen hold, fade durations, i-frame duration) lives in `HazardRecoveryProfile` (SO), referenced by `HazardZone` and carried in `HazardContact` — `GameManager` is a sequence coordinator, not a tuning database. Key defaults: `ImpactDelay` 0.18 s (recommended 0.18–0.20 s), `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1 (use camera default), `FadeInDuration` −1 (use camera default); if no profile is assigned the code falls back to these values. Set `FadeInDuration` to 0.35–0.45 s on a profile for a snappier local recovery feel relative to the longer scene-transition fade-in. Create a shared `HazardRecoveryProfile.asset` under `Assets/_Project/ScriptableObjects/World/` and assign it to each recoverable `HazardZone`. `GameManager` caches the hero's post-placement position on every scene load (`_sceneFallbackPosition`) as a last-resort fallback if no `RespawnMarker` or `HazardRespawnMarker` is found; scenes with recoverable hazards should always author at least one `RespawnMarker`.
 
 **Respawn markers:**
 - `RespawnMarker` — scene object placed at save points. Set as the active normal-death respawn point **only when a checkpoint is activated** (`CheckpointInteractable.Interact`). Crossing a `TransitionPoint` does **not** update the active respawn marker in the current pass — death after a gate crossing returns the hero to the last activated checkpoint, not to the door (see Scene Transitions for the deferred `linkedRespawnMarker` field).
@@ -146,7 +158,7 @@ Gated abilities are controlled by a `PlayerAbilityState` ScriptableObject at `As
 
 ```
 AbilityId (enum)
-  Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast
+  Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast, Bind
 
 PlayerAbilityState (SO)
 ├── dashUnlocked        bool  (default true — covers ground and air dash; no separate flags)
@@ -156,14 +168,15 @@ PlayerAbilityState (SO)
 ├── doubleJumpUnlocked  bool  (default false)
 ├── driftCloakUnlocked  bool  (default false)
 ├── spiritCastUnlocked  bool  (default false)
+├── bindUnlocked        bool  (default false — checked in HeroBindAction.CanStart() only)
 └── AbilityChanged event — fired by SetUnlocked only when value changes; scene gates subscribe for runtime changes
 ```
 
-`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). It implements `ISaveTarget`: `GatherSaveData` copies the 7 flags into `AbilitySaveData`; `ApplySaveData` calls `SetUnlocked(AbilityId, bool)` for each flag so runtime subscribers receive `AbilityChanged` events when values change. Scene `AbilityGate` objects match already-loaded state because they call `Refresh()` in `OnEnable`. `SaveManager` holds a serialized reference to the asset and calls both methods at the correct points in the save/load lifecycle.
+`PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). It implements `ISaveTarget`: `GatherSaveData` copies the 8 flags into `AbilitySaveData`; `ApplySaveData` calls `SetUnlocked(AbilityId, bool)` for each flag so runtime subscribers receive `AbilityChanged` events when values change. Scene `AbilityGate` objects match already-loaded state because they call `Refresh()` in `OnEnable`. `SaveManager` includes the asset in its serialized, Inspector-ordered save-target collection and calls both methods at the correct points in the save/load lifecycle.
 
 `AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) refreshes on enable, then subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
 
-`PlayerAbilityState` is wired into `HeroController` via a serialized Inspector field; `HeroActionController.Initialize` passes it to the action constructors. No `AssetDatabase` lookup is used.
+`PlayerAbilityState`, `PlayerHealthState`, `PlayerResourceState`, and `PlayerResourceConfig` are wired into `HeroController` via serialized Inspector fields; `HeroActionController.Initialize` passes them to the relevant action constructors. No `AssetDatabase` lookup is used.
 
 See `Docs/FeatureSpecs/Abilities.md` for the full per-ability spec.
 
@@ -197,7 +210,7 @@ Manual Unity validation on 2026-06-05 confirmed: Enemy AI foundation validator p
 
 `EnemyController` is wiring/coordinator only. Enemy-specific behaviour components own state transitions. `EnemyMotor` owns normal enemy velocity writes; `EnemyRecoil` may temporarily override velocity through `EnemyMotor` during hit reaction.
 
-`EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. When called, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
+`EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. It returns `Ignored` for invalid or already-dead interactions, `Damaged` for accepted nonlethal damage, and `Killed` when accepted damage causes death. Accepted results include the applied amount and conservative future `ResourceEligible` metadata; no resource state is mutated. When accepted, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `HeroAttackAction` uses accepted results for first-connect hit-stop, camera shake, and attack feedback while preserving its per-swing receiver set. `Blocked` and `Invulnerable` remain reserved outcomes because no such receiver systems exist yet. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
 
 See `Docs/FeatureSpecs/EnemyAI.md` for the full state machine spec and config schema.
 
@@ -296,7 +309,7 @@ Editor validation: `Tools/Project/Validate Transition Gate Links` scans enabled 
 
 GameManager must not own health, enemies, progression state, UI layout, or save logic.
 
-**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect), `BeginRespawnSequence()` (normal-death respawn, including cross-scene checkpoint reload), and `BeginHazardRecoverySequence()` (same-scene local hazard recovery). `BeginRespawnSequence` calls `_heroHealth.RestoreFullHealth()` directly — a temporary coupling that will be replaced when a `PlayerHealthState` ScriptableObject (implementing `ISaveTarget`) owns current health and restores it via `ApplySaveData`. Additionally, `GameManager` now owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. See `Docs/ImplementationPlan.md` Known Technical Debt.
+**Current deviations (tech debt):** `GameManager` also implements `HitStop(float duration)` (used by `HeroAttackAction` on hit-connect), `BeginRespawnSequence()` (normal-death respawn, including cross-scene checkpoint reload), and `BeginHazardRecoverySequence()` (same-scene local hazard recovery). Normal respawn placement is followed by one `HeroController.ResetAfterRespawn()` call, which routes health restoration through the health facade, explicitly clears bonus health, and clears current resource (`PlayerResourceState.Clear()`) — the single authoritative call site for all three, reached identically by normal death, lethal recoverable hazards, and forced-death hazards; `GameManager` itself still never mutates health or resource values. Additionally, `GameManager` owns `ResolveActiveRespawnMarkerFromSave()` and `PlaceHeroAtSavedRespawnIfRequested()` — these are well-defined seams to the save system, not business logic, and are considered acceptable for the current architecture stage. `GameManager` also holds one direct `PlayerHealthState` reference solely for `ResolveLoadedHealthState()`, called once by `Bootstrap.Start()` right after `SaveManager.LoadOrCreate` and before any scene/Hero exists — it normalizes a save loaded at zero health (see `Docs/FeatureSpecs/PlayerHealthAndResource.md`); this is a narrow read-and-correct seam, not general value ownership. See `Docs/ImplementationPlan.md` Known Technical Debt.
 
 ---
 
@@ -315,7 +328,7 @@ Bootstrap.Awake() — instantiate and DontDestroyOnLoad in order:
 Bootstrap.Start():
   6. SaveManager.LoadOrCreate(0)
        — deserialize file; if missing or corrupt: CreateFreshSave
-       — ApplySaveData() → PlayerAbilityState flags applied via ISaveTarget
+       — ApplySaveData() → Inspector-ordered ISaveTarget assets applied
   7. SaveManager.GetStartupScene(firstScene)
        — activeRespawnSceneName if loadable, else currentScene if loadable, else firstScene
   8. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
@@ -347,8 +360,12 @@ SaveManager (DontDestroyOnLoad)
   ↓
 ISaveTarget (interface, implemented by persistent SOs)
   ├── PlayerAbilityState.asset       7 ability unlock flags   [implemented]
+  ├── PlayerHealthState.asset        current/max/bonus health [gameplay ownership implemented]
+  ├── PlayerResourceState.asset      current/max parts        [gameplay ownership implemented; generation + Bind spend + death-clear wired]
   └── WorldStateRegistry.asset       room flags, defeated enemies, open doors  [planned]
 ```
+
+Targets are explicitly assigned as `ScriptableObject` assets on `SaveManager`. The Inspector list order is the deterministic gather/apply order. Initialization validates the `ISaveTarget` contract and ignores null, invalid, or duplicate entries with warnings; there is no reflection-based discovery or scene search.
 
 `SaveManager` must not reference any `MonoBehaviour` at save or load time. All live state that needs persisting must be owned by a ScriptableObject implementing `ISaveTarget`. Scene-object identity is stored as string keys (e.g. `RespawnMarker.Key`), never as `UnityEngine.Object` references.
 
@@ -382,25 +399,26 @@ All tuning lives in `CameraConfig` SO at `Assets/_Project/ScriptableObjects/Worl
 
 See `Docs/FeatureSpecs/HUD.md` for the full spec.
 
-HUD and menus run on a dedicated Canvas with a separate `UICamera` (orthographic, Clear Flags: Depth Only) that renders on top of the gameplay camera. This keeps UI layout independent of world camera settings and prevents z-fighting.
+HUD and menus use UGUI. The persistent `_GameCameras` prefab already contains `HUDCamera`; the HUD Canvas is configured in Screen Space - Camera mode and assigned to that camera. This keeps UI layout independent of world camera settings and prevents z-fighting.
 
 **Canvas hierarchy (vertical slice scope):**
 
 ```
-UIRoot (Canvas, UICamera)
-├── HUD
-│   ├── HealthDisplay     — subscribes to HeroHealthComponent.OnHealthChanged / OnDeath
-│   └── [reserved slots]  — ability indicators, resource bars; empty GameObjects, filled later
+_GameCameras (persistent)
+└── HUDRoot (PersistentHudRoot)
+    └── HUD Canvas (HUDCamera)
+        ├── HealthDisplay   — direct PlayerHealthState.Changed subscriber
+        └── ResourceDisplay — direct PlayerResourceState.Changed subscriber
 └── Menus
     ├── PauseMenu         — shown/hidden by GameManager.Pause() / Unpause()
     └── [reserved slots]  — main menu, game-over screen; populated in later milestones
 ```
 
 Key separation rules:
-- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` subscribes to `HeroHealthComponent.OnHealthChanged` and `OnDeath` at scene init via `GameManager.SceneInit`. It must not call `GetComponent<HeroHealthComponent>()` per-frame or hold a direct MonoBehaviour reference to query each frame.
+- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` and `ResourceDisplay` subscribe directly to persistent state assets, refresh explicitly on enable, and do not rebind through `GameManager.SceneInit`. Gameplay-context events remain outside the basic value display.
 - **Pause is owned by `GameManager`.** The pause menu calls `GameManager.Pause()` / `Unpause()`; it does not set `Time.timeScale` directly.
 - **Save/load UI goes through `UIFlowController`.** No UI MonoBehaviour calls `SaveManager.Save()` or `LoadSceneAsync` directly.
-- **Reserve slots, populate later.** Author the full Canvas hierarchy in the first HUD pass; leave placeholder GameObjects for elements not yet implemented. Adding new HUD elements later must not require structural Canvas changes.
+- **Presentation remains separate from state.** Health uses dynamic slot views; resource uses a single always-visible horizontal fill bar (no orb/pip presentation). Both are simple UGUI elements; final artwork and optional menu overlays are Editor work and do not change gameplay ownership.
 
 ---
 
@@ -439,5 +457,5 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation done (M0); world-state and UI in M4–5 | Partial |
-| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 5 | Not started |
+| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 | Presentation foundation implemented; Editor wiring pending |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |

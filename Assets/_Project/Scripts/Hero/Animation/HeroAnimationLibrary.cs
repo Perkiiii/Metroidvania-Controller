@@ -25,4 +25,7 @@ public sealed class HeroAnimationLibrary : ScriptableObject
     [Header("Damage")]
     public AnimationClip hurt;
     public AnimationClip death;
+
+    [Header("Bind")]
+    public AnimationClip bind;
 }

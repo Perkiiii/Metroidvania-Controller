@@ -73,6 +73,7 @@ public sealed class HeroCameraSignalBridge : MonoBehaviour
             || blackboard.inputBlocked
             || !blackboard.grounded
             || blackboard.moving
+            || blackboard.binding
             || blackboard.dashing
             || blackboard.attacking;
     }

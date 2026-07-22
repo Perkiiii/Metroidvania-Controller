@@ -42,5 +42,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8145c843533505c4c9408faadea0ea01, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  defaultFadeProfile: {fileID: 0}
+  startupFadeProfile: {fileID: 0}
+  respawnFadeProfile: {fileID: 0}
+  healthState: {fileID: 11400000, guid: cee54eb6324705d4aabc766c56ae0d23, type: 2}

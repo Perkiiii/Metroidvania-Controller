@@ -13,6 +13,9 @@ public class HeroController : MonoBehaviour
     [SerializeField] private HeroAbilityConfig abilityConfig;
     [SerializeField] private HeroAnimationLibrary animationLibrary;
     [SerializeField] private PlayerAbilityState abilityState;
+    [SerializeField] private PlayerHealthState healthState;
+    [SerializeField] private PlayerResourceState resourceState;
+    [SerializeField] private PlayerResourceConfig resourceConfig;
     [SerializeField] private Transform spriteRoot;
 
     private readonly HashSet<object> controlLocks = new HashSet<object>();
@@ -78,6 +81,7 @@ public class HeroController : MonoBehaviour
             return;
         }
 
+        actions?.CancelBind();
         controlLocks.Add(source);
         blackboard.controlLocked = controlLocks.Count > 0;
     }
@@ -103,13 +107,20 @@ public class HeroController : MonoBehaviour
         actions?.CancelAttack();
     }
 
+    public void CancelBind()
+    {
+        actions?.CancelBind();
+    }
+
     public void BeginSceneEntryPlacement(TransitionPoint destinationGate)
     {
+        actions?.CancelBind();
         if (sceneEntry != null) sceneEntry.PrepareSceneEntry(destinationGate);
     }
 
     public void BeginSceneEntryMotion(TransitionPoint destinationGate)
     {
+        actions?.CancelBind();
         if (sceneEntry != null) sceneEntry.PlaySceneEntryMotion(destinationGate);
     }
 
@@ -136,6 +147,8 @@ public class HeroController : MonoBehaviour
 
     public void ResetAfterRespawn()
     {
+        health.RestoreAfterDeath();
+        resourceState?.Clear();
         ResetTransientHeroState();
         controlLocks.Clear();
         blackboard.controlLocked = false;
@@ -164,6 +177,7 @@ public class HeroController : MonoBehaviour
         }
 
         actions.CancelAttack();
+        actions.CancelBind();
         motor.ResetMotion();
         motor.SetNormalMovementSuppressed(false);
         body.bodyType = RigidbodyType2D.Dynamic;
@@ -173,6 +187,7 @@ public class HeroController : MonoBehaviour
         blackboard.recoiling = false;
         blackboard.dashing = false;
         blackboard.attacking = false;
+        blackboard.binding = false;
         blackboard.attackRecovering = false;
         blackboard.upAttacking = false;
         blackboard.downAttacking = false;
@@ -197,6 +212,21 @@ public class HeroController : MonoBehaviour
         if (animationLibrary == null)
         {
             Debug.LogError("[HeroController] HeroAnimationLibrary is not assigned. Assign Assets/_Project/ScriptableObjects/Hero/HeroAnimationLibrary.asset on the Hero prefab.", this);
+        }
+
+        if (healthState == null)
+        {
+            Debug.LogError("[HeroController] PlayerHealthState is not assigned. Assign Assets/_Project/ScriptableObjects/Hero/PlayerHealthState.asset on the Hero prefab.", this);
+        }
+
+        if (resourceState == null)
+        {
+            Debug.LogWarning("[HeroController] PlayerResourceState is not assigned. Hero attack resource generation will remain inactive.", this);
+        }
+
+        if (resourceConfig == null)
+        {
+            Debug.LogWarning("[HeroController] PlayerResourceConfig is not assigned. Bind will remain inactive until a tuning asset is assigned.", this);
         }
 
         body = GetComponent<Rigidbody2D>();
@@ -240,9 +270,10 @@ public class HeroController : MonoBehaviour
         sensors.Initialize(config, blackboard, body, bodyCollider);
         motor.Initialize(config, abilityConfig, blackboard, body, bodyCollider, spriteRenderer, spriteRoot);
         audioController.Initialize(config, blackboard);
-        actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, audioController, abilityState);
+        actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, audioController, abilityState, resourceState, healthState, resourceConfig);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
-        health.Initialize(config);
+        actions.SetAnimationController(animations);
+        health.Initialize(config, healthState);
         cameraSignals.Initialize(blackboard, inputReader);
         sceneEntry.Initialize(this, motor, blackboard, config, health);
 
@@ -265,6 +296,7 @@ public class HeroController : MonoBehaviour
         blackboard.actorState = HeroActorState.Hurt;
         blackboard.recoiling = true;
         actions.CancelAttack();
+        actions.CancelBind();
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -282,6 +314,7 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Hurt;
         actions.CancelAttack();
+        actions.CancelBind();
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -290,6 +323,7 @@ public class HeroController : MonoBehaviour
     private void HandleDeath()
     {
         blackboard.actorState = HeroActorState.Dead;
+        actions.CancelBind();
         AddControlLock(this);
         body.linearVelocity = Vector2.zero;
         body.bodyType = RigidbodyType2D.Kinematic;

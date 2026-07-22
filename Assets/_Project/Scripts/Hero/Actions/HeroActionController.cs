@@ -27,12 +27,16 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroMotor motor;
     private HeroAudioController heroAudio;
     private PlayerAbilityState abilityState;
+    private PlayerResourceConfig resourceConfig;
+    private PlayerHealthState healthState;
+    private HeroAnimationController animations;
 
     private HeroJumpAction jump;
     private HeroDashAction dash;
     private HeroAttackAction attack;
     private HeroWallSlideAction wallSlide;
     private HeroWallJumpAction wallJump;
+    private HeroBindAction bind;
 
     public int AttackVersion => attack != null ? attack.AttackVersion : 0;
 
@@ -43,7 +47,10 @@ public sealed class HeroActionController : MonoBehaviour
         HeroInputReader inputReader,
         HeroMotor heroMotor,
         HeroAudioController heroAudio,
-        PlayerAbilityState abilityState)
+        PlayerAbilityState abilityState,
+        PlayerResourceState resourceState,
+        PlayerHealthState healthState,
+        PlayerResourceConfig resourceConfig)
     {
         config = heroConfig;
         abilityConfig = heroAbilityConfig;
@@ -52,18 +59,44 @@ public sealed class HeroActionController : MonoBehaviour
         motor = heroMotor;
         this.heroAudio = heroAudio;
         this.abilityState = abilityState;
+        this.healthState = healthState;
+        this.resourceConfig = resourceConfig;
 
         jump = new HeroJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
         dash = new HeroDashAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
-        attack = new HeroAttackAction(config, blackboard, input, heroMotor, this.heroAudio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout);
+        attack = new HeroAttackAction(config, blackboard, input, heroMotor, this.heroAudio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout, resourceState);
         wallSlide = new HeroWallSlideAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
         wallJump = new HeroWallJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        bind = new HeroBindAction(
+            resourceConfig,
+            blackboard,
+            input,
+            heroMotor,
+            healthState,
+            resourceState,
+            abilityState,
+            () => animations != null && animations.CanPlayBindAnimation,
+            () => animations?.StopBindAnimation());
+    }
+
+    public void SetAnimationController(HeroAnimationController animationController)
+    {
+        animations = animationController;
     }
 
     public void Tick()
     {
         if (config == null || blackboard == null || input == null || motor == null)
         {
+            return;
+        }
+
+        bind?.Tick(Time.deltaTime);
+        if (bind != null && bind.IsBinding)
+        {
+            input.ConsumeAttackBuffer();
+            input.ConsumeJumpBuffer();
+            ApplyLocomotionIntent();
             return;
         }
 
@@ -79,6 +112,12 @@ public sealed class HeroActionController : MonoBehaviour
             return;
         }
 
+        bind?.FixedTick();
+        if (bind != null && bind.IsBinding)
+        {
+            return;
+        }
+
         wallSlide.FixedTick();
         wallJump.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);
@@ -89,6 +128,16 @@ public sealed class HeroActionController : MonoBehaviour
     public void CancelAttack()
     {
         attack?.CancelAttack();
+    }
+
+    public void CancelBind()
+    {
+        bind?.Cancel();
+    }
+
+    public void CompleteBindFromAnimation()
+    {
+        bind?.CompleteFromAnimation();
     }
 
     public void BeginAttackWindow()
@@ -113,7 +162,12 @@ public sealed class HeroActionController : MonoBehaviour
 
     private void ApplyLocomotionIntent()
     {
-        float moveX = blackboard.controlLocked || blackboard.inputBlocked || blackboard.dashing ? 0f : input.MoveVector.x;
+        float moveX = blackboard.controlLocked
+            || blackboard.inputBlocked
+            || blackboard.dashing
+            || blackboard.binding
+            ? 0f
+            : input.MoveVector.x;
         bool wantsRun = input.SprintHeld || !config.requireSprintForRun;
         motor.SetDesiredMove(moveX, wantsRun);
 

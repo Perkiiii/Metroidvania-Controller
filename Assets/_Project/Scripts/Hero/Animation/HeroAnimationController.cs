@@ -16,6 +16,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         WallJump,
         Dash,
         Attack,
+        Bind,
         Hurt,
         Dead
     }
@@ -31,8 +32,11 @@ public sealed class HeroAnimationController : MonoBehaviour
 
     private LinearMixerState locomotionMixer;
     private AnimancerState activeAttackState;
+    private AnimancerState activeBindState;
     private VisualState currentVisualState;
     private int playedAttackVersion = -1;
+
+    public bool CanPlayBindAnimation => animancer != null && animationLibrary != null && animationLibrary.bind != null;
 
     public void Initialize(
         HeroConfig heroConfig,
@@ -50,6 +54,10 @@ public sealed class HeroAnimationController : MonoBehaviour
         animationLibrary = library != null ? library : animationLibrary;
 
         EnsureAnimationLibrary();
+        if (animationLibrary != null && animationLibrary.bind == null)
+        {
+            Debug.LogWarning("[HeroAnimationController] Bind clip is missing. Bind will remain unavailable until HeroAnimationLibrary.bind is assigned.", this);
+        }
         BuildLocomotionMixer();
     }
 
@@ -68,6 +76,10 @@ public sealed class HeroAnimationController : MonoBehaviour
         else if (blackboard.actorState == HeroActorState.Hurt)
         {
             PlayActionClip(animationLibrary.hurt, VisualState.Hurt);
+        }
+        else if (blackboard.binding)
+        {
+            PlayBindClip();
         }
         else if (blackboard.attacking)
         {
@@ -182,6 +194,42 @@ public sealed class HeroAnimationController : MonoBehaviour
 
         animancer.Play(clip, config.actionFadeDuration, FadeMode.FromStart);
         currentVisualState = state;
+    }
+
+    private void PlayBindClip()
+    {
+        if (!CanPlayBindAnimation || currentVisualState == VisualState.Bind)
+        {
+            return;
+        }
+
+        activeBindState = animancer.Play(animationLibrary.bind, config.actionFadeDuration, FadeMode.FromStart);
+        activeBindState.Events(this).OnEnd = () =>
+        {
+            if (activeBindState != null)
+            {
+                activeBindState.Events(this).OnEnd = null;
+                activeBindState = null;
+            }
+
+            actions?.CompleteBindFromAnimation();
+        };
+        currentVisualState = VisualState.Bind;
+    }
+
+    public void StopBindAnimation()
+    {
+        if (activeBindState != null)
+        {
+            activeBindState.Events(this).OnEnd = null;
+            activeBindState = null;
+        }
+
+        if (currentVisualState == VisualState.Bind && animancer != null)
+        {
+            animancer.Stop();
+            currentVisualState = VisualState.None;
+        }
     }
 
     private void PlayDeathClip()
