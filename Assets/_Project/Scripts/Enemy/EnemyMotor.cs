@@ -90,7 +90,7 @@ public sealed class EnemyMotor : MonoBehaviour
             return;
         }
 
-        if (body != null)
+        if (body != null && body.bodyType != RigidbodyType2D.Static)
         {
             body.linearVelocity = new Vector2(0f, body.linearVelocity.y);
         }

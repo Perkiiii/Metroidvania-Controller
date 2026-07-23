@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 public static class SaveDataMigrator
 {
-    public const int CurrentSaveVersion = 3;
+    public const int CurrentSaveVersion = 4;
 
     public static void Migrate(SaveData data)
     {
@@ -16,6 +16,9 @@ public static class SaveDataMigrator
         data.world      ??= new WorldSaveData();
 
         data.world.collectedPickupIds          ??= new List<string>();
+        data.world.visitedRoomIds              ??= new List<string>();
+        data.world.defeatedEncounterIds        ??= new List<string>();
+        data.world.objectStates                ??= new List<WorldObjectStateEntry>();
         data.player.currentScene               ??= "";
         data.player.activeRespawnSceneName     ??= "";
         data.player.activeRespawnMarkerKey     ??= "";
@@ -39,6 +42,10 @@ public static class SaveDataMigrator
             data.health.initialized = false;
             data.resource.initialized = false;
         }
+
+        // Version 3 and earlier had no room/encounter/object-state world sections.
+        // No transform is needed: the null-coalescing above already leaves them empty,
+        // which is the correct fresh state for saves that predate WorldStateRegistry.
 
         data.meta.saveVersion = CurrentSaveVersion;
     }

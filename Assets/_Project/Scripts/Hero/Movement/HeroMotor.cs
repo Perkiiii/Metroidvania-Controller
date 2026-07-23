@@ -324,6 +324,11 @@ public sealed class HeroMotor : MonoBehaviour
         {
             body.linearVelocity = Vector2.zero;
         }
+
+        if (blackboard != null)
+        {
+            blackboard.velocity = Vector2.zero;
+        }
     }
 
     public void SetDashVelocity(int direction)

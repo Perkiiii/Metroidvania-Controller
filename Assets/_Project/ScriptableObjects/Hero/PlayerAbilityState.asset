@@ -16,7 +16,7 @@ MonoBehaviour:
   wallClingUnlocked: 1
   sprintUnlocked: 0
   wallLatchUnlocked: 0
-  doubleJumpUnlocked: 0
+  doubleJumpUnlocked: 1
   driftCloakUnlocked: 0
   spiritCastUnlocked: 0
-  bindUnlocked: 0
+  bindUnlocked: 1

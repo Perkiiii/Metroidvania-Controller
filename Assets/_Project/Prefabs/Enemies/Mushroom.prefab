@@ -850,6 +850,7 @@ GameObject:
   - component: {fileID: 6680446084282329468}
   - component: {fileID: 2398238272713834219}
   - component: {fileID: 6497729988609496847}
+  - component: {fileID: 2668849107442034752}
   m_Layer: 10
   m_Name: Mushroom
   m_TagString: Untagged
@@ -1026,6 +1027,7 @@ MonoBehaviour:
   attacking: 0
   attackWindowActive: 0
   dead: 0
+  suppressed: 0
 --- !u!114 &-6527817526857382056
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1229,6 +1231,21 @@ MonoBehaviour:
   hazardType: 1
   shadowDashHazard: 0
   resetOnEnable: 0
+--- !u!114 &2668849107442034752
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4258216635766030637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fea26f79e37964b841a961fbbfbb3a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPersistence
+  worldObjectId: 
+  mode: 1
+  registry: {fileID: 11400000, guid: ca3cf2605a1f08340965381da8f97de7, type: 2}
 --- !u!1 &5802587859924959739
 GameObject:
   m_ObjectHideFlags: 0

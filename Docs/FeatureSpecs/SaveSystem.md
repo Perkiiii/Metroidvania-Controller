@@ -31,6 +31,8 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `SaveFileStore` (sync + .bak) | `Scripts/Save/SaveFileStore.cs` | Done |
 | `SaveDataMigrator` (v3) | `Scripts/Save/SaveDataMigrator.cs` | Done |
 | `SaveManager` persistent singleton | `Scripts/Save/SaveManager.cs` | Done |
+| `WorldStateRegistry` implements `ISaveTarget` | `Scripts/World/WorldStateRegistry.cs` | Done (World Persistence Phase 1) |
+| `EnemyPersistence` / `EnemyPersistenceMode` | `Scripts/Enemy/EnemyPersistence.cs`, `EnemyPersistenceMode.cs` | Done (World Persistence Phase 1) |
 | `PlayerAbilityState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerAbilityState.cs` | Done |
 | `PlayerHealthState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerHealthState.cs` | Done; authoritative gameplay ownership wired |
 | `PlayerResourceState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerResourceState.cs` | Done; authoritative gameplay ownership wired |
@@ -46,15 +48,16 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 
 | Feature | Milestone |
 |---|---|
-| `WorldStateRegistry` SO (visited rooms, defeated enemies, open doors) | Milestone 4 |
 | Multi-slot save selection UI | Milestone 5 |
 | `HazardRespawnMarker` direct local recovery | Done |
 | `HazardRespawnMarker` save key integration | Future |
 | Scene-name-driven boot continue (`activeRespawnSceneName` / `currentScene` instead of always `firstScene`) | Done |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
-| `AbilityPickup` immediate autosave (design decision not yet made) | Milestone 4 |
-| Full world-state persistence (item flags, room flags, door flags) | Milestone 4 |
+| Door / switch / breakable wiring against `WorldStateRegistry` (registry APIs exist; consumers are Phase 3) | World Persistence Phase 3 |
+| Real boss encounters using `PermanentEncounter` (mode and lifecycle are implemented and validated; no boss content exists yet) | World Persistence Phase 3 |
 | Save slot UI (multi-slot selection, delete, stats display) | Milestone 5 |
+
+See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence) is implemented; see the `WorldStateRegistry` and `EnemyPersistence` sections below.
 
 ---
 
@@ -105,12 +108,12 @@ SaveManager (MonoBehaviour — DontDestroyOnLoad)
 │   ├── AbilitySaveData     8 bool flags (mirrors PlayerAbilityState)
 │   ├── HealthSaveData      initialized marker, current/max/bonus health
 │   ├── ResourceSaveData    initialized marker, current/max integer parts
-│   └── WorldSaveData       collectedPickupIds list (stub; ready for expansion)
+│   └── WorldSaveData       collectedPickupIds, visitedRoomIds, defeatedEncounterIds, objectStates
 ├── ISaveTarget (interface — implemented by persistent SOs)
 │   ├── PlayerAbilityState  [implemented]
 │   ├── PlayerHealthState   [implemented; authoritative gameplay owner]
 │   ├── PlayerResourceState [implemented; authoritative gameplay owner]
-│   └── WorldStateRegistry  [planned]
+│   └── WorldStateRegistry  [implemented — World Persistence Phase 1]
 ├── SaveSerializer          JsonUtility wrapper with null/exception guards
 ├── SaveFileStore           persistentDataPath I/O; .bak before overwrite; synchronous
 └── SaveDataMigrator        null normalization + version stamp
@@ -212,20 +215,33 @@ public class ResourceSaveData
 public class WorldSaveData
 {
     public List<string> collectedPickupIds = new List<string>();
-    // Future: visitedRoomKeys, openedDoorIds, defeatedEnemyIds
+    public List<string> visitedRoomIds = new List<string>();
+    public List<string> defeatedEncounterIds = new List<string>();
+    public List<WorldObjectStateEntry> objectStates = new List<WorldObjectStateEntry>();
+}
+
+// WorldObjectStateEntry.cs — JsonUtility cannot serialize Dictionary<,> directly, so permanent
+// per-object state round-trips through a flat, sorted list of these entries.
+[Serializable]
+public class WorldObjectStateEntry
+{
+    public string id = "";
+    public string state = "";
 }
 ```
+
+Respawnable-enemy death records and generic until-death state are intentionally NOT part of `WorldSaveData` — they are runtime-only collections owned by `WorldStateRegistry` (see below) and are cleared by `ApplySaveData` (fresh game / Continue / slot change) and by explicit reset calls on normal death.
 
 ### Example save_slot0.json
 
 ```json
 {
-  "meta": { "saveVersion": 3, "lastSavedUtc": "2026-07-21T08:37:37Z", "playTimeSeconds": 0.0 },
+  "meta": { "saveVersion": 4, "lastSavedUtc": "2026-07-21T08:37:37Z", "playTimeSeconds": 0.0 },
   "player": { "currentScene": "SampleScene", "activeRespawnSceneName": "SampleScene", "activeRespawnMarkerKey": "checkpoint_a", "activeHazardRespawnMarkerKey": "" },
   "abilities": { "dashUnlocked": true, "wallClingUnlocked": true, "sprintUnlocked": false, "wallLatchUnlocked": false, "doubleJumpUnlocked": false, "driftCloakUnlocked": false, "spiritCastUnlocked": false, "bindUnlocked": false },
   "health": { "initialized": true, "currentHealth": 5, "maximumHealth": 5, "bonusHealth": 0 },
   "resource": { "initialized": true, "currentParts": 0, "maximumParts": 0 },
-  "world": { "collectedPickupIds": [] }
+  "world": { "collectedPickupIds": [], "visitedRoomIds": [], "defeatedEncounterIds": [], "objectStates": [] }
 }
 ```
 
@@ -273,6 +289,27 @@ Their save sections include an `initialized` marker so an old save that lacks th
 
 A loaded save can, in rare cases (a quit-save or checkpoint-save racing a death sequence), capture `health.currentHealth == 0`. `SaveDataMigrator` does not correct this — normalization instead happens once at `Bootstrap.Start()`, immediately after `SaveManager.LoadOrCreate(0)` and before any gameplay scene loads, via `GameManager.ResolveLoadedHealthState()` → `PlayerHealthState.NormalizeDepletedContinue()`. This runs before any Hero exists, so it cannot trigger a second death/respawn, and it fires the neutral `StateApplied` reason (not `Heal`/`FullRestore`) so the HUD never presents it as player healing. See `Docs/FeatureSpecs/PlayerHealthAndResource.md` for the full lifecycle policy table.
 
+### WorldStateRegistry (implemented — World Persistence Phase 1)
+
+`Scripts/World/WorldStateRegistry.cs`. Owns physical world facts only: visited rooms, consumed pickups, permanent object states (arbitrary string payload per object ID, e.g. door open/closed), and permanent encounter completion — all serialized into `WorldSaveData`. It also owns two runtime-only collections that are never serialized: generic until-death physical state, and timed death records for ordinary respawnable enemies.
+
+`GatherSaveData` writes sorted, deduplicated lists (`StringComparer.Ordinal`) so save-target order never affects output. `ApplySaveData` clears and repopulates every serialized collection *and* clears both non-serialized collections — every apply represents a fresh game, a Continue, or a slot change, all of which must present ordinary enemies alive with no stale until-death state.
+
+Restricted enemy-timer API (see `Docs/ImplementationPlans/WorldPersistence.md` for the full behavioural spec):
+- `RecordRespawnableEnemyDeath(string enemyId, float respawnDuration)` — public, called by `EnemyPersistence.RecordDeath()` on confirmed death.
+- `ResetRespawnableEnemyDeaths()` / `ResetUntilDeathState()` — public, called exactly once per normal death from `GameManager.ApplyNormalDeathRespawn` (World Persistence Phase 2). Never called from checkpoint activation or recoverable hazard reposition.
+- `internal bool ShouldSuppressEnemyOnInitialization(string enemyId)` — internal; only `EnemyPersistence` (same assembly) may call it, and only from `EnemyController`'s one-time initialization path. There is no live respawn scheduler, coroutine, or per-frame timer — expiry is resolved lazily, only when a scene next initializes that enemy.
+
+Keyed notifications use `WorldStateKey` (category + string id) and `WorldStateChange` (bool flag + optional string payload) via `Subscribe`/`Unsubscribe` — there is no unqualified global `Changed` event. Enemy timer expiry never dispatches a notification.
+
+### EnemyPersistence and enemy persistence modes (implemented — World Persistence Phase 1)
+
+`Scripts/Enemy/EnemyPersistence.cs` + `EnemyPersistenceMode.cs` (`RoomRuntime` | `RespawnableTimed` | `PermanentEncounter`). Attached alongside `EnemyController` on a placed enemy prefab instance; carries a per-instance `worldObjectId` (must be unique — left blank on the shared prefab asset and set uniquely per scene instance), a `mode`, and a `WorldStateRegistry` reference. Ordinary-enemy respawn duration lives on shared `EnemyConfig.respawnDuration`, not on `EnemyPersistence` itself.
+
+`EnemyController.Awake` resolves suppression exactly once, before any AI/perception/movement/combat/feedback initialization: if `EnemyPersistence.ShouldSuppressOnInitialization()` returns true, colliders are disabled, `Rigidbody2D.simulated` is set false, renderers are disabled, and `EnemyMotor`/`EnemyPerception`/`EnemyAttackController`/`EnemyContactDamage`/`IEnemyBehaviour` components are disabled without ever being initialized. `EnemyController` and `EnemyPersistence` remain enabled for diagnostics; the first pass never calls `gameObject.SetActive(false)`. On the active path, `EnemyPersistence.RecordDeath` is subscribed to `EnemyHealthComponent.OnDeath`.
+
+`Mushroom.prefab` and all 9 placed instances across `SampleScene`/`SampleScene2`/`SampleScene3` are wired as `RespawnableTimed` against the single `WorldStateRegistry.asset` (`Assets/_Project/ScriptableObjects/World/WorldStateRegistry.asset`), registered on `_SaveManager.prefab`'s save target list. `Tools/Project/Validate World Persistence` scans enabled Build Settings scenes for missing/duplicate `worldObjectId`s, missing registry/config references, and `RespawnableTimed` instances with an invalid `EnemyConfig.respawnDuration`.
+
 ### Adding a new ISaveTarget implementor (future)
 
 1. Implement `ISaveTarget` on the ScriptableObject.
@@ -309,6 +346,7 @@ Every application start runs through `Bootstrap.Start()`:
 
 2. GameManager.ResolveLoadedHealthState()
    → PlayerHealthState.NormalizeDepletedContinue() (no-op unless CurrentHealth <= 0)
+   → if it fired, also PlayerResourceState.Clear()
    → runs before any gameplay scene/Hero exists — zero-health save protection (see PlayerHealthAndResource.md)
 
 3. startupScene = SaveManager.GetStartupScene(firstScene)
@@ -427,7 +465,7 @@ void SetActiveHazardRespawnMarkerKey(string key)
 ```csharp
 public static class SaveDataMigrator
 {
-    public const int CurrentSaveVersion = 3;
+    public const int CurrentSaveVersion = 4;
 
     public static void Migrate(SaveData data)
     {
@@ -438,7 +476,10 @@ public static class SaveDataMigrator
         data.health     ??= new HealthSaveData();
         data.resource   ??= new ResourceSaveData();
         data.world      ??= new WorldSaveData();
-        data.world.collectedPickupIds ??= new List<string>();
+        data.world.collectedPickupIds   ??= new List<string>();
+        data.world.visitedRoomIds       ??= new List<string>();
+        data.world.defeatedEncounterIds ??= new List<string>();
+        data.world.objectStates         ??= new List<WorldObjectStateEntry>();
 
         // Null-normalize string fields
         data.player.currentScene                ??= "";
@@ -461,6 +502,9 @@ public static class SaveDataMigrator
             data.health.initialized = false;
             data.resource.initialized = false;
         }
+
+        // Version 3 and earlier had no room/encounter/object-state world sections. No transform
+        // is needed beyond the null-coalescing above — an absent section is correctly empty.
 
         data.meta.saveVersion = CurrentSaveVersion;
 
@@ -488,15 +532,11 @@ When a schema change breaks backward compatibility:
 
 ## Future Expansion
 
-### WorldStateRegistry (Milestone 4)
-A `WorldStateRegistry` ScriptableObject implementing `ISaveTarget`. Tracks:
-- `visitedRoomKeys` — rooms the player has entered; drives map reveal
-- `defeatedEnemyIds` — enemies that should not respawn on scene reload
-- `openedDoorIds` — doors in their opened/unlocked persistent state
-- `collectedPickupIds` — already in `WorldSaveData`, just needs `AbilityPickup` to write to it and `WorldStateRegistry` to consume it on load
+### World Persistence Phase 3 (remaining)
+Phase 1 covers the registry foundation, save schema, stable world object IDs, and the full ordinary-placed-enemy vertical slice. Phase 2 (this document's implemented state) adds normal-death lifecycle integration (`GameManager.ApplyNormalDeathRespawn` calls `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per death) and `AbilityPickup` reconciliation against `WorldStateRegistry.collectedPickupIds`, in favor of `PlayerAbilityState`. Not yet wired: doors/switches/breakables consuming `SetObjectState`/`SetUntilDeathState`, real bosses/one-time encounters using `PermanentEncounter` (the mode itself is implemented and unit-tested; no boss content exists), and room-visitation calls from scene entry. See `Docs/ImplementationPlans/WorldPersistence.md` for the full plan and roadmap.
 
-### AbilityPickup persistence (design decision needed)
-`AbilityPickup.cs` currently has a TODO comment for save integration. The design question: does picking up an ability immediately force a save (making it permanent before the next checkpoint), or does it rely on the next checkpoint/quit save? This matters for retry-loop design. Until decided, pickups are only persisted if the player reaches a checkpoint after picking them up.
+### AbilityPickup persistence (resolved)
+`AbilityPickup.cs` now marks `WorldStateRegistry.MarkPickupCollected` alongside `PlayerAbilityState.Unlock` on collection, and reconciles the two on initialization in favor of `PlayerAbilityState`. This does not force an immediate disk save — per the `Save()` call-site rule below, collection only updates in-memory registry state; it is durably persisted at the next checkpoint or quit-save, same as any other mid-session progress.
 
 ### Multi-slot saves
 The API is already slot-aware. `Save(int slot)`, `HasSave(int slot)`, `GetSaveStats(int slot)`, and `SaveFileStore.GetPath(int slot)` all accept any slot index. `save_slot{n}.json` naming is already in place. Adding multi-slot support requires only: a slot-selection UI that calls `LoadOrCreate(chosenSlot)` and `CreateFreshSave(chosenSlot)` at the right times.
@@ -508,7 +548,7 @@ The API is already slot-aware. `Save(int slot)`, `HasSave(int slot)`, `GetSaveSt
 `MetaSaveData.playTimeSeconds` is a stub at `0f`. Wire it by adding a `Time.unscaledDeltaTime` accumulator to `SaveManager.Update()` that increments while `GameManager.State == GameState.Playing`. Write the accumulated total into `CurrentSave.meta.playTimeSeconds` in `GatherSaveData()`.
 
 ### Save migration versioning
-When a schema change needs data patching, increment `SaveDataMigrator.CurrentSaveVersion` and add a version-gated block. Version 2 adds `activeRespawnSceneName`; old saves migrate by copying `currentScene` only when a respawn marker key exists, which is best-effort and may require checkpoint re-activation if the old save's `currentScene` is not the checkpoint scene. Version 3 adds initialized health and resource sections; missing sections retain `initialized == false` so the state assets apply authored defaults. Unsupported future-version rejection is not implemented: the current migrator stamps any deserialized data to the current version. Treat a forward-version policy as separate technical debt.
+When a schema change needs data patching, increment `SaveDataMigrator.CurrentSaveVersion` and add a version-gated block. Version 2 adds `activeRespawnSceneName`; old saves migrate by copying `currentScene` only when a respawn marker key exists, which is best-effort and may require checkpoint re-activation if the old save's `currentScene` is not the checkpoint scene. Version 3 adds initialized health and resource sections; missing sections retain `initialized == false` so the state assets apply authored defaults. Version 4 adds `visitedRoomIds`, `defeatedEncounterIds`, and `objectStates` to `WorldSaveData` for `WorldStateRegistry`; no version-gated transform was needed since the null-coalescing normalization already leaves absent sections correctly empty. Unsupported future-version rejection is not implemented: the current migrator stamps any deserialized data to the current version. Treat a forward-version policy as separate technical debt.
 
 ### Auto-save on scene transition
 Wire `SaveManager.Save()` into `GameManager.TransitionRoutine` before the `LoadSceneAsync` call. This creates a checkpoint-independent auto-save whenever the player moves between scenes, at the cost of slightly longer transition times.

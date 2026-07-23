@@ -22,6 +22,7 @@ MonoBehaviour:
   stopHorizontalVelocityOnUpwardRecoil: 1
   deathType: 0
   deathDestroyDelay: 1.95
+  respawnDuration: 30
   hurtSfx: {fileID: 8300000, guid: 9c447bd69223a044cb852fa966918023, type: 3}
   deathSfx: {fileID: 8300000, guid: a0fbf78b64e63304e8cfa71b3dd77c49, type: 3}
   patrolSpeed: 1.5

@@ -20,7 +20,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
-| Save / load system | Done (Milestone 0 foundation; world-state and UI deferred) |
+| Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
 | UI (HUD, menus) | HUD presentation foundation implemented; menus not started |
 | Audio system | Partial |
@@ -99,7 +99,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule`. (Done)
 - [x] Add basic action SFX (jump, land, dash, hurt) via `HeroAudioController` in the relevant action classes. (Done — jump/double-jump in `HeroJumpAction`, dash in `HeroDashAction`, land/hurt/death in `HeroController`; also wall-jump, wall-slide, footsteps, attack slash, and terrain impact covered)
 
-**Enemy AI future boundaries:** wake/sleep activation, defeated-enemy persistence, pooling, bosses, and additional enemy archetypes remain planned/not implemented. The validated foundation currently targets Mushroom only.
+**Enemy AI future boundaries:** wake/sleep activation, pooling, real bosses, and additional enemy archetypes remain planned/not implemented. Ordinary-enemy world persistence (timed suppression on scene re-initialization) is implemented — see `EnemyPersistence` in Architecture.md. The validated foundation currently targets Mushroom only.
 
 ---
 
@@ -112,7 +112,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Create `HeroAbilityConfig` ScriptableObject. (Done)
 - [x] Gate dash behind `PlayerAbilityState.dashUnlocked`. (Done)
 - [x] Gate wall-slide and wall-jump behind shared `PlayerAbilityState.wallClingUnlocked`. (Done)
-- [x] Implement `AbilityPickup` MonoBehaviour. (Done — save/world-state integration is a TODO: persist via `collectedPickupIds` in `WorldSaveData` once `WorldStateRegistry` exists)
+- [x] Implement `AbilityPickup` MonoBehaviour. (Done — world-state integration done in World Persistence Phase 2: reconciles `PlayerAbilityState` against `WorldStateRegistry.collectedPickupIds` on initialization and records collection through both. See `Docs/ImplementationPlans/WorldPersistence.md`.)
 - [x] Implement `AbilityGate` MonoBehaviour. (Done — refreshes on enable for loaded state and reacts to `PlayerAbilityState.AbilityChanged` for runtime changes)
 - [x] Implement wall-jump (`HeroWallJumpAction`). (Done)
 - [x] Implement double-jump first pass (`HeroJumpAction`). (Done)
@@ -125,7 +125,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 ## Milestone 4 — Save System
 
 **Goal:** Progress persists across sessions.  
-**Status: Foundation complete (Milestone 0 pass). Remaining items are world-state and UX.**
+**Status: Foundation and World Persistence Phase 1/2 complete. Remaining item is multi-slot save UI.**
 
 - [x] Implement `SaveManager` and `ISaveTarget` interface. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
 - [x] Implement save data classes: `MetaSaveData`, `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `SaveData`. (Done)
@@ -141,9 +141,9 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Hero placement at saved position on boot/continue — `PlaceHeroAtSavedRespawnIfRequested()` single-use flag set by `Bootstrap`, consumed on first scene load. Camera snaps to correct position automatically via `TransitionRoutine`. (Done)
 - [x] Handle missing/corrupt save file gracefully — fresh state, no crash, clear console log. (Done)
 - [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
-- [ ] Implement `WorldStateRegistry` SO — visited rooms, defeated enemies, open doors, collected pickups; wire as `ISaveTarget`.
+- [x] Implement `WorldStateRegistry` SO — visited rooms, defeated encounters, permanent object states, collected pickups; wired as `ISaveTarget` on `_SaveManager.prefab`. (Done — World Persistence Phase 1, 2026-07-23. Ordinary placed enemy persistence is the complete vertical slice: `EnemyPersistence` + `EnemyPersistenceMode` + `EnemyConfig.respawnDuration`, wired onto `Mushroom.prefab` and all 9 placed instances across `SampleScene`/`SampleScene2`/`SampleScene3`.)
+- [x] World Persistence Phase 2 — normal-death lifecycle integration and pickup reconciliation. (Done. `GameManager.ApplyNormalDeathRespawn` clears `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per normal death; checkpoint activation and recoverable-hazard reposition are unchanged and never clear transient records; Continue/New Game/slot change already worked for free via `WorldStateRegistry.ApplySaveData`. `AbilityPickup` reconciles against `WorldStateRegistry.collectedPickupIds` in favor of `PlayerAbilityState`. `WorldPersistenceValidator` extended to cover `AbilityPickup`. Doors/switches/breakables and real boss encounters remain Phase 3 — see `Docs/ImplementationPlans/WorldPersistence.md`.)
 - [x] Scene-name-driven boot continue — `Bootstrap` now resolves startup scene from `activeRespawnSceneName`, then `currentScene`, then `firstScene`. (Done; main-menu Continue button still deferred.)
-- [ ] `AbilityPickup` persistence — decide autosave policy; wire `collectedPickupIds` round-trip through `WorldStateRegistry`.
 - [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
 
 **Future compatibility note:** Death-drop / shade / resource recovery is not part of this pass. When added, it should capture death scene + death position before `GameManager` loads the checkpoint scene; do not reuse `activeRespawnSceneName` for death-drop location.
@@ -179,7 +179,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 **Status:** Done. See `Docs/FeatureSpecs/PlayerHealthAndResource.md` for the full lifecycle policy table and validation checklist.
 
 - [x] Resource now clears to zero exactly once on normal death, lethal recoverable hazards, and forced-death hazards, via `PlayerResourceState.Clear()` called from the single authoritative `HeroController.ResetAfterRespawn()` call site (previously resource was never cleared on death — a genuine gap fixed this milestone).
-- [x] Zero-health save protection — `GameManager.ResolveLoadedHealthState()` (called once by `Bootstrap.Start()` right after `SaveManager.LoadOrCreate`, before any scene/Hero exists) normalizes a loaded save captured at zero health via `PlayerHealthState.NormalizeDepletedContinue()`, using the neutral `StateApplied` reason so the HUD never presents it as healing.
+- [x] Zero-health save protection — `GameManager.ResolveLoadedHealthState()` (called once by `Bootstrap.Start()` right after `SaveManager.LoadOrCreate`, before any scene/Hero exists) normalizes a loaded save captured at zero health via `PlayerHealthState.NormalizeDepletedContinue()`, using the neutral `StateApplied` reason so the HUD never presents it as healing, and clears `PlayerResourceState` alongside it so a Continue never resumes with a stale pre-death resource amount.
 - [x] Validated (already correctly implemented, no code changes needed): New Game reset, ordinary save/load restore + clamping, room-transition preservation, checkpoint marker-before-save ordering and no-heal/no-refill behavior, recoverable-hazard preservation, lethal/forced-hazard funneling into the single death path, and the full Bind cancellation matrix.
 - [x] Removed the temporary direct-keyboard Bind fallback from `HeroInputReader` (the real Input System Bind action was verified wired and functional).
 - [x] Removed obsolete `ResourcePipView.cs`/`.prefab` (superseded by the resource bar refactor; confirmed zero references).
@@ -212,7 +212,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - **Trigger-updated active hazard respawn markers are not implemented.** Direct `HazardZone` → `HazardRespawnMarker` local recovery is implemented. `activeHazardRespawnMarkerKey` is already in `PlayerSaveData`, but the first-pass runtime path intentionally does not read or write it.
 
-- **`AbilityPickup` world-state gap.** `AbilityPickup` unlocks the ability in the current session but the unlocked state only persists if the player reaches a checkpoint before quitting. Once `WorldStateRegistry` tracks `collectedPickupIds`, pickups can be suppressed on scene load if already collected.
+- ~~**`AbilityPickup` world-state gap.**~~ Resolved in World Persistence Phase 2 — collection now records `WorldStateRegistry.MarkPickupCollected` alongside `PlayerAbilityState.Unlock`, and initialization reconciles the two in favor of `PlayerAbilityState`.
 
 - **HUD placeholder artwork remains Editor/art work.** `PersistentHudRoot`, `HealthDisplay`, and `ResourceDisplay` provide direct persistent-state subscriptions and neutral initial/state-applied refreshes; the `_GameCameras` Canvas hierarchy and Inspector assignments are already built and verified (Milestone 7). Only final visual artwork/animation polish remains, and it is explicitly out of scope.
 

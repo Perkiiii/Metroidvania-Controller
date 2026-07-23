@@ -199,7 +199,6 @@ public class HeroController : MonoBehaviour
         blackboard.falling = false;
         blackboard.moving = false;
         blackboard.desiredMoveX = 0f;
-        blackboard.velocity = Vector2.zero;
     }
 
     private void ResolveDependencies()

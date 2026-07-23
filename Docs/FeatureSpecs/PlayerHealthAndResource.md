@@ -193,7 +193,7 @@ No health/resource/bonus mutation anywhere in this path — current health, bonu
 |---|---|---|---|---|---|
 | New Game | Full (authored max) | 0 | 0 | N/A | Neutral refresh (`StateApplied`) |
 | Ordinary save/load | Restored (clamped) | Restored (clamped) | Restored (clamped) | Not serialized | Neutral refresh |
-| **Zero-health Continue** | Normalized to full **once**, before any scene/Hero exists | Cleared | Unaffected by this seam | N/A | Neutral refresh (`StateApplied`, not `Heal`) |
+| **Zero-health Continue** | Normalized to full **once**, before any scene/Hero exists | Cleared | Cleared | N/A | Neutral refresh (`StateApplied`, not `Heal`) |
 | Room transition | Preserved | Preserved | Preserved | Cancelled | No rebuild/resubscribe |
 | Checkpoint | Preserved | Preserved | Preserved | Not cancelled (not required) | Neutral refresh only if a save-apply occurs |
 | Normal death | Restored to max once | Cleared once | Cleared once | Cancelled immediately, spends nothing | Ends at full/0/0 |
@@ -212,7 +212,7 @@ No health/resource/bonus mutation anywhere in this path — current health, bonu
 - Fires the neutral `StateApplied` reason (not `Heal`/`FullRestore`), so the HUD never presents this as player healing.
 - Cannot trigger a second death or respawn: it runs before any `HeroController`/`HeroHealthComponent` exists, so no death event, animation, or respawn sequence can fire from it.
 
-This intentionally does **not** touch `PlayerResourceState` — the policy only specifies health/bonus normalization for this seam.
+If (and only if) that normalization actually fired, `GameManager` also calls `PlayerResourceState.Clear()`, so a Continue never resumes with health restored but a stale pre-death resource amount — matching the normal death policy, where health and resource are always reset together.
 
 ## Configuration ownership
 
@@ -228,7 +228,7 @@ This intentionally does **not** touch `PlayerResourceState` — the policy only 
 
 - `PlayerHealthState.asset`, `PlayerResourceState.asset` assigned to the `_SaveManager.prefab` ordered target list and to the Hero prefab's `HeroController.healthState`/`resourceState` fields.
 - `PlayerResourceConfig.asset` assigned to `HeroController.resourceConfig`.
-- `GameManager` (on `_GameManager.prefab`) now also references `PlayerHealthState` directly (new in Milestone 7), solely for `ResolveLoadedHealthState()` — assigned via Unity MCP to the same asset used elsewhere.
+- `GameManager` (on `_GameManager.prefab`) now also references `PlayerHealthState` and `PlayerResourceState` directly (new in Milestone 7), solely for `ResolveLoadedHealthState()` — assigned to the same assets used elsewhere.
 - Input System `Bind` action exists and is bound (verified in `InputSystem_Actions.inputactions`); the temporary direct-keyboard fallback in `HeroInputReader` has been removed.
 - HUD hierarchy (`PersistentHudRoot` → `HealthDisplay`/`ResourceDisplay`) lives under `_GameCameras.prefab`; `HUDCamera` is configured as an Overlay camera stacked on `MainCamera`.
 
@@ -245,5 +245,5 @@ Passive resource regeneration, partial-resource decay, parry resource generation
 ## Known technical debt
 
 - `HeroHealthComponent.RestoreFullHealth()` (the `preserveBonus: true` overload) has no production caller — only exercised by `HeroBindActionTests`. Retained rather than removed since a test still depends on it.
-- `GameManager` now holds a direct `PlayerHealthState` reference for the zero-health-continue seam — a narrow, documented exception to "GameManager does not own health values," not general ownership.
+- `GameManager` now holds direct `PlayerHealthState`/`PlayerResourceState` references for the zero-health-continue seam — a narrow, documented exception to "GameManager does not own health/resource values," not general ownership.
 - `ResourceDisplay.Configure(PlayerResourceState, PlayerResourceConfig)` (the two-argument legacy overload) is retained only because `HudDisplayTests` still calls it; the `PlayerResourceConfig` argument is otherwise unused by the bar presentation.

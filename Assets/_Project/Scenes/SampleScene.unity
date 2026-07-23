@@ -514,6 +514,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2668849107442034752, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
+      propertyPath: worldObjectId
+      value: SampleScene_mushroom_1
+      objectReference: {fileID: 0}
     - target: {fileID: 4258216635766030637, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
       propertyPath: m_Name
       value: Mushroom (1)
@@ -571,6 +575,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2668849107442034752, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
+      propertyPath: worldObjectId
+      value: SampleScene_mushroom_2
+      objectReference: {fileID: 0}
     - target: {fileID: 4258216635766030637, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
       propertyPath: m_Name
       value: Mushroom (2)
@@ -2099,6 +2107,10 @@ PrefabInstance:
       propertyPath: attackStartupClip
       value: 
       objectReference: {fileID: 7400000, guid: a249bb22fb8daa542bee9cef03430a50, type: 2}
+    - target: {fileID: 2668849107442034752, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
+      propertyPath: worldObjectId
+      value: SampleScene_mushroom_3
+      objectReference: {fileID: 0}
     - target: {fileID: 4258216635766030637, guid: e017dcf1ab2b2524ea9e61d29918be10, type: 3}
       propertyPath: m_Name
       value: Mushroom

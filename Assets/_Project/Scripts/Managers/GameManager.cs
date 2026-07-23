@@ -22,6 +22,15 @@ public sealed class GameManager : MonoBehaviour
     [Tooltip("Same asset referenced by the Hero prefab and the persistent HUD. Used only to " +
         "normalize a loaded save that captured zero health (see ResolveLoadedHealthState).")]
     [SerializeField] private PlayerHealthState healthState;
+    [Tooltip("Same asset referenced by the Hero prefab and the persistent HUD. Cleared alongside " +
+        "healthState when a loaded save captured zero health (see ResolveLoadedHealthState).")]
+    [SerializeField] private PlayerResourceState resourceState;
+    [Tooltip("Same asset assigned as a save target on _SaveManager. Its transient timed enemy " +
+        "death records and generic until-death state are cleared exactly once per normal death " +
+        "(including lethal/forced-death hazards), in ApplyNormalDeathRespawn. Never touched by " +
+        "checkpoint activation or recoverable hazard reposition, and never touched here for " +
+        "Continue/New Game/slot change — WorldStateRegistry.ApplySaveData already owns that reset.")]
+    [SerializeField] private WorldStateRegistry worldStateRegistry;
 
     private Coroutine _hitStopCoroutine;
     private SceneLoader _sceneLoader;
@@ -85,10 +94,15 @@ public sealed class GameManager : MonoBehaviour
     // this, so without this seam a loaded save could resume gameplay on a dead hero. Running
     // this before scene load means no death/respawn event or duplicate HUD mutation is possible;
     // PlayerHealthState.NormalizeDepletedContinue is itself idempotent (no-op unless depleted).
+    // Resource is cleared alongside health, matching ResetAfterRespawn's normal death handling,
+    // so a Continue never resumes with health restored but a stale pre-death resource amount.
     public void ResolveLoadedHealthState()
     {
-        if (healthState != null && healthState.NormalizeDepletedContinue())
-            Debug.Log("[GameManager] Loaded save had zero health; normalized to full health before first scene load.");
+        if (healthState == null || !healthState.NormalizeDepletedContinue())
+            return;
+
+        resourceState?.Clear();
+        Debug.Log("[GameManager] Loaded save had zero health; normalized to full health and cleared resource before first scene load.");
     }
 
     private void Awake()
@@ -246,38 +260,43 @@ public sealed class GameManager : MonoBehaviour
 
         _respawnOrRecoveryInProgress = true;
 
-        string currentScene = SceneManager.GetActiveScene().name;
         string respawnScene = SaveManager.Instance?.ActiveRespawnSceneName ?? "";
         string markerKey = SaveManager.Instance?.ActiveRespawnMarkerKey ?? "";
 
         if (string.IsNullOrEmpty(respawnScene))
         {
-            respawnScene = currentScene;
+            respawnScene = SceneManager.GetActiveScene().name;
         }
 
-        if (respawnScene != currentScene)
+        // Every normal death reloads the activated checkpoint scene through the existing scene
+        // transition pipeline -- including when the checkpoint is in the scene already loaded.
+        // SceneLoader.LoadSingle uses SceneManager.LoadSceneAsync, which fully unloads and reloads
+        // the target regardless of whether it matches the active scene, so this is the same single
+        // scene-loading path used by every other transition, not a parallel one. Reloading is what
+        // lets ordinary enemies re-run EnemyController's one-time initialization and have timed /
+        // permanent suppression re-resolved against the registry state normal death just reset.
+        if (IsSceneLoadable(respawnScene))
         {
-            if (IsSceneLoadable(respawnScene))
-            {
-                _hasPendingNormalDeathRespawn = true;
-                _pendingNormalDeathRespawnScene = respawnScene;
-                _pendingNormalDeathRespawnMarkerKey = markerKey;
+            _hasPendingNormalDeathRespawn = true;
+            _pendingNormalDeathRespawnScene = respawnScene;
+            _pendingNormalDeathRespawnMarkerKey = markerKey;
 
-                if (BeginSceneTransition(new SceneTransitionRequest(
-                    respawnScene,
-                    kind: SceneTransitionKind.NormalDeathRespawn,
-                    sourceDescription: "normal death respawn")))
-                    return;
+            if (BeginSceneTransition(new SceneTransitionRequest(
+                respawnScene,
+                kind: SceneTransitionKind.NormalDeathRespawn,
+                sourceDescription: "normal death respawn")))
+                return;
 
-                ClearPendingNormalDeathRespawn();
-                Debug.LogWarning($"[GameManager] Cross-scene respawn transition to '{respawnScene}' could not start. Falling back to current scene respawn.");
-            }
-            else
-            {
-                Debug.LogWarning($"[GameManager] Saved respawn scene '{respawnScene}' is not loadable. Falling back to current scene respawn.");
-            }
+            ClearPendingNormalDeathRespawn();
+            Debug.LogWarning($"[GameManager] Respawn transition to '{respawnScene}' could not start. Falling back to in-place respawn without a scene reload.");
+        }
+        else
+        {
+            Debug.LogWarning($"[GameManager] Saved respawn scene '{respawnScene}' is not loadable. Falling back to in-place respawn without a scene reload.");
         }
 
+        // Reached only if the checkpoint scene could not be (re)loaded at all -- an in-place
+        // respawn without a reload is preferable to leaving the player stuck.
         StartCoroutine(RespawnRoutine());
     }
 
@@ -344,6 +363,16 @@ public sealed class GameManager : MonoBehaviour
 
     private void ApplyNormalDeathRespawn(RespawnMarker marker, string sceneName)
     {
+        // Single authoritative reset point for normal death (reached exactly once here, for both
+        // same-scene and cross-scene checkpoints — see BeginRespawnSequence/CompletePendingNormalDeathRespawn).
+        // Never reached by checkpoint activation or recoverable hazard reposition. Permanent world
+        // state (visited rooms, collected pickups, defeated encounters, object states) is untouched.
+        if (worldStateRegistry != null)
+        {
+            worldStateRegistry.ResetRespawnableEnemyDeaths();
+            worldStateRegistry.ResetUntilDeathState();
+        }
+
         if (_hero != null)
         {
             if (marker != null)

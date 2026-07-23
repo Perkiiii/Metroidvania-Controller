@@ -22,6 +22,12 @@ public sealed class EnemyConfig : ScriptableObject
     public EnemyDeathType deathType = EnemyDeathType.Standard;
     public float deathDestroyDelay = 0.5f;
 
+    [Header("World Persistence")]
+    [Tooltip("Shared respawn window for ordinary RespawnableTimed enemies using this config. " +
+        "Ignored by RoomRuntime and PermanentEncounter modes. Must be greater than 0 for any " +
+        "EnemyPersistence instance set to RespawnableTimed.")]
+    public float respawnDuration = 30f;
+
     [Header("Audio")]
     public AudioClip hurtSfx;
     public AudioClip deathSfx;

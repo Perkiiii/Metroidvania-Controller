@@ -48,3 +48,5 @@ MonoBehaviour:
   startupFadeProfile: {fileID: 0}
   respawnFadeProfile: {fileID: 0}
   healthState: {fileID: 11400000, guid: cee54eb6324705d4aabc766c56ae0d23, type: 2}
+  resourceState: {fileID: 11400000, guid: 1caae1f2f1c32df4abb37115d051346d, type: 2}
+  worldStateRegistry: {fileID: 11400000, guid: ca3cf2605a1f08340965381da8f97de7, type: 2}

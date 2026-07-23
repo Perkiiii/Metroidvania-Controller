@@ -307,7 +307,7 @@ public sealed class PlayerPersistentStateTests
 
         SaveDataMigrator.Migrate(data);
 
-        Assert.That(data.meta.saveVersion, Is.EqualTo(3));
+        Assert.That(data.meta.saveVersion, Is.EqualTo(4));
         Assert.That(data.health, Is.Not.Null);
         Assert.That(data.health.initialized, Is.False);
         Assert.That(data.resource, Is.Not.Null);
@@ -412,6 +412,64 @@ public sealed class PlayerPersistentStateTests
         {
             Object.DestroyImmediate(gameObject);
             Object.DestroyImmediate(state);
+        }
+    }
+
+    [Test]
+    public void GameManagerResolveLoadedHealthStateClearsResourceWhenHealthWasDepleted()
+    {
+        PlayerHealthState health = ScriptableObject.CreateInstance<PlayerHealthState>();
+        PlayerResourceState resource = ScriptableObject.CreateInstance<PlayerResourceState>();
+        GameObject gameObject = new GameObject("GameManager Test");
+        try
+        {
+            health.ApplySaveData(CreateInitializedHealthData(current: 0, maximum: 8, bonus: 2));
+            resource.ApplySaveData(CreateInitializedResourceData(current: 6, maximum: 10));
+
+            gameObject.SetActive(false);
+            GameManager manager = gameObject.AddComponent<GameManager>();
+            SetPrivateField(manager, "healthState", health);
+            SetPrivateField(manager, "resourceState", resource);
+
+            manager.ResolveLoadedHealthState();
+
+            Assert.That(health.CurrentHealth, Is.EqualTo(8));
+            Assert.That(resource.CurrentParts, Is.Zero, "A zero-health Continue must clear resource neutrally, matching normal death handling.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(gameObject);
+            Object.DestroyImmediate(health);
+            Object.DestroyImmediate(resource);
+        }
+    }
+
+    [Test]
+    public void GameManagerResolveLoadedHealthStateLeavesResourceUntouchedWhenHealthNotDepleted()
+    {
+        PlayerHealthState health = ScriptableObject.CreateInstance<PlayerHealthState>();
+        PlayerResourceState resource = ScriptableObject.CreateInstance<PlayerResourceState>();
+        GameObject gameObject = new GameObject("GameManager Test");
+        try
+        {
+            health.ApplySaveData(CreateInitializedHealthData(current: 5, maximum: 8, bonus: 1));
+            resource.ApplySaveData(CreateInitializedResourceData(current: 6, maximum: 10));
+
+            gameObject.SetActive(false);
+            GameManager manager = gameObject.AddComponent<GameManager>();
+            SetPrivateField(manager, "healthState", health);
+            SetPrivateField(manager, "resourceState", resource);
+
+            manager.ResolveLoadedHealthState();
+
+            Assert.That(health.CurrentHealth, Is.EqualTo(5), "Non-depleted health must not be normalized.");
+            Assert.That(resource.CurrentParts, Is.EqualTo(6), "Resource must only be cleared when the zero-health seam actually fires.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(gameObject);
+            Object.DestroyImmediate(health);
+            Object.DestroyImmediate(resource);
         }
     }
 
