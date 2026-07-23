@@ -1,6 +1,6 @@
 # Feature Spec — Abilities
 
-**Last audited:** 2026-05-20
+**Last audited:** 2026-07-23
 
 ## Responsibilities
 
@@ -51,10 +51,10 @@ Event: `AbilityChanged(AbilityId, bool)` — fired by `SetUnlocked` only when th
 - Sprint, WallLatch, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
 - **Bind** uses `bindUnlocked`. Checked in `HeroBindAction.CanStart()` only (not `CanContinue()`), matching the dash/wall-cling convention of gating on entry.
 
-### AbilityPickup (`Assets/_Project/Scripts/World/AbilityPickup.cs`)
-MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId ability`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` on trigger.
+### AbilityPickup (`Assets/_Project/Scripts/World/Persistence/Participants/AbilityPickup.cs`)
+MonoBehaviour. Serialized fields: `string worldObjectId`, `PlayerAbilityState abilityState`, `AbilityId ability`, `WorldStateRegistry registry`, `bool disableAfterPickup`. Detects the hero via `GetComponentInParent<HeroBox>()` with `HeroController` fallback. Calls `abilityState.Unlock(ability)` and `registry.MarkPickupCollected(worldObjectId)` on trigger.
 
-**Save integration (deferred):** Unlocking an ability updates `PlayerAbilityState` immediately. The unlock persists across sessions only if the player activates a checkpoint (or quits while auto-save is enabled) after the pickup. Full world-state persistence (`collectedPickupIds` in `WorldSaveData`) is deferred to Milestone 4 when `WorldStateRegistry` is implemented. The design decision of whether ability pickups should force an immediate save is also deferred.
+**Save integration (implemented):** Unlocking an ability updates `PlayerAbilityState` immediately, and the physical pickup's consumption is recorded in `WorldStateRegistry.collectedPickupIds` (serialized via `WorldSaveData`) in the same trigger — no longer deferred. `PlayerAbilityState` remains the sole authority for ability ownership; the registry only remembers that this specific physical pickup instance was consumed, so a defeated/suppressed pickup GameObject stays disabled after reload without needing to re-check ability state every scene load. On `Awake()`, `AbilityPickup` reconciles the two records: if the ability is already unlocked, a missing pickup record is filled in without replaying unlock feedback; if the pickup is recorded consumed but the ability is not unlocked (an inconsistent state — this should not occur in normal play), `PlayerAbilityState` wins: the stale record is cleared via `WorldStateRegistry.ClearPickupCollectedRecord` and the pickup stays active for reacquisition, without unlocking the ability, firing `AbilityChanged`, or replaying collection feedback.
 
 ### AbilityGate (`Assets/_Project/Scripts/World/AbilityGate.cs`)
 MonoBehaviour. Serialized fields: `PlayerAbilityState abilityState`, `AbilityId requiredAbility`, `GameObject blocker`, `Collider2D blockerCollider`. Calls `Refresh()` in `OnEnable` so gates match already-loaded ability state, then subscribes to `AbilityChanged` for runtime unlock/lock changes; unsubscribes in `OnDisable`. Exposes `Refresh()` — call manually after `ResetToDefaults()` if needed at runtime.

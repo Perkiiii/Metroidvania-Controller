@@ -27,9 +27,10 @@ public sealed class GameManager : MonoBehaviour
     [SerializeField] private PlayerResourceState resourceState;
     [Tooltip("Same asset assigned as a save target on _SaveManager. Its transient timed enemy " +
         "death records and generic until-death state are cleared exactly once per normal death " +
-        "(including lethal/forced-death hazards), in ApplyNormalDeathRespawn. Never touched by " +
-        "checkpoint activation or recoverable hazard reposition, and never touched here for " +
-        "Continue/New Game/slot change — WorldStateRegistry.ApplySaveData already owns that reset.")]
+        "(including lethal/forced-death hazards), in BeginRespawnSequence, before the checkpoint " +
+        "scene begins loading or the in-place fallback runs. Never touched by checkpoint " +
+        "activation or recoverable hazard reposition, and never touched here for Continue/New " +
+        "Game/slot change — WorldStateRegistry.ApplySaveData already owns that reset.")]
     [SerializeField] private WorldStateRegistry worldStateRegistry;
 
     private Coroutine _hitStopCoroutine;
@@ -173,6 +174,12 @@ public sealed class GameManager : MonoBehaviour
     {
         SceneInit?.Invoke(scene);
 
+        // Scene name is the room ID for visited-room tracking (World Persistence Phase 3) -- no
+        // scene-wide search, no polling; this fires exactly once per confirmed scene load, which is
+        // the only place a room is genuinely "entered." Never fires for the Boot scene itself, since
+        // GameManager subscribes to SceneManager.sceneLoaded after Boot has already finished loading.
+        worldStateRegistry?.MarkRoomVisited(scene.name);
+
         // Cache the hero for this scene
         _hero       = FindFirstObjectByType<HeroController>();
         _heroHealth = _hero != null ? _hero.GetComponent<HeroHealthComponent>() : null;
@@ -259,6 +266,20 @@ public sealed class GameManager : MonoBehaviour
         }
 
         _respawnOrRecoveryInProgress = true;
+
+        // Single authoritative reset point for normal death, run exactly once here -- before the
+        // checkpoint scene begins loading (same-scene or cross-scene) and before the in-place
+        // fallback below if the scene can't be loaded at all. This must happen before
+        // BeginSceneTransition/SceneLoader.LoadSingle runs, because scene loading synchronously
+        // fires Awake on every object in the newly loaded scene (including EnemyController),
+        // which must observe cleared state to resolve timed/permanent suppression correctly.
+        // Never reached by checkpoint activation or recoverable hazard reposition. Permanent world
+        // state (visited rooms, collected pickups, defeated encounters, object states) is untouched.
+        if (worldStateRegistry != null)
+        {
+            worldStateRegistry.ResetRespawnableEnemyDeaths();
+            worldStateRegistry.ResetUntilDeathState();
+        }
 
         string respawnScene = SaveManager.Instance?.ActiveRespawnSceneName ?? "";
         string markerKey = SaveManager.Instance?.ActiveRespawnMarkerKey ?? "";
@@ -363,16 +384,10 @@ public sealed class GameManager : MonoBehaviour
 
     private void ApplyNormalDeathRespawn(RespawnMarker marker, string sceneName)
     {
-        // Single authoritative reset point for normal death (reached exactly once here, for both
-        // same-scene and cross-scene checkpoints — see BeginRespawnSequence/CompletePendingNormalDeathRespawn).
-        // Never reached by checkpoint activation or recoverable hazard reposition. Permanent world
-        // state (visited rooms, collected pickups, defeated encounters, object states) is untouched.
-        if (worldStateRegistry != null)
-        {
-            worldStateRegistry.ResetRespawnableEnemyDeaths();
-            worldStateRegistry.ResetUntilDeathState();
-        }
-
+        // Transient world-state reset (respawnable-enemy timers, until-death state) already ran in
+        // BeginRespawnSequence, before the checkpoint scene loaded -- not here, since by the time
+        // this runs the scene's own Awake methods (including EnemyController) have already executed
+        // and must have observed the cleared state to resolve suppression correctly.
         if (_hero != null)
         {
             if (marker != null)

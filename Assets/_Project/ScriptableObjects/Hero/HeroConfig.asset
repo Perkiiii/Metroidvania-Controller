@@ -44,7 +44,7 @@ MonoBehaviour:
   attackBufferTime: 0.1
   attackHitLayers:
     serializedVersion: 2
-    m_Bits: 1024
+    m_Bits: 4195328
   attackTerrainLayers:
     serializedVersion: 2
     m_Bits: 128
@@ -53,7 +53,7 @@ MonoBehaviour:
   downslashBounceVelocity: 8
   terrainLayers:
     serializedVersion: 2
-    m_Bits: 129
+    m_Bits: 4194433
   groundProbeDistance: 0.16
   ceilingProbeDistance: 0.08
   wallProbeDistance: 0.1
@@ -63,6 +63,7 @@ MonoBehaviour:
   hurtStunDuration: 0.35
   hurtKnockbackX: 8
   hurtKnockbackY: 4
+  deathRespawnFallbackDelay: 2
   locomotionFadeDuration: 0.08
   airFadeDuration: 0.05
   actionFadeDuration: 0.03

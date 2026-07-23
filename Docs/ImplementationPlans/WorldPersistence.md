@@ -1,6 +1,6 @@
 # Underbrew World Persistence Implementation Plan
 
-**Status:** Phase 1 (registry foundation, enemy persistence vertical slice) and Phase 2 (normal-death lifecycle integration, ability-pickup reconciliation) implemented. Phase 3 (doors/switches/breakables, real boss content, room-visitation calls) remains not yet implemented — see `Docs/FeatureSpecs/SaveSystem.md` "Future Expansion".
+**Status:** Phase 1 (registry foundation, enemy persistence vertical slice), Phase 2 (normal-death lifecycle integration, ability-pickup reconciliation), and Phase 3 (doors/switches/breakables, room-visitation calls) are implemented. Real boss content using `PermanentEncounter` remains not yet authored (the mode itself has been implemented and tested since Phase 2) — see `Docs/FeatureSpecs/SaveSystem.md` "Future Expansion". Note on naming: this "Phase 3" is independent of `Docs/ImplementationPlan.md`'s own "Milestone 3 — Ability System" numbering; the two are unrelated despite the shared number.
 
 ## 1. Behavioural model and research boundary
 

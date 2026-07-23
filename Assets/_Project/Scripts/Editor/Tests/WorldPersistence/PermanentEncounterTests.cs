@@ -280,7 +280,7 @@ public sealed class PermanentEncounterTests
             persistence.Initialize(config);
             persistence.RecordDeath();
 
-            // Exactly the two calls GameManager.ApplyNormalDeathRespawn makes on every normal death.
+            // Exactly the two calls GameManager.BeginRespawnSequence makes on every normal death.
             registry.ResetRespawnableEnemyDeaths();
             registry.ResetUntilDeathState();
 

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-07-21
+**Last audited:** 2026-07-23
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -20,7 +20,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
-| Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2; multi-slot UI deferred) |
+| Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
 | UI (HUD, menus) | HUD presentation foundation implemented; menus not started |
 | Audio system | Partial |
@@ -73,7 +73,7 @@ These must happen before any milestone work begins. Both are preconditions for t
   - `GameManager.HazardRecoveryRoutine` — hardened with `try/finally` to guarantee control lock removal and `_respawnOrRecoveryInProgress` reset even if a step throws.
   - `GameManager.FindNearestRespawnMarkerPosition` — returns `nearest.RespawnPosition` (was `transform.position`); falls back to cached `_sceneFallbackPosition` if no `RespawnMarker` exists instead of the hero's current (hazard) position.
   - `GameManager._sceneFallbackPosition` — cached on scene load after initial hero placement; prevents infinite hazard loops when no markers exist in the scene.
-  - `HazardRecoveryProfile` SO (`Assets/_Project/Scripts/World/HazardRecoveryProfile.cs`) — per-hazard tuning (`ImpactDelay` 0.18 s, `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1, `FadeInDuration` −1). `FadeOutDuration` and `FadeInDuration` default to −1, meaning the camera's own defaults are used; set shorter values (0.35–0.45 s) for a snappier local recovery feel. Referenced by `HazardZone` and carried in `HazardContact`; `GameManager` reads values from the contact, keeping hazard tuning off `GameManager`. **Create the asset** at `Assets/_Project/ScriptableObjects/World/HazardRecoveryProfile.asset` and **assign it on each recoverable `HazardZone`**. If unassigned, built-in fallback values are used.
+  - `HazardRecoveryProfile` SO (`Assets/_Project/Scripts/Hazard/HazardRecoveryProfile.cs`) — per-hazard tuning (`ImpactDelay` 0.18 s, `BlackScreenHold` 0.1 s, `RecoveryIFrameDuration` 0.75 s, `FadeOutDuration` −1, `FadeInDuration` −1). `FadeOutDuration` and `FadeInDuration` default to −1, meaning the camera's own defaults are used; set shorter values (0.35–0.45 s) for a snappier local recovery feel. Referenced by `HazardZone` and carried in `HazardContact`; `GameManager` reads values from the contact, keeping hazard tuning off `GameManager`. **Create the asset** at `Assets/_Project/ScriptableObjects/World/HazardRecoveryProfile.asset` and **assign it on each recoverable `HazardZone`**. If unassigned, built-in fallback values are used.
   - `HazardZone` — `Tooltip`/`Header` attributes added; `OnValidate` warns when `RecoverLocal` has no `HazardRespawnMarker` or no `HazardRecoveryProfile` assigned (profile absence uses defaults, not an error).
 - [ ] Validate sensor probes against authored geometry; confirm `terrainLayers` is set correctly.
 
@@ -107,6 +107,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 **Goal:** Gated traversal abilities can be unlocked and the gate is data-driven.
 
+**Naming note:** this is unrelated to "World Persistence Phase 3" (doors/switches/breakables/room visitation — see `Docs/ImplementationPlans/WorldPersistence.md` and Milestone 4 below). The two share a number by coincidence only.
+
 - [x] Create `PlayerAbilityState` ScriptableObject. (Done — asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`)
 - [x] Create `AbilityId` enum. (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast)
 - [x] Create `HeroAbilityConfig` ScriptableObject. (Done)
@@ -125,7 +127,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 ## Milestone 4 — Save System
 
 **Goal:** Progress persists across sessions.  
-**Status: Foundation and World Persistence Phase 1/2 complete. Remaining item is multi-slot save UI.**
+**Status: Foundation and World Persistence Phase 1/2/3 complete. Remaining item is multi-slot save UI.**
 
 - [x] Implement `SaveManager` and `ISaveTarget` interface. (Done — see `Docs/FeatureSpecs/SaveSystem.md`)
 - [x] Implement save data classes: `MetaSaveData`, `PlayerSaveData`, `AbilitySaveData`, `WorldSaveData`, `SaveData`. (Done)
@@ -142,7 +144,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Handle missing/corrupt save file gracefully — fresh state, no crash, clear console log. (Done)
 - [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
 - [x] Implement `WorldStateRegistry` SO — visited rooms, defeated encounters, permanent object states, collected pickups; wired as `ISaveTarget` on `_SaveManager.prefab`. (Done — World Persistence Phase 1, 2026-07-23. Ordinary placed enemy persistence is the complete vertical slice: `EnemyPersistence` + `EnemyPersistenceMode` + `EnemyConfig.respawnDuration`, wired onto `Mushroom.prefab` and all 9 placed instances across `SampleScene`/`SampleScene2`/`SampleScene3`.)
-- [x] World Persistence Phase 2 — normal-death lifecycle integration and pickup reconciliation. (Done. `GameManager.ApplyNormalDeathRespawn` clears `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per normal death; checkpoint activation and recoverable-hazard reposition are unchanged and never clear transient records; Continue/New Game/slot change already worked for free via `WorldStateRegistry.ApplySaveData`. `AbilityPickup` reconciles against `WorldStateRegistry.collectedPickupIds` in favor of `PlayerAbilityState`. `WorldPersistenceValidator` extended to cover `AbilityPickup`. Doors/switches/breakables and real boss encounters remain Phase 3 — see `Docs/ImplementationPlans/WorldPersistence.md`.)
+- [x] World Persistence Phase 2 — normal-death lifecycle integration and pickup reconciliation. (Done. `GameManager.BeginRespawnSequence` clears `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per normal death, before the checkpoint scene begins loading; checkpoint activation and recoverable-hazard reposition are unchanged and never clear transient records; Continue/New Game/slot change already worked for free via `WorldStateRegistry.ApplySaveData`. `AbilityPickup` reconciles against `WorldStateRegistry.collectedPickupIds` in favor of `PlayerAbilityState`. `WorldPersistenceValidator` extended to cover `AbilityPickup`.)
+- [x] World Persistence Phase 3 — doors, switches, breakables, and room visitation (2026-07-23). `PersistentDoor` (permanent shortcut gate), `PersistentSwitch` (one-shot lever, configurable `PersistenceLifetime`), and `PersistentBreakable` (implements `IHeroAttackReceiver` directly) are implemented and validated with a vertical slice in `SampleScene`. `GameManager.OnSceneLoaded` marks `scene.name` visited via `WorldStateRegistry.MarkRoomVisited`. `WorldPersistenceValidator` extended with per-type local checks, a conflicting-participants check, and a single unified cross-type global-ID-uniqueness pass (previously separate for enemies vs. pickups). New `Breakable` Physics2D layer added to `HeroConfig.attackHitLayers`/`terrainLayers`. Real boss encounters using `PermanentEncounter` remain the only undone item — see `Docs/ImplementationPlans/WorldPersistence.md` and `Docs/Architecture.md`.
 - [x] Scene-name-driven boot continue — `Bootstrap` now resolves startup scene from `activeRespawnSceneName`, then `currentScene`, then `firstScene`. (Done; main-menu Continue button still deferred.)
 - [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
 

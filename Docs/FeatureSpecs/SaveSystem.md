@@ -1,6 +1,6 @@
 # Feature Spec — Save System
 
-**Last audited:** 2026-07-22
+**Last audited:** 2026-07-23
 
 ## Responsibilities
 
@@ -31,15 +31,17 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `SaveFileStore` (sync + .bak) | `Scripts/Save/SaveFileStore.cs` | Done |
 | `SaveDataMigrator` (v3) | `Scripts/Save/SaveDataMigrator.cs` | Done |
 | `SaveManager` persistent singleton | `Scripts/Save/SaveManager.cs` | Done |
-| `WorldStateRegistry` implements `ISaveTarget` | `Scripts/World/WorldStateRegistry.cs` | Done (World Persistence Phase 1) |
+| `WorldStateRegistry` implements `ISaveTarget` | `Scripts/World/Persistence/Core/WorldStateRegistry.cs` | Done (World Persistence Phase 1) |
 | `EnemyPersistence` / `EnemyPersistenceMode` | `Scripts/Enemy/EnemyPersistence.cs`, `EnemyPersistenceMode.cs` | Done (World Persistence Phase 1) |
+| `PersistenceLifetime`, `PersistentDoor`, `PersistentSwitch`, `PersistentBreakable` | `Scripts/World/Persistence/Core/PersistenceLifetime.cs`, `Scripts/World/Persistence/Participants/PersistentDoor.cs`, `PersistentSwitch.cs`, `PersistentBreakable.cs` | Done (World Persistence Phase 3) |
+| Room visitation (`GameManager.OnSceneLoaded` → `WorldStateRegistry.MarkRoomVisited`) | `Scripts/Managers/GameManager.cs` | Done (World Persistence Phase 3) |
 | `PlayerAbilityState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerAbilityState.cs` | Done |
 | `PlayerHealthState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerHealthState.cs` | Done; authoritative gameplay ownership wired |
 | `PlayerResourceState` implements `ISaveTarget` | `Scripts/Hero/Core/PlayerResourceState.cs` | Done; authoritative gameplay ownership wired |
 | Checkpoint save trigger | `Scripts/World/Interactables/CheckpointInteractable.cs` | Done |
-| GameManager → SaveManager respawn key seam | `Scripts/World/GameManager.cs` | Done |
-| Cross-session respawn marker resolution | `Scripts/World/GameManager.cs` | Done |
-| Hero placement at saved position on boot | `Scripts/World/GameManager.cs` | Done |
+| GameManager → SaveManager respawn key seam | `Scripts/Managers/GameManager.cs` | Done |
+| Cross-session respawn marker resolution | `Scripts/Managers/GameManager.cs` | Done |
+| Hero placement at saved position on boot | `Scripts/Managers/GameManager.cs` | Done |
 | Application quit auto-save | `Scripts/Save/SaveManager.cs` | Done |
 | Fresh save on missing/corrupt file | `Scripts/Save/SaveManager.cs` | Done |
 | `.bak` backup before overwrite | `Scripts/Save/SaveFileStore.cs` | Done |
@@ -53,11 +55,10 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `HazardRespawnMarker` save key integration | Future |
 | Scene-name-driven boot continue (`activeRespawnSceneName` / `currentScene` instead of always `firstScene`) | Done |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
-| Door / switch / breakable wiring against `WorldStateRegistry` (registry APIs exist; consumers are Phase 3) | World Persistence Phase 3 |
-| Real boss encounters using `PermanentEncounter` (mode and lifecycle are implemented and validated; no boss content exists yet) | World Persistence Phase 3 |
+| Real boss encounters using `PermanentEncounter` (mode and lifecycle are implemented and validated; no boss content exists yet) | World Persistence Phase 3 (remaining) |
 | Save slot UI (multi-slot selection, delete, stats display) | Milestone 5 |
 
-See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence) is implemented; see the `WorldStateRegistry` and `EnemyPersistence` sections below.
+See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence), Phase 2 (normal-death lifecycle + pickup reconciliation), and Phase 3 (doors/switches/breakables + room visitation) are implemented; see the `WorldStateRegistry`, `EnemyPersistence`, and Phase 3 sections below and in `Docs/Architecture.md`.
 
 ---
 
@@ -85,7 +86,7 @@ Bootstrap.Start()
           → PlayerAbilityState.ApplySaveData()    [ISaveTarget]
           → PlayerHealthState.ApplySaveData()     [ISaveTarget]
           → PlayerResourceState.ApplySaveData()   [ISaveTarget]
-          → WorldStateRegistry.ApplySaveData()    [planned]
+          → WorldStateRegistry.ApplySaveData()    [ISaveTarget]
   → SaveManager.GetStartupScene(firstScene)
       → activeRespawnSceneName if set and loadable
       → currentScene if set and loadable
@@ -291,13 +292,13 @@ A loaded save can, in rare cases (a quit-save or checkpoint-save racing a death 
 
 ### WorldStateRegistry (implemented — World Persistence Phase 1)
 
-`Scripts/World/WorldStateRegistry.cs`. Owns physical world facts only: visited rooms, consumed pickups, permanent object states (arbitrary string payload per object ID, e.g. door open/closed), and permanent encounter completion — all serialized into `WorldSaveData`. It also owns two runtime-only collections that are never serialized: generic until-death physical state, and timed death records for ordinary respawnable enemies.
+`Scripts/World/Persistence/Core/WorldStateRegistry.cs`. Owns physical world facts only: visited rooms, consumed pickups, permanent object states (arbitrary string payload per object ID, e.g. door open/closed), and permanent encounter completion — all serialized into `WorldSaveData`. It also owns two runtime-only collections that are never serialized: generic until-death physical state, and timed death records for ordinary respawnable enemies.
 
 `GatherSaveData` writes sorted, deduplicated lists (`StringComparer.Ordinal`) so save-target order never affects output. `ApplySaveData` clears and repopulates every serialized collection *and* clears both non-serialized collections — every apply represents a fresh game, a Continue, or a slot change, all of which must present ordinary enemies alive with no stale until-death state.
 
 Restricted enemy-timer API (see `Docs/ImplementationPlans/WorldPersistence.md` for the full behavioural spec):
 - `RecordRespawnableEnemyDeath(string enemyId, float respawnDuration)` — public, called by `EnemyPersistence.RecordDeath()` on confirmed death.
-- `ResetRespawnableEnemyDeaths()` / `ResetUntilDeathState()` — public, called exactly once per normal death from `GameManager.ApplyNormalDeathRespawn` (World Persistence Phase 2). Never called from checkpoint activation or recoverable hazard reposition.
+- `ResetRespawnableEnemyDeaths()` / `ResetUntilDeathState()` — public, called exactly once per normal death from `GameManager.BeginRespawnSequence` (World Persistence Phase 2), before the checkpoint scene begins loading (or before the in-place fallback if it can't load at all) — never from `ApplyNormalDeathRespawn`, which runs later and would already be too late for newly loaded scene objects to observe the cleared state. Never called from checkpoint activation or recoverable hazard reposition.
 - `internal bool ShouldSuppressEnemyOnInitialization(string enemyId)` — internal; only `EnemyPersistence` (same assembly) may call it, and only from `EnemyController`'s one-time initialization path. There is no live respawn scheduler, coroutine, or per-frame timer — expiry is resolved lazily, only when a scene next initializes that enemy.
 
 Keyed notifications use `WorldStateKey` (category + string id) and `WorldStateChange` (bool flag + optional string payload) via `Subscribe`/`Unsubscribe` — there is no unqualified global `Changed` event. Enemy timer expiry never dispatches a notification.
@@ -532,8 +533,8 @@ When a schema change breaks backward compatibility:
 
 ## Future Expansion
 
-### World Persistence Phase 3 (remaining)
-Phase 1 covers the registry foundation, save schema, stable world object IDs, and the full ordinary-placed-enemy vertical slice. Phase 2 (this document's implemented state) adds normal-death lifecycle integration (`GameManager.ApplyNormalDeathRespawn` calls `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per death) and `AbilityPickup` reconciliation against `WorldStateRegistry.collectedPickupIds`, in favor of `PlayerAbilityState`. Not yet wired: doors/switches/breakables consuming `SetObjectState`/`SetUntilDeathState`, real bosses/one-time encounters using `PermanentEncounter` (the mode itself is implemented and unit-tested; no boss content exists), and room-visitation calls from scene entry. See `Docs/ImplementationPlans/WorldPersistence.md` for the full plan and roadmap.
+### World Persistence Phase 3 (implemented; real boss content remains)
+Phase 1 covers the registry foundation, save schema, stable world object IDs, and the full ordinary-placed-enemy vertical slice. Phase 2 adds normal-death lifecycle integration (`GameManager.BeginRespawnSequence` calls `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per death, before the checkpoint scene begins loading) and `AbilityPickup` reconciliation against `WorldStateRegistry.collectedPickupIds`, in favor of `PlayerAbilityState`. Phase 3 adds `PersistentDoor`/`PersistentSwitch`/`PersistentBreakable` (consuming `SetObjectState`/`SetUntilDeathState` via a shared `PersistenceLifetime` enum) and room-visitation calls from `GameManager.OnSceneLoaded` (`MarkRoomVisited(scene.name)`) — see `Docs/Architecture.md` "Doors, switches, breakables, and room visitation" for the full implementation. Not yet built: real bosses/one-time encounters using `PermanentEncounter` (the mode itself is implemented and unit-tested; no boss content exists). See `Docs/ImplementationPlans/WorldPersistence.md` for the full plan and roadmap.
 
 ### AbilityPickup persistence (resolved)
 `AbilityPickup.cs` now marks `WorldStateRegistry.MarkPickupCollected` alongside `PlayerAbilityState.Unlock` on collection, and reconciles the two on initialization in favor of `PlayerAbilityState`. This does not force an immediate disk save — per the `Save()` call-site rule below, collection only updates in-memory registry state; it is durably persisted at the next checkpoint or quit-save, same as any other mid-session progress.
