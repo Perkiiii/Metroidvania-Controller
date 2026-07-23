@@ -97,7 +97,10 @@ public sealed class PersistentBreakable : MonoBehaviour, IHeroAttackReceiver
 
         ApplyDestroyedState(true, playFeedback: true);
         RecordDestroyed();
-        return HeroAttackResult.Damaged(hit.Damage);
+        // Environmental destruction does not fuel hero combat resource by default -- that would be an
+        // accidental consequence of reusing IHeroAttackReceiver, not a deliberate design decision. A
+        // future breakable that should award resource can opt in explicitly with resourceEligible: true.
+        return HeroAttackResult.Damaged(hit.Damage, resourceEligible: false);
     }
 
     private void RecordDestroyed()

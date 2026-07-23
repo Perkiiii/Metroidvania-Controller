@@ -1,6 +1,8 @@
 # Underbrew World Persistence Implementation Plan
 
-**Status:** Phase 1 (registry foundation, enemy persistence vertical slice), Phase 2 (normal-death lifecycle integration, ability-pickup reconciliation), and Phase 3 (doors/switches/breakables, room-visitation calls) are implemented. Real boss content using `PermanentEncounter` remains not yet authored (the mode itself has been implemented and tested since Phase 2) — see `Docs/FeatureSpecs/SaveSystem.md` "Future Expansion". Note on naming: this "Phase 3" is independent of `Docs/ImplementationPlan.md`'s own "Milestone 3 — Ability System" numbering; the two are unrelated despite the shared number.
+**Status:** Phase 1 (registry foundation, enemy persistence vertical slice), Phase 2 (normal-death lifecycle integration, ability-pickup reconciliation), Phase 3 (doors/switches/breakables, room-visitation), and Phase 3.1 (explicit authored room identity via `RoomVisitReporter`; breakables default to non-resource-eligible) are implemented. Real boss content using `PermanentEncounter` remains not yet authored (the mode itself has been implemented and tested since Phase 2) — see `Docs/FeatureSpecs/SaveSystem.md` "Future Expansion". Note on naming: this "Phase 3" is independent of `Docs/ImplementationPlan.md`'s own "Milestone 3 — Ability System" numbering; the two are unrelated despite the shared number.
+
+**Phase 3.1 (room identity + breakable resource policy).** Room visitation previously used `GameManager.OnSceneLoaded` calling `WorldStateRegistry.MarkRoomVisited(scene.name)` directly — scene name as room ID. This was replaced with `RoomVisitReporter` (`Scripts/World/Persistence/Participants/RoomVisitReporter.cs`), a small participant authored once per gameplay scene with its own `roomId` field, so renaming a `.unity` file never changes saved room identity and the Boot-scene exclusion is an explicit per-scene absence rather than an incidental side effect of `GameManager`'s subscription timing. `GameManager` no longer references `WorldStateRegistry` for room visitation at all. Separately, `PersistentBreakable.ReceiveHeroAttack` was found to award hero combat resource unconditionally on every accepted hit (an emergent consequence of returning `HeroAttackResult.Damaged`, which defaulted `resourceEligible` to `true` with no opt-out) — `HeroAttackResult.Damaged`/`Killed` gained an optional `resourceEligible` parameter (default `true`, preserving `EnemyHealthComponent` behaviour unchanged) so `PersistentBreakable` can explicitly opt out.
 
 ## 1. Behavioural model and research boundary
 
@@ -295,7 +297,7 @@ Continue clears transient collections before loading gameplay. Ordinary enemies 
 | Breakable | Room runtime by default |
 | NPC/quest object | Dedicated domain progression |
 | Hazard | Existing hazard system |
-| Visited room | Permanent registry fact |
+| Visited room | Permanent registry fact, keyed by an authored `RoomVisitReporter.roomId` (Phase 3.1) — not derived from scene name |
 
 ## 7. Roadmap and acceptance tests
 

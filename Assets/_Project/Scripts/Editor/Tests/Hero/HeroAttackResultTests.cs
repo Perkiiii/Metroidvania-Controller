@@ -112,6 +112,42 @@ public sealed class HeroAttackResultTests
         }
     }
 
+    [Test]
+    public void DamagedFactoryDefaultsToResourceEligible()
+    {
+        HeroAttackResult result = HeroAttackResult.Damaged(1);
+
+        Assert.That(result.Outcome, Is.EqualTo(HeroAttackOutcome.Damaged));
+        Assert.That(result.ResourceEligible, Is.True);
+    }
+
+    [Test]
+    public void KilledFactoryDefaultsToResourceEligible()
+    {
+        HeroAttackResult result = HeroAttackResult.Killed(1);
+
+        Assert.That(result.Outcome, Is.EqualTo(HeroAttackOutcome.Killed));
+        Assert.That(result.ResourceEligible, Is.True);
+    }
+
+    [Test]
+    public void DamagedFactoryCanOptOutOfResourceEligibility()
+    {
+        HeroAttackResult result = HeroAttackResult.Damaged(1, resourceEligible: false);
+
+        Assert.That(result.Outcome, Is.EqualTo(HeroAttackOutcome.Damaged));
+        Assert.That(result.ResourceEligible, Is.False);
+    }
+
+    [Test]
+    public void KilledFactoryCanOptOutOfResourceEligibility()
+    {
+        HeroAttackResult result = HeroAttackResult.Killed(1, resourceEligible: false);
+
+        Assert.That(result.Outcome, Is.EqualTo(HeroAttackOutcome.Killed));
+        Assert.That(result.ResourceEligible, Is.False);
+    }
+
     private static HeroAttackHit CreateHit(int damage)
     {
         return new HeroAttackHit(null, HeroAttackDirection.Side, damage, Vector2.zero, Vector2.right);

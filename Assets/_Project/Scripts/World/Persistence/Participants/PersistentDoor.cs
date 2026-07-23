@@ -1,13 +1,16 @@
 using UnityEngine;
 
-// Permanent shortcut gate/door (World Persistence Phase 3). Once opened, the open state is a
-// serialized permanent physical fact -- it survives room transitions, checkpoints, recoverable
-// hazards, normal death, and Continue, matching Docs/ImplementationPlans/WorldPersistence.md's
-// "Door/shortcut -> Permanent physical fact unless domain-derived" policy. Ordinary always-usable
-// scene-transition doors (TransitionPoint) remain untracked and are unaffected by this component.
-//
-// This component's own InteractableBase collider is the interact-range trigger only. The separate
-// blockerCollider is the solid, non-trigger collider that physically blocks passage while closed.
+/// Permanent shortcut gate/door (World Persistence Phase 3). Once opened, the open state is a
+/// serialized permanent physical fact -- it survives room transitions, checkpoints, recoverable
+/// hazards, normal death, and Continue, matching Docs/ImplementationPlans/WorldPersistence.md's
+/// "Door/shortcut -> Permanent physical fact unless domain-derived" policy. Ordinary always-usable
+/// scene-transition doors (TransitionPoint) remain untracked and are unaffected by this component.
+/// This is a permanent one-way shortcut only -- it has no PersistenceLifetime field and cannot be
+/// closed again. Do not extend it with lifetime options or reversible-close behavior; author a new
+/// participant type for temporary/reversible barriers (e.g. a future boss arena seal) instead.
+///
+/// This component's own InteractableBase collider is the interact-range trigger only. The separate
+/// blockerCollider is the solid, non-trigger collider that physically blocks passage while closed.
 public sealed class PersistentDoor : InteractableBase
 {
     private const string StateClosed = "closed";

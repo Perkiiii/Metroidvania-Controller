@@ -5,7 +5,8 @@
       "Read(//c/Users/samue/Documents/GitHub/Hollow-Knight-Demo/**)",
       "Bash(dotnet build *)",
       "Bash(Get-ChildItem -Recurse -Path \"Assets/_Project/Scripts\" -Filter \"*.cs\")",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "mcp__unity-mcp__Unity_GetConsoleLogs"
     ]
   }
 }

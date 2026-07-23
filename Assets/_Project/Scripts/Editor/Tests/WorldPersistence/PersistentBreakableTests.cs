@@ -210,6 +210,29 @@ public sealed class PersistentBreakableTests
     }
 
     [Test]
+    public void ReceiveHeroAttack_ConfirmedDestruction_IsNotResourceEligible()
+    {
+        WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
+        GameObject go = new GameObject("Breakable");
+        try
+        {
+            PersistentBreakable breakable = SetUpBreakable(go, "breakable_9", registry, PersistenceLifetime.RoomRuntime);
+            InvokePrivate(breakable, "Awake");
+
+            HeroAttackHit hit = new HeroAttackHit(null, HeroAttackDirection.Side, 5, Vector2.zero, Vector2.zero);
+            HeroAttackResult result = breakable.ReceiveHeroAttack(hit);
+
+            Assert.That(result.WasAccepted, Is.True, "A confirmed live break must still be accepted.");
+            Assert.That(result.ResourceEligible, Is.False, "Environmental destruction must not award hero combat resource by default.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(registry);
+        }
+    }
+
+    [Test]
     public void Awake_UnknownStoredValue_LogsWarningAndFallsBackToIntact()
     {
         WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();

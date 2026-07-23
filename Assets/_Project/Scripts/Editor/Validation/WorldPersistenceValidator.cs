@@ -51,6 +51,32 @@ public static class WorldPersistenceValidator
         public PersistenceLifetime Lifetime;
     }
 
+    private sealed class RoomInfo
+    {
+        public string ObjectPath;
+        public string RoomId;
+        public bool HasRegistry;
+    }
+
+    private readonly struct RoomIdEntry
+    {
+        public readonly string RoomId;
+        public readonly string Scene;
+        public readonly string Path;
+
+        public RoomIdEntry(string roomId, string scene, string path)
+        {
+            RoomId = roomId;
+            Scene = scene;
+            Path = path;
+        }
+    }
+
+    // World Persistence Phase 3.1: room visitation is authored on RoomVisitReporter, not derived
+    // from the scene filename. Every enabled Build Settings scene except this one must contain
+    // exactly one reporter -- revisit this rule once menu/cutscene-only scenes enter Build Settings.
+    private const string BootSceneName = "Boot";
+
     private readonly struct GlobalIdEntry
     {
         public readonly string Id;
@@ -84,6 +110,7 @@ public static class WorldPersistenceValidator
         Dictionary<string, List<DoorInfo>> doorInfosByScene = new Dictionary<string, List<DoorInfo>>();
         Dictionary<string, List<SwitchInfo>> switchInfosByScene = new Dictionary<string, List<SwitchInfo>>();
         Dictionary<string, List<BreakableInfo>> breakableInfosByScene = new Dictionary<string, List<BreakableInfo>>();
+        Dictionary<string, List<RoomInfo>> roomInfosByScene = new Dictionary<string, List<RoomInfo>>();
         int issueCount = duplicateSceneNameIssues;
 
         try
@@ -112,6 +139,10 @@ public static class WorldPersistenceValidator
                 breakableInfosByScene[sceneEntry.Key] = breakableInfos;
                 issueCount += ValidateBreakablesLocal(sceneEntry.Key, breakableInfos);
 
+                List<RoomInfo> roomInfos = CollectRoomInfo(scene);
+                roomInfosByScene[sceneEntry.Key] = roomInfos;
+                issueCount += ValidateRoomsLocal(sceneEntry.Key, roomInfos);
+
                 issueCount += ValidateNoConflictingParticipants(scene);
             }
         }
@@ -129,15 +160,21 @@ public static class WorldPersistenceValidator
         AppendEntries(allEntries, breakableInfosByScene, "PersistentBreakable", info => info.WorldObjectId, info => info.ObjectPath);
         issueCount += ValidateUnifiedGlobalIdUniqueness(allEntries);
 
+        // Room IDs are a separate fact namespace from worldObjectId (they key WorldStateRegistry's
+        // visitedRoomIds set, not objectStates/untilDeathStates), so this stays independent of the
+        // unified pass above rather than being folded into it.
+        issueCount += ValidateRoomIdCrossSceneUniqueness(roomInfosByScene);
+
         int totalInstances = CountAll(infosByScene);
         int totalPickups = CountAll(pickupInfosByScene);
         int totalDoors = CountAll(doorInfosByScene);
         int totalSwitches = CountAll(switchInfosByScene);
         int totalBreakables = CountAll(breakableInfosByScene);
+        int totalRooms = CountAll(roomInfosByScene);
 
         string summary = $"Checked {enabledScenesByName.Count} enabled Build Settings scene(s), " +
             $"{totalInstances} EnemyPersistence, {totalPickups} AbilityPickup, {totalDoors} PersistentDoor, " +
-            $"{totalSwitches} PersistentSwitch, {totalBreakables} PersistentBreakable instance(s).";
+            $"{totalSwitches} PersistentSwitch, {totalBreakables} PersistentBreakable, {totalRooms} RoomVisitReporter instance(s).";
 
         if (issueCount == 0)
             Debug.Log($"[WorldPersistenceValidator] {summary} No issues found.");
@@ -635,6 +672,113 @@ public static class WorldPersistenceValidator
                 Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' PersistentBreakable '{info.ObjectPath}' has no solidCollider assigned — it has no destruction target. Assign the collider that represents this breakable's physical presence.");
                 issues++;
             }
+        }
+
+        return issues;
+    }
+
+    private static List<RoomInfo> CollectRoomInfo(Scene scene)
+    {
+        RoomVisitReporter[] instances = Object.FindObjectsByType<RoomVisitReporter>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        List<RoomInfo> result = new List<RoomInfo>();
+
+        foreach (RoomVisitReporter instance in instances)
+        {
+            if (instance == null || instance.gameObject.scene != scene)
+                continue;
+
+            SerializedObject serialized = new SerializedObject(instance);
+            string roomId = serialized.FindProperty("roomId")?.stringValue ?? "";
+            bool hasRegistry = serialized.FindProperty("registry")?.objectReferenceValue != null;
+
+            result.Add(new RoomInfo
+            {
+                ObjectPath = GetHierarchyPath(instance.transform),
+                RoomId = roomId,
+                HasRegistry = hasRegistry
+            });
+        }
+
+        return result;
+    }
+
+    private static int ValidateRoomsLocal(string sceneName, List<RoomInfo> infos)
+    {
+        int issues = 0;
+
+        if (sceneName == BootSceneName)
+        {
+            if (infos.Count > 0)
+            {
+                Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' has {infos.Count} RoomVisitReporter component(s), but Boot is not a gameplay room and must have none. Remove it.");
+                issues++;
+            }
+
+            return issues;
+        }
+
+        if (infos.Count == 0)
+        {
+            Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' has no RoomVisitReporter. Every gameplay scene must contain exactly one to record room visitation. Add one and assign a unique roomId.");
+            issues++;
+        }
+        else if (infos.Count > 1)
+        {
+            Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' has {infos.Count} RoomVisitReporter components, but exactly one is expected per gameplay scene. Remove the extras.");
+            issues++;
+        }
+
+        foreach (RoomInfo info in infos)
+        {
+            if (string.IsNullOrWhiteSpace(info.RoomId))
+            {
+                Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' RoomVisitReporter '{info.ObjectPath}' has no roomId assigned.");
+                issues++;
+            }
+
+            if (!info.HasRegistry)
+            {
+                Debug.LogError($"[WorldPersistenceValidator] Scene '{sceneName}' RoomVisitReporter '{info.ObjectPath}' has no WorldStateRegistry assigned.");
+                issues++;
+            }
+        }
+
+        return issues;
+    }
+
+    private static int ValidateRoomIdCrossSceneUniqueness(Dictionary<string, List<RoomInfo>> roomInfosByScene)
+    {
+        int issues = 0;
+        Dictionary<string, List<RoomIdEntry>> byRoomId = new Dictionary<string, List<RoomIdEntry>>();
+
+        foreach (KeyValuePair<string, List<RoomInfo>> sceneEntry in roomInfosByScene)
+        {
+            foreach (RoomInfo info in sceneEntry.Value)
+            {
+                if (string.IsNullOrWhiteSpace(info.RoomId))
+                    continue;
+
+                if (!byRoomId.TryGetValue(info.RoomId, out List<RoomIdEntry> list))
+                {
+                    list = new List<RoomIdEntry>();
+                    byRoomId[info.RoomId] = list;
+                }
+
+                list.Add(new RoomIdEntry(info.RoomId, sceneEntry.Key, info.ObjectPath));
+            }
+        }
+
+        foreach (KeyValuePair<string, List<RoomIdEntry>> group in byRoomId)
+        {
+            if (group.Value.Count <= 1)
+                continue;
+
+            List<string> locations = new List<string>();
+            foreach (RoomIdEntry occurrence in group.Value)
+                locations.Add($"'{occurrence.Scene}'/'{occurrence.Path}'");
+
+            Debug.LogError($"[WorldPersistenceValidator] roomId '{group.Key}' is used by multiple RoomVisitReporter instances: {string.Join(", ", locations)}. Room IDs must be globally unique (a separate namespace from worldObjectId).");
+            issues++;
         }
 
         return issues;

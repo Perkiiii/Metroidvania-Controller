@@ -1,128 +1,102 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
-using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
-// GameManager.OnSceneLoaded marks the loaded scene's name as a visited room (World Persistence
-// Phase 3) -- scene name is the room ID for this milestone, so marking requires no scene-wide
-// search and no per-frame polling: it is a single direct call driven by the SceneManager.sceneLoaded
-// event GameManager already subscribes to for every other purpose.
+// RoomVisitReporter marks its authored roomId visited on initialization (World Persistence Phase
+// 3.1) -- room identity is authored data on the component, not derived from the Unity scene name,
+// so renaming a .unity file never changes saved room identity. GameManager.OnSceneLoaded no longer
+// touches WorldStateRegistry for this at all; see GameManagerWorldPersistenceLifecycleTests for the
+// normal-death lifecycle coverage that used to live alongside the old scene-name-based mechanism.
 public sealed class RoomVisitationTests
 {
     [Test]
-    public void OnSceneLoaded_MarksLoadedSceneNameAsVisitedRoom()
+    public void Awake_MarksAuthoredRoomIdAsVisited()
     {
         WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
-        GameObject go = new GameObject("GameManager Test");
-        string scenePath = null;
+        GameObject go = new GameObject("RoomVisitReporter Test");
         try
         {
-            go.SetActive(false);
-            GameManager gm = go.AddComponent<GameManager>();
-            SetPrivateField(gm, "worldStateRegistry", registry);
+            RoomVisitReporter reporter = SetUpReporter(go, "room_sample_01", registry);
+            Assert.That(registry.IsRoomVisited("room_sample_01"), Is.False, "Precondition: not yet visited.");
 
-            // SceneManager.GetActiveScene().name is empty for the Test Runner's own unsaved scene,
-            // which WorldStateRegistry.MarkRoomVisited correctly rejects as an empty ID. Scene.name
-            // is only populated once a scene has a file path, so a real temporary scene asset (saved
-            // then deleted within this test) is used here to exercise the real behavior with a real
-            // room name, without touching any real project scene.
-            Scene namedScene = CreateNamedTempScene("RoomVisitationTestScene_Marks", out scenePath);
-            Assert.That(registry.IsRoomVisited(namedScene.name), Is.False, "Precondition: not yet visited.");
+            InvokePrivate(reporter, "Awake");
 
-            InvokePrivate(gm, "OnSceneLoaded", namedScene, LoadSceneMode.Single);
-
-            Assert.That(registry.IsRoomVisited(namedScene.name), Is.True);
+            Assert.That(registry.IsRoomVisited("room_sample_01"), Is.True);
         }
         finally
         {
-            DeleteTempScene(scenePath);
             Object.DestroyImmediate(go);
             Object.DestroyImmediate(registry);
         }
     }
 
     [Test]
-    public void OnSceneLoaded_CalledTwiceForSameScene_IsIdempotent()
+    public void Awake_OnSecondInstanceWithSameRoomId_IsIdempotent()
     {
         WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
-        GameObject go = new GameObject("GameManager Test");
-        string scenePath = null;
+        GameObject firstGo = new GameObject("RoomVisitReporter Test A");
+        GameObject secondGo = new GameObject("RoomVisitReporter Test B");
         try
         {
-            go.SetActive(false);
-            GameManager gm = go.AddComponent<GameManager>();
-            SetPrivateField(gm, "worldStateRegistry", registry);
-
-            Scene namedScene = CreateNamedTempScene("RoomVisitationTestScene_Idempotent", out scenePath);
-
             int notifyCount = 0;
-            registry.Subscribe(new WorldStateKey(WorldStateCategory.VisitedRoom, namedScene.name), _ => notifyCount++);
+            registry.Subscribe(new WorldStateKey(WorldStateCategory.VisitedRoom, "room_sample_01"), _ => notifyCount++);
 
-            InvokePrivate(gm, "OnSceneLoaded", namedScene, LoadSceneMode.Single);
-            InvokePrivate(gm, "OnSceneLoaded", namedScene, LoadSceneMode.Single);
+            RoomVisitReporter first = SetUpReporter(firstGo, "room_sample_01", registry);
+            InvokePrivate(first, "Awake");
 
-            Assert.That(registry.IsRoomVisited(namedScene.name), Is.True);
+            // Re-entering the same room loads a fresh scene, and therefore a fresh RoomVisitReporter
+            // instance with the same authored roomId -- this must not re-notify or duplicate state.
+            RoomVisitReporter second = SetUpReporter(secondGo, "room_sample_01", registry);
+            InvokePrivate(second, "Awake");
+
+            Assert.That(registry.IsRoomVisited("room_sample_01"), Is.True);
             Assert.That(notifyCount, Is.EqualTo(1), "A room entered more than once must not re-notify or duplicate its save entry.");
         }
         finally
         {
-            DeleteTempScene(scenePath);
-            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(firstGo);
+            Object.DestroyImmediate(secondGo);
             Object.DestroyImmediate(registry);
         }
     }
 
     [Test]
-    public void OnSceneLoaded_MissingRegistry_DoesNotThrow()
+    public void Awake_MissingRegistry_DoesNotThrow()
     {
-        GameObject go = new GameObject("GameManager Test");
-        string scenePath = null;
+        GameObject go = new GameObject("RoomVisitReporter Test");
         try
         {
-            go.SetActive(false);
-            GameManager gm = go.AddComponent<GameManager>();
-            // worldStateRegistry intentionally left unassigned.
+            RoomVisitReporter reporter = SetUpReporter(go, "room_sample_01", null);
 
-            Scene namedScene = CreateNamedTempScene("RoomVisitationTestScene_MissingRegistry", out scenePath);
-            Assert.DoesNotThrow(() => InvokePrivate(gm, "OnSceneLoaded", namedScene, LoadSceneMode.Single));
+            LogAssert.Expect(LogType.Error, new Regex("no WorldStateRegistry assigned"));
+            Assert.DoesNotThrow(() => InvokePrivate(reporter, "Awake"));
         }
         finally
         {
-            DeleteTempScene(scenePath);
             Object.DestroyImmediate(go);
         }
     }
 
-    // Scene.name is only populated once a scene has a file path (a brand-new in-memory scene's name
-    // is always ""), so a real temporary scene asset is the only reliable way to exercise
-    // scene-name-dependent behavior in an Edit Mode test. Callers must delete it via DeleteTempScene.
-    private static Scene CreateNamedTempScene(string sceneName, out string scenePath)
+    [Test]
+    public void Awake_MissingRoomId_DoesNotThrowAndDoesNotMarkAnything()
     {
-        // NewSceneMode.Additive requires the current base scene to already be saved, which the Test
-        // Runner's own ambient scene never is -- NewSceneMode.Single has no such restriction and
-        // replacing that ambient (always-empty-of-test-relevant-content) scene is harmless, since
-        // every test in this suite creates its own GameObjects fresh rather than relying on
-        // whatever scene happens to be loaded.
-        Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        scenePath = $"Assets/_Project/Scenes/{sceneName}.unity";
-        bool saved = EditorSceneManager.SaveScene(scene, scenePath);
-        Assert.That(saved, Is.True, $"Failed to save temporary test scene at '{scenePath}'.");
-        return scene;
-    }
+        WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
+        GameObject go = new GameObject("RoomVisitReporter Test");
+        try
+        {
+            RoomVisitReporter reporter = SetUpReporter(go, "", registry);
 
-    private static void DeleteTempScene(string scenePath)
-    {
-        if (string.IsNullOrEmpty(scenePath))
-            return;
-
-        // The temp scene was loaded in Single mode, so it is very likely the only scene currently
-        // loaded -- Unity refuses to close the last remaining scene. Replacing it with a fresh blank
-        // scene first guarantees there is always at least one scene loaded before the asset is
-        // deleted out from under it.
-        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        AssetDatabase.DeleteAsset(scenePath);
+            LogAssert.Expect(LogType.Error, new Regex("no roomId assigned"));
+            Assert.DoesNotThrow(() => InvokePrivate(reporter, "Awake"));
+            Assert.That(registry.IsRoomVisited(""), Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(registry);
+        }
     }
 
     [Test]
@@ -131,22 +105,22 @@ public sealed class RoomVisitationTests
         WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
         try
         {
-            registry.MarkRoomVisited("SampleScene");
+            registry.MarkRoomVisited("room_sample_01");
 
             // Exactly the two resets GameManager.BeginRespawnSequence performs on every normal death.
             registry.ResetRespawnableEnemyDeaths();
             registry.ResetUntilDeathState();
-            Assert.That(registry.IsRoomVisited("SampleScene"), Is.True, "Normal death must preserve visited-room state.");
+            Assert.That(registry.IsRoomVisited("room_sample_01"), Is.True, "Normal death must preserve visited-room state.");
 
             SaveData data = new SaveData();
             registry.GatherSaveData(data);
-            Assert.That(data.world.visitedRoomIds, Contains.Item("SampleScene"));
+            Assert.That(data.world.visitedRoomIds, Contains.Item("room_sample_01"));
 
             WorldStateRegistry destination = ScriptableObject.CreateInstance<WorldStateRegistry>();
             try
             {
                 destination.ApplySaveData(data);
-                Assert.That(destination.IsRoomVisited("SampleScene"), Is.True, "Continue must restore visited-room state.");
+                Assert.That(destination.IsRoomVisited("room_sample_01"), Is.True, "Continue must restore visited-room state.");
             }
             finally
             {
@@ -157,6 +131,15 @@ public sealed class RoomVisitationTests
         {
             Object.DestroyImmediate(registry);
         }
+    }
+
+    private static RoomVisitReporter SetUpReporter(GameObject go, string roomId, WorldStateRegistry registry)
+    {
+        go.SetActive(false); // prevent Unity's own Awake pass; we invoke the target method directly
+        RoomVisitReporter reporter = go.AddComponent<RoomVisitReporter>();
+        SetPrivateField(reporter, "roomId", roomId);
+        SetPrivateField(reporter, "registry", registry);
+        return reporter;
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

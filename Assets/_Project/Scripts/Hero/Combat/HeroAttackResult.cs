@@ -28,13 +28,13 @@ public readonly struct HeroAttackResult
     public static HeroAttackResult Blocked => new HeroAttackResult(HeroAttackOutcome.Blocked, 0, false);
     public static HeroAttackResult Invulnerable => new HeroAttackResult(HeroAttackOutcome.Invulnerable, 0, false);
 
-    public static HeroAttackResult Damaged(int damageApplied)
+    public static HeroAttackResult Damaged(int damageApplied, bool resourceEligible = true)
     {
-        return new HeroAttackResult(HeroAttackOutcome.Damaged, damageApplied, true);
+        return new HeroAttackResult(HeroAttackOutcome.Damaged, damageApplied, resourceEligible);
     }
 
-    public static HeroAttackResult Killed(int damageApplied)
+    public static HeroAttackResult Killed(int damageApplied, bool resourceEligible = true)
     {
-        return new HeroAttackResult(HeroAttackOutcome.Killed, damageApplied, true);
+        return new HeroAttackResult(HeroAttackOutcome.Killed, damageApplied, resourceEligible);
     }
 }

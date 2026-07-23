@@ -106,7 +106,9 @@ Resource has no orb/pip sub-unit model — it is a plain integer-parts value, pr
 
 ## Accepted-hit resource generation
 
-`IHeroAttackReceiver.ReceiveHeroAttack` returns a `HeroAttackResult{Outcome, DamageApplied, ResourceEligible}` with `Outcome` in `{Ignored, Blocked, Invulnerable, Damaged, Killed}`. `ResourceEligible` is true only for accepted `Damaged`/`Killed` outcomes. `HeroAttackAction` — the attacker — reads this result and decides whether to award resource; the receiver (e.g. `EnemyHealthComponent`) never calls back into hero-side singleton state. Per-swing/per-target deduplication (already-hit collider and already-hit responder sets) prevents double-award from one swing.
+`IHeroAttackReceiver.ReceiveHeroAttack` returns a `HeroAttackResult{Outcome, DamageApplied, ResourceEligible}` with `Outcome` in `{Ignored, Blocked, Invulnerable, Damaged, Killed}`. `ResourceEligible` defaults to true for accepted `Damaged`/`Killed` outcomes, via an optional `resourceEligible` parameter on the `Damaged`/`Killed` factories (World Persistence Phase 3.1) — a receiver can opt out explicitly by passing `false`. `HeroAttackAction` — the attacker — reads this result and decides whether to award resource; the receiver (e.g. `EnemyHealthComponent`) never calls back into hero-side singleton state. Per-swing/per-target deduplication (already-hit collider and already-hit responder sets) prevents double-award from one swing.
+
+**Environmental receivers are non-resource-eligible by default.** `PersistentBreakable.ReceiveHeroAttack` passes `resourceEligible: false` — destroying scenery does not fuel the hero's resource meter. This is a deliberate policy decision (Phase 3.1), not an oversight: `EnemyHealthComponent` never changed (it still defaults to eligible), and a future breakable that should award resource can opt in explicitly with `resourceEligible: true`.
 
 ### Generation policies
 

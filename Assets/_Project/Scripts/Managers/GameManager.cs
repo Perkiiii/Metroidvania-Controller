@@ -174,11 +174,8 @@ public sealed class GameManager : MonoBehaviour
     {
         SceneInit?.Invoke(scene);
 
-        // Scene name is the room ID for visited-room tracking (World Persistence Phase 3) -- no
-        // scene-wide search, no polling; this fires exactly once per confirmed scene load, which is
-        // the only place a room is genuinely "entered." Never fires for the Boot scene itself, since
-        // GameManager subscribes to SceneManager.sceneLoaded after Boot has already finished loading.
-        worldStateRegistry?.MarkRoomVisited(scene.name);
+        // Room visitation (World Persistence Phase 3.1) is recorded by a RoomVisitReporter placed in
+        // each gameplay scene, not here -- GameManager no longer touches WorldStateRegistry for this.
 
         // Cache the hero for this scene
         _hero       = FindFirstObjectByType<HeroController>();
