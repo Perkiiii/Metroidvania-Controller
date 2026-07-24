@@ -81,6 +81,7 @@ EnemyController (MonoBehaviour — per-enemy coordinator)
 - `EnemyRecoil` must clear that override when recoil ends or death cancels recoil.
 - Behaviour scripts must skip locomotion while `blackboard.recoiling`, `blackboard.dead`, or `motor.ExternalVelocityActive` is true.
 - Behaviour scripts should not write `Rigidbody2D.linearVelocity` directly except as temporary legacy fallback when no `EnemyMotor` exists.
+- Boss behaviours must not use that legacy fallback: ordinary boss locomotion always goes through `EnemyMotor`, even though the existing `IEnemyBehaviour.Initialize` contract still supplies a `Rigidbody2D`.
 - Terminal death handling may zero velocity and disable/convert physics inside `EnemyHealthComponent`, because death is a physics shutdown rather than locomotion.
 
 ### Hit-Reaction Integration
@@ -90,6 +91,8 @@ EnemyController (MonoBehaviour — per-enemy coordinator)
 - Play hit flash/audio/feedback and forward non-lethal hits to `EnemyRecoil`
 - Trigger death handling when health reaches zero
 - Raise `OnDamaged` for non-lethal hits and `OnDeath` when death starts, so enemy-specific behaviour scripts can handle visuals without owning health rules
+- Expose `CurrentHealth`, `MaximumHealth`, and `IsInitialized`; raise `OnHealthChanged(current, maximum)` after every accepted hit, including lethal damage, before `OnDeath`
+- Default to `DestroyAfterDelay`; opt-in `RetainRoot` keeps the terminally shut-down actor root for an owner-driven death presentation without changing ordinary-enemy behavior
 - Implement `IHeroDownslashResponder` so downslash/pogo feedback can play through the same enemy-local feedback controller
 
 `EnemyRecoil` owns hit reaction:
@@ -114,6 +117,8 @@ If an enemy can parry or deflect the hero, its collider registers as `IHeroAttac
 `EnemyContactDamage` is always-on body-touch damage with a local cooldown. It is appropriate for simple walkers like Mushroom.
 
 Explicit authored attacks must not use contact-damage timing. They use attack hitboxes that are disabled by default and enabled only during the attack's active window.
+
+`EnemyController` discovers and initializes every authored child `EnemyAttackController` exactly once. All receive the same `EnemyStateBlackboard`, and `CanStartAttack` requires `!blackboard.attacking`, so sibling attack modules exclude each other through the existing shared state. Child attack controllers resolve the root `EnemyHealthComponent`; suppressed initialization disables every discovered controller. Root-only Mushroom authoring remains valid.
 
 Mushroom intentionally has both damage paths:
 

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-07-23
+**Last audited:** 2026-07-24
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -17,6 +17,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Boot scene / persistent infrastructure | Done |
 | Camera system | Done |
 | Enemy AI framework | Foundation validated |
+| Boss encounters | Phase 1 foundation and persistent HUD done; production content pending |
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
@@ -145,10 +146,20 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
 - [x] Implement `WorldStateRegistry` SO — visited rooms, defeated encounters, permanent object states, collected pickups; wired as `ISaveTarget` on `_SaveManager.prefab`. (Done — World Persistence Phase 1, 2026-07-23. Ordinary placed enemy persistence is the complete vertical slice: `EnemyPersistence` + `EnemyPersistenceMode` + `EnemyConfig.respawnDuration`, wired onto `Mushroom.prefab` and all 9 placed instances across `SampleScene`/`SampleScene2`/`SampleScene3`.)
 - [x] World Persistence Phase 2 — normal-death lifecycle integration and pickup reconciliation. (Done. `GameManager.BeginRespawnSequence` clears `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per normal death, before the checkpoint scene begins loading; checkpoint activation and recoverable-hazard reposition are unchanged and never clear transient records; Continue/New Game/slot change already worked for free via `WorldStateRegistry.ApplySaveData`. `AbilityPickup` reconciles against `WorldStateRegistry.collectedPickupIds` in favor of `PlayerAbilityState`. `WorldPersistenceValidator` extended to cover `AbilityPickup`.)
-- [x] World Persistence Phase 3 — doors, switches, breakables, and room visitation (2026-07-23). `PersistentDoor` (permanent shortcut gate), `PersistentSwitch` (one-shot lever, configurable `PersistenceLifetime`), and `PersistentBreakable` (implements `IHeroAttackReceiver` directly) are implemented and validated with a vertical slice in `SampleScene`. `WorldPersistenceValidator` extended with per-type local checks, a conflicting-participants check, and a single unified cross-type global-ID-uniqueness pass (previously separate for enemies vs. pickups). New `Breakable` Physics2D layer added to `HeroConfig.attackHitLayers`/`terrainLayers`. Real boss encounters using `PermanentEncounter` remain the only undone item — see `Docs/ImplementationPlans/WorldPersistence.md` and `Docs/Architecture.md`.
+- [x] World Persistence Phase 3 — doors, switches, breakables, and room visitation (2026-07-23). `PersistentDoor` (permanent shortcut gate), `PersistentSwitch` (one-shot lever, configurable `PersistenceLifetime`), and `PersistentBreakable` (implements `IHeroAttackReceiver` directly) are implemented and validated with a vertical slice in `SampleScene`. `WorldPersistenceValidator` extended with per-type local checks, a conflicting-participants check, and a single unified cross-type global-ID-uniqueness pass (previously separate for enemies vs. pickups). New `Breakable` Physics2D layer added to `HeroConfig.attackHitLayers`/`terrainLayers`. Coordinated encounter persistence is now implemented by the Boss Encounter Phase 1 foundation; production boss content remains pending.
 - [x] World Persistence Phase 3.1 — Silksong-comparison refinement pass, pre-boss-milestone (see the Silksong Persistent World Objects research report). Replaced `GameManager.OnSceneLoaded`'s `MarkRoomVisited(scene.name)` with `RoomVisitReporter`, an authored-`roomId` participant placed once per gameplay scene (`room_sample_01`/`02`/`03`), so room identity no longer depends on `.unity` filenames; `GameManager` no longer touches `WorldStateRegistry` for room visitation. `WorldPersistenceValidator` extended with a parallel room-reporter pass (missing-reporter detection — exactly one per enabled Build Settings scene except `Boot` — plus an independent room-ID cross-scene uniqueness check). `HeroAttackResult.Damaged`/`Killed` gained an optional `resourceEligible` parameter (default `true`); `PersistentBreakable` now passes `false`, so breaking environmental objects no longer awards hero combat resource by default. `PersistentDoor`'s scope-clarifying header comment converted to an XML doc comment. See `Docs/ImplementationPlans/WorldPersistence.md` for the full rationale.
 - [x] Scene-name-driven boot continue — `Bootstrap` now resolves startup scene from `activeRespawnSceneName`, then `currentScene`, then `firstScene`. (Done; main-menu Continue button still deferred.)
 - [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
+
+### Boss Encounter Phase 1 — Foundation
+
+**Status:** Milestones A–C implemented 2026-07-24. No production boss or arena authored.
+
+- [x] Shared enemy prerequisites: additive health snapshots/events, default-preserving retained-root cleanup option, all-child attack initialization/root-health resolution, and shared-blackboard sibling attack exclusion with Mushroom regressions.
+- [x] Encounter foundation: stable definition, active participant wrappers with inactive actor roots, trigger/barrier/camera/control-lock integration, separate defeat/presentation gates, synchronous idempotent registry commit, optional reward root, hero-death/unload interruption cleanup, and `BossEncounterValidator`.
+- [x] Persistent boss HUD: stateless requests, source-token filtering, explicit multi-participant aggregate roster, lifecycle cleanup, and `_GameCameras.prefab` authoring without changing `PersistentHudRoot`.
+- [ ] Phase 2 content: boss identity, production arena, optional reward content, attacks/phases/tuning, Animancer presentation, hitbox/layer validation, and PlayMode/manual encounter validation. Mushroom derivation, `SampleScene3`, and progression rewards are not approved assumptions.
+- [ ] Optional later presentation: Timeline-only presentation hooks and a separately approved music override/restore architecture.
 
 **Future compatibility note:** Death-drop / shade / resource recovery is not part of this pass. When added, it should capture death scene + death position before `GameManager` loads the checkpoint scene; do not reuse `activeRespawnSceneName` for death-drop location.
 

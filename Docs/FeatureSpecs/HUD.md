@@ -1,10 +1,10 @@
 # Feature Spec — HUD
 
-**Last audited:** 2026-07-22
+**Last audited:** 2026-07-24
 
 ## Responsibilities
 
-Display player-facing runtime values without owning gameplay state. The persistent HUD displays normal/bonus health (slot-based) and current resource (a single horizontal fill bar). Menus and other overlays remain separate concerns.
+Display player-facing runtime values without owning gameplay state. The persistent HUD displays normal/bonus hero health, current resource, and an encounter-scoped aggregate boss-health bar. Menus and other overlays remain separate concerns.
 
 ## Current State
 
@@ -13,6 +13,7 @@ Implemented and verified under `Assets/_Project/Scripts/UI/`, living under the p
 - `PersistentHudRoot` is the composition root under `_GameCameras` (`DontDestroyOnLoad`), self-destructs any duplicate instance in `Awake`.
 - `HealthDisplay` subscribes directly to `PlayerHealthState.Changed` and renders dynamic normal/bonus slots.
 - `ResourceDisplay` subscribes directly to `PlayerResourceState.Changed` and renders a single always-visible horizontal fill bar (`ResourceBarView`), fill = `CurrentParts / MaximumParts`, clamped to `[0,1]`, zero when `MaximumParts == 0`.
+- `BossHealthDisplay` is always enabled but hidden by `CanvasGroup` until a stateless `BossHudEventService` show request supplies a source token, display metadata, and explicit initialized `EnemyHealthComponent` roster.
 - The HUD camera (`HUDCamera`) is a URP Overlay camera (`ClearFlags = Nothing`) stacked onto the gameplay `MainCamera` — it does not clear the gameplay view.
 
 `ResourcePipView` (the pre-bar-refactor discrete pip/orb presentation) has been removed; no orb or pip presentation remains anywhere in the project.
@@ -21,7 +22,9 @@ Implemented and verified under `Assets/_Project/Scripts/UI/`, living under the p
 
 The HUD is presentation-only. It reads the persistent ScriptableObject states directly and never routes values through `HeroController`, `HeroHealthComponent`, or `GameManager`. It does not poll in `Update`, search scenes, mutate state, or rebind on `GameManager.SceneInit`.
 
-Each view subscribes once in `OnEnable`, performs an explicit initial refresh, and unsubscribes in `OnDisable`/`OnDestroy`. This supports both startup orders: state application before the HUD is enabled and state application after it has subscribed. Room transitions do not require value rebinding because the state assets persist.
+Each view subscribes once in `OnEnable`, performs an explicit initial refresh, and unsubscribes in `OnDisable`/`OnDestroy`. Hero-state room transitions require no rebinding because the state assets persist. Boss bindings are deliberately scene-scoped: the display stores the active source token and health subscriptions, ignores mismatched hide requests, and clears all scene references on matching hide or disable.
+
+`BossHudEventService` stores no current request, participant, health component, scene object, or other Unity reference. `BossHealthDisplay` performs no polling or scene search. `PersistentHudRoot` does not wire or retain the boss display.
 
 `GameCameras` remains responsible for camera lifetime and camera initialization only. The HUD hierarchy is a child of its persistent prefab; `PersistentHudRoot` protects against an accidental second instance.
 
@@ -33,13 +36,17 @@ UGUI with the existing `HUDCamera` (Overlay, stacked on `MainCamera`):
 _GameCameras (persistent, DontDestroyOnLoad)
 └── HUDRoot (PersistentHudRoot)
     └── HUD Canvas (Screen Space - Camera, HUDCamera, sortingOrder 100)
-        └── Player HUD
-            ├── Health Display (HealthDisplay)
-            │   ├── Normal Health Container
-            │   └── Bonus Health Container
-            └── Resource Display (ResourceDisplay + CanvasGroup)
-                └── Frame/Background
-                    └── Fill (ResourceBarView)
+        ├── Player HUD
+        │   ├── Health Display (HealthDisplay)
+        │   │   ├── Normal Health Container
+        │   │   └── Bonus Health Container
+        │   └── Resource Display (ResourceDisplay + CanvasGroup)
+        │       └── Frame/Background
+        │           └── Fill (ResourceBarView)
+        └── Boss Health Display (BossHealthDisplay + CanvasGroup)
+            ├── Background
+            │   └── Fill
+            └── Boss Name
 ```
 
 `FadeCanvas` remains a sibling of `HUDRoot` under `_GameCameras` for transition fades. Final layout groups, placeholder sprites, and feedback polish remain Editor/art work — no visual redesign is in scope for this milestone.
@@ -68,10 +75,16 @@ The bar's `CanvasGroup` is always forced to `alpha = 1` (`IsVisible` is hardcode
 
 No Bind-readiness indicator is added in this pass. A HUD affordance may later derive “missing health” and “enough resource” from the two persistent states plus `PlayerResourceConfig.bindCostParts`, but it must not claim full Bind eligibility because grounding, control locks, and active actions belong to the hero action system.
 
+## Boss health display
+
+The encounter controller shows the HUD only after every participant actor has initialized. The display performs an explicit initial property read, removes null/uninitialized/duplicate sources, sums all configured current and maximum values, and updates on `EnemyHealthComponent.OnHealthChanged`. Lethal health events arrive before `OnDeath`, so the aggregate can visibly reach zero before encounter death orchestration continues.
+
+A matching hide request clears visibility, source identity, roster references, and subscriptions. A request from any other source is ignored. Completion, failed startup, hero-death interruption, and controller disable/unload all send source-scoped hide requests.
+
 ## Rules
 
 - No HUD component calls `GetComponent` or performs scene searches per frame.
 - No HUD component writes `Time.timeScale`, controls, health, resource, or save data.
 - Gameplay-context events remain separate from neutral state display events.
 - State application never appears as damage, healing, resource gain, or resource spending.
-- No final art, menu HUD, enemy health bars, or lifecycle policy is part of this milestone.
+- Boss HUD artwork and animation remain placeholder presentation; per-ordinary-enemy health bars are not implemented.

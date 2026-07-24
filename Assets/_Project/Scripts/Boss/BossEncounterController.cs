@@ -101,6 +101,7 @@ public sealed class BossEncounterController : MonoBehaviour
             }
         }
 
+        BossHudEventService.RequestShow(this, definition, BuildHealthRoster());
         for (int i = 0; i < participants.Length; i++)
         {
             participants[i].PlayIntro();
@@ -303,6 +304,7 @@ public sealed class BossEncounterController : MonoBehaviour
 
         SetBarriersOpen(true, false);
         SetCameraLockActive(false);
+        BossHudEventService.RequestHide(this);
         ReleaseControlLock();
 
         for (int i = 0; i < participants.Length; i++)
@@ -382,6 +384,7 @@ public sealed class BossEncounterController : MonoBehaviour
 
         SetBarriersOpen(true, true);
         SetCameraLockActive(false);
+        BossHudEventService.RequestHide(this);
         ReleaseControlLock();
         UnsubscribeHeroDeath();
         UnsubscribeParticipantEvents();
@@ -396,6 +399,7 @@ public sealed class BossEncounterController : MonoBehaviour
 
         SetBarriersOpen(true, true);
         SetCameraLockActive(false);
+        BossHudEventService.RequestHide(this);
         ReleaseControlLock();
         UnsubscribeHeroDeath();
         State = BossEncounterState.Dormant;
@@ -465,6 +469,17 @@ public sealed class BossEncounterController : MonoBehaviour
         cameraLockArea.gameObject.SetActive(false);
     }
 
+    private EnemyHealthComponent[] BuildHealthRoster()
+    {
+        EnemyHealthComponent[] roster = new EnemyHealthComponent[participants.Length];
+        for (int i = 0; i < participants.Length; i++)
+        {
+            roster[i] = participants[i]?.Health;
+        }
+
+        return roster;
+    }
+
     private void CleanupForDisableOrDestroy()
     {
         if (shuttingDown)
@@ -475,6 +490,7 @@ public sealed class BossEncounterController : MonoBehaviour
         shuttingDown = true;
         ReleaseControlLock();
         SetCameraLockActive(false);
+        BossHudEventService.RequestHide(this);
         UnsubscribeHeroDeath();
         UnsubscribeParticipantEvents();
 

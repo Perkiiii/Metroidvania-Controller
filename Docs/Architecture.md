@@ -206,13 +206,19 @@ EnemyController (MonoBehaviour — coordinator)
 
 Manual Unity validation on 2026-06-05 confirmed: Enemy AI foundation validator passed; Mushroom patrol, detection/chase, authored attack entry, startup inactive hitbox, active-window damage, duplicate-hit prevention, later-window damage after cooldown/i-frames, contact damage coexistence, contact+attack same-moment safety, hurt/death attack interrupts, death damage shutdown, and downslash pogo all worked. No hero feel values were changed.
 
-`EnemyAttackController` implements reusable authored attack windows (`Startup -> Active -> Recovery -> Cooldown`), animation-event methods (`OpenAttackWindow`, `CloseAttackWindow`, `CompleteAttack`), timer fallbacks, cooldown, and interrupt cleanup. `EnemyAttackHitbox` is disabled by default, uses `DamageHero` metadata, damages through `HeroBox`, and shares duplicate-hit prevention per active window.
+`EnemyAttackController` implements reusable authored attack windows (`Startup -> Active -> Recovery -> Cooldown`), animation-event methods (`OpenAttackWindow`, `CloseAttackWindow`, `CompleteAttack`), timer fallbacks, cooldown, and interrupt cleanup. `EnemyController` initializes every authored child attack controller exactly once with the same `EnemyStateBlackboard`; `CanStartAttack` checks the shared `attacking` flag, preventing sibling attacks from overlapping without a second scheduler/lock system. Root-only Mushroom authoring remains supported. `EnemyAttackHitbox` is disabled by default, uses `DamageHero` metadata, damages through `HeroBox`, and shares duplicate-hit prevention per active window.
 
 `EnemyController` is wiring/coordinator only. Enemy-specific behaviour components own state transitions. `EnemyMotor` owns normal enemy velocity writes; `EnemyRecoil` may temporarily override velocity through `EnemyMotor` during hit reaction.
 
-`EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. It returns `Ignored` for invalid or already-dead interactions, `Damaged` for accepted nonlethal damage, and `Killed` when accepted damage causes death. Accepted results include the applied amount and conservative future `ResourceEligible` metadata; no resource state is mutated. When accepted, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `HeroAttackAction` uses accepted results for first-connect hit-stop, camera shake, and attack feedback while preserving its per-swing receiver set. `Blocked` and `Invulnerable` remain reserved outcomes because no such receiver systems exist yet. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
+`EnemyHealthComponent` is the only class in the project that implements `IHeroAttackReceiver`. It exposes initialized current/maximum snapshots and raises `OnHealthChanged(current, maximum)` for accepted nonlethal and lethal damage before `OnDeath`; `OnDamaged` retains its nonlethal hurt-state meaning. `DestroyAfterDelay` remains the default cleanup policy. Opt-in `RetainRoot` performs the same immediate terminal shutdown but skips automatic destruction for an actor-owned death presentation. It returns `Ignored` for invalid or already-dead interactions, `Damaged` for accepted nonlethal damage, and `Killed` when accepted damage causes death. Accepted results include the applied amount and conservative future `ResourceEligible` metadata; no resource state is mutated. When accepted, it subtracts damage, plays hit feedback, and delegates hit reaction to `EnemyRecoil`. `HeroAttackAction` uses accepted results for first-connect hit-stop, camera shake, and attack feedback while preserving its per-swing receiver set. `Blocked` and `Invulnerable` remain reserved outcomes because no such receiver systems exist yet. `EnemyRecoil` applies the knockback or freeze response from `hit.ForceDirection`, exposes its `Ready` / `Frozen` / `Recoiling` state for debugging, and owns the `hurt` / `recoiling` blackboard flags until stun recovery ends. `DamageHero` marks a collider as capable of hurting the hero and stores shared damage metadata. Behaviour-specific scripts such as `EnemyContactDamage` decide when and how that damage is applied, including cooldown and knockback policy. Enemies do not reference `HeroController` or any hero subsystem; they may read the hero's `Transform` for detection targeting.
 
 See `Docs/FeatureSpecs/EnemyAI.md` for the full state machine spec and config schema.
+
+### Boss Encounter Foundation
+
+`BossEncounterController` is a thin scene-level coordinator and the sole writer of coordinated boss completion through `WorldStateRegistry.MarkEncounterDefeated`. Active `BossEncounterParticipant` wrappers hold inactive actor roots and typed `IBossEncounterBehaviour` references. The controller owns trigger/barrier/camera/control-lock/HUD requests, explicit participant aggregation, separate all-dead and all-presentation-complete gates, optional reward-root visibility, and interruption/unload cleanup; actor behavior owns attacks, phases, movement through `EnemyMotor`, Animancer playback, and death presentation. Coordinated actors do not use `EnemyPersistence`, never call `SaveManager.Save()`, and never independently mark the encounter complete.
+
+Hero death before the synchronous completion commit interrupts only encounter presentation and leaves respawn to `GameManager`. Already-completed initialization keeps actors dormant and quietly reconciles trigger, barrier, camera, HUD, and optional reward state. No production boss content or arena is authored in Phase 1. See `Docs/FeatureSpecs/BossEncounters.md`.
 
 ### Enemy World Persistence (World Persistence Phase 1)
 
@@ -441,15 +447,17 @@ HUD and menus use UGUI. The persistent `_GameCameras` prefab already contains `H
 _GameCameras (persistent)
 └── HUDRoot (PersistentHudRoot)
     └── HUD Canvas (HUDCamera)
-        ├── HealthDisplay   — direct PlayerHealthState.Changed subscriber
-        └── ResourceDisplay — direct PlayerResourceState.Changed subscriber
+        ├── Player HUD
+        │   ├── HealthDisplay   — direct PlayerHealthState.Changed subscriber
+        │   └── ResourceDisplay — direct PlayerResourceState.Changed subscriber
+        └── Boss Health Display — source-scoped explicit EnemyHealthComponent roster
 └── Menus
     ├── PauseMenu         — shown/hidden by GameManager.Pause() / Unpause()
     └── [reserved slots]  — main menu, game-over screen; populated in later milestones
 ```
 
 Key separation rules:
-- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` and `ResourceDisplay` subscribe directly to persistent state assets, refresh explicitly on enable, and do not rebind through `GameManager.SceneInit`. Gameplay-context events remain outside the basic value display.
+- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` and `ResourceDisplay` subscribe directly to persistent state assets. `BossHealthDisplay` receives a transient show request, stores the source token and explicit scene-health roster locally, refreshes from `OnHealthChanged`, and clears those references on matching hide/disable. No HUD view searches scenes or rebinds through `GameManager.SceneInit`.
 - **Pause is owned by `GameManager`.** The pause menu calls `GameManager.Pause()` / `Unpause()`; it does not set `Time.timeScale` directly.
 - **Save/load UI goes through `UIFlowController`.** No UI MonoBehaviour calls `SaveManager.Save()` or `LoadSceneAsync` directly.
 - **Presentation remains separate from state.** Health uses dynamic slot views; resource uses a single always-visible horizontal fill bar (no orb/pip presentation). Both are simple UGUI elements; final artwork and optional menu overlays are Editor work and do not change gameplay ownership.
@@ -489,7 +497,8 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Camera | `Docs/FeatureSpecs/Camera.md` | 1 | Done |
 | Scene Transitions | — (described in this doc) | 1 | Done |
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
+| Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 1 | Reusable lifecycle and HUD implemented; production content pending |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
-| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 | Presentation foundation implemented; Editor wiring pending |
+| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; menus pending |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |
