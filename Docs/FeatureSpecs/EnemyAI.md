@@ -120,6 +120,11 @@ Explicit authored attacks must not use contact-damage timing. They use attack hi
 
 `EnemyController` discovers and initializes every authored child `EnemyAttackController` exactly once. All receive the same `EnemyStateBlackboard`, and `CanStartAttack` requires `!blackboard.attacking`, so sibling attack modules exclude each other through the existing shared state. Child attack controllers resolve the root `EnemyHealthComponent`; suppressed initialization disables every discovered controller. Root-only Mushroom authoring remains valid.
 
+`EnemyAttackController.TryConfigureTimings(startup, active, recovery, cooldown)` is an additive
+initialization seam used by boss-owned config. It rejects NaN, infinity, negative phase values,
+cooldown values below `-1`, and all changes while the controller is actively attacking. Existing
+serialized Mushroom timings remain authoritative and require no prefab migration.
+
 Mushroom intentionally has both damage paths:
 
 - Body contact damage: `EnemyContactDamage` + root `DamageHero` -> `HeroBox` -> `HeroHealthComponent`

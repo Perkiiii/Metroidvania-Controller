@@ -206,7 +206,7 @@ EnemyController (MonoBehaviour — coordinator)
 
 Manual Unity validation on 2026-06-05 confirmed: Enemy AI foundation validator passed; Mushroom patrol, detection/chase, authored attack entry, startup inactive hitbox, active-window damage, duplicate-hit prevention, later-window damage after cooldown/i-frames, contact damage coexistence, contact+attack same-moment safety, hurt/death attack interrupts, death damage shutdown, and downslash pogo all worked. No hero feel values were changed.
 
-`EnemyAttackController` implements reusable authored attack windows (`Startup -> Active -> Recovery -> Cooldown`), animation-event methods (`OpenAttackWindow`, `CloseAttackWindow`, `CompleteAttack`), timer fallbacks, cooldown, and interrupt cleanup. `EnemyController` initializes every authored child attack controller exactly once with the same `EnemyStateBlackboard`; `CanStartAttack` checks the shared `attacking` flag, preventing sibling attacks from overlapping without a second scheduler/lock system. Root-only Mushroom authoring remains supported. `EnemyAttackHitbox` is disabled by default, uses `DamageHero` metadata, damages through `HeroBox`, and shares duplicate-hit prevention per active window.
+`EnemyAttackController` implements reusable authored attack windows (`Startup -> Active -> Recovery -> Cooldown`), animation-event methods (`OpenAttackWindow`, `CloseAttackWindow`, `CompleteAttack`), timer fallbacks, cooldown, and interrupt cleanup. `EnemyController` initializes every authored child attack controller exactly once with the same `EnemyStateBlackboard`; `CanStartAttack` checks the shared `attacking` flag, preventing sibling attacks from overlapping without a second scheduler/lock system. `TryConfigureTimings` is an additive setup-time seam for actor-owned config assets: it validates values, rejects changes during an active attack, and requires no ordinary-enemy prefab migration. Root-only Mushroom authoring remains supported. `EnemyAttackHitbox` is disabled by default, uses `DamageHero` metadata, damages through `HeroBox`, and shares duplicate-hit prevention per active window.
 
 `EnemyController` is wiring/coordinator only. Enemy-specific behaviour components own state transitions. `EnemyMotor` owns normal enemy velocity writes; `EnemyRecoil` may temporarily override velocity through `EnemyMotor` during hit reaction.
 
@@ -218,7 +218,16 @@ See `Docs/FeatureSpecs/EnemyAI.md` for the full state machine spec and config sc
 
 `BossEncounterController` is a thin scene-level coordinator and the sole writer of coordinated boss completion through `WorldStateRegistry.MarkEncounterDefeated`. Active `BossEncounterParticipant` wrappers hold inactive actor roots and typed `IBossEncounterBehaviour` references. The controller owns trigger/barrier/camera/control-lock/HUD requests, explicit participant aggregation, separate all-dead and all-presentation-complete gates, optional reward-root visibility, and interruption/unload cleanup; actor behavior owns attacks, phases, movement through `EnemyMotor`, Animancer playback, and death presentation. Coordinated actors do not use `EnemyPersistence`, never call `SaveManager.Save()`, and never independently mark the encounter complete.
 
-Hero death before the synchronous completion commit interrupts only encounter presentation and leaves respawn to `GameManager`. Already-completed initialization keeps actors dormant and quietly reconciles trigger, barrier, camera, HUD, and optional reward state. No production boss content or arena is authored in Phase 1. See `Docs/FeatureSpecs/BossEncounters.md`.
+Hero death before the synchronous completion commit interrupts only encounter presentation and leaves respawn to `GameManager`. Already-completed initialization keeps actors dormant and quietly reconciles trigger, barrier, camera, HUD, and optional reward state.
+
+Phase 2A authors the first concrete actor and arena integration: `UndeadExecutionerBehaviour` +
+`UndeadExecutionerConfig`, boss-specific Animancer clips/attack modules, a non-participant
+`UndeadExecutionerSpiritPressure`, and encounter ID `boss_sample_04_executioner` in
+`SampleScene4`. The actor is a zero-gravity floating Dynamic Rigidbody2D with frozen Y/rotation;
+all horizontal locomotion routes through `EnemyMotor`. Its retained-root death presentation
+completes before the encounter commit, after which the participant completion notification
+deactivates the actor. Reward content remains a neutral placeholder. See
+`Docs/FeatureSpecs/BossEncounters.md`.
 
 ### Enemy World Persistence (World Persistence Phase 1)
 
@@ -497,7 +506,7 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Camera | `Docs/FeatureSpecs/Camera.md` | 1 | Done |
 | Scene Transitions | — (described in this doc) | 1 | Done |
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
-| Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 1 | Reusable lifecycle and HUD implemented; production content pending |
+| Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 2A | Reusable lifecycle plus Undead Executioner playable vertical slice implemented; feel/polish review pending |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
 | HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; menus pending |

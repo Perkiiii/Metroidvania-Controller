@@ -17,7 +17,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Boot scene / persistent infrastructure | Done |
 | Camera system | Done |
 | Enemy AI framework | Foundation validated |
-| Boss encounters | Phase 1 foundation and persistent HUD done; production content pending |
+| Boss encounters | Phase 2A playable Undead Executioner vertical slice implemented; polish/feel review pending |
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
@@ -153,12 +153,24 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 ### Boss Encounter Phase 1 — Foundation
 
-**Status:** Milestones A–C implemented 2026-07-24. No production boss or arena authored.
+**Status:** Milestones A–C implemented 2026-07-24. Phase 2A first playable implemented in
+`SampleScene4`; review and hands-on feel validation remain before Phase 2B.
 
 - [x] Shared enemy prerequisites: additive health snapshots/events, default-preserving retained-root cleanup option, all-child attack initialization/root-health resolution, and shared-blackboard sibling attack exclusion with Mushroom regressions.
 - [x] Encounter foundation: stable definition, active participant wrappers with inactive actor roots, trigger/barrier/camera/control-lock integration, separate defeat/presentation gates, synchronous idempotent registry commit, optional reward root, hero-death/unload interruption cleanup, and `BossEncounterValidator`.
 - [x] Persistent boss HUD: stateless requests, source-token filtering, explicit multi-participant aggregate roster, lifecycle cleanup, and `_GameCameras.prefab` authoring without changing `PersistentHudRoot`.
-- [ ] Phase 2 content: boss identity, production arena, optional reward content, attacks/phases/tuning, Animancer presentation, hitbox/layer validation, and PlayMode/manual encounter validation. Mushroom derivation, `SampleScene3`, and progression rewards are not approved assumptions.
+- [x] Phase 2A playable vertical slice: asset-facing **Undead Executioner** identity,
+  `boss_sample_04_executioner`, one coordinated participant, zero-gravity EnemyMotor glides,
+  two boss-owned attacks (`ExecutionerCombo` and `ShadowBurst`), one 50% summon transition,
+  temporary non-participant spirit pressure, Animancer intro/combat/death presentation,
+  `SampleScene4` trigger/barrier/camera/HUD/completion wiring, normalized checkpoint and
+  `room_sample_04`, neutral visual-only reward root, concrete validation, and focused tests.
+  Numeric values remain provisional.
+- [ ] Phase 2A review gate: hands-on player-input pogo, collider/platform behavior, attack
+  readability, checkpoint death/retry through the full Boot/save flow, transition framing, and
+  fight-duration/tuning approval.
+- [ ] Phase 2B polish: tuning, final VFX/SFX/art integration, refined intro/outro, arena
+  readability, and reward content after progression approval.
 - [ ] Optional later presentation: Timeline-only presentation hooks and a separately approved music override/restore architecture.
 
 **Future compatibility note:** Death-drop / shade / resource recovery is not part of this pass. When added, it should capture death scene + death position before `GameManager` loads the checkpoint scene; do not reuse `activeRespawnSceneName` for death-drop location.
