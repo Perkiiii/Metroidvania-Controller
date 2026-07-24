@@ -135,7 +135,10 @@ public sealed class BossEncounterParticipant : MonoBehaviour
             return;
         }
 
-        health.OnDeath -= HandleDefeated;
+        if (health != null)
+        {
+            health.OnDeath -= HandleDefeated;
+        }
 
         IBossEncounterBehaviour resolvedBehaviour = ResolveBehaviour();
         if (resolvedBehaviour != null)

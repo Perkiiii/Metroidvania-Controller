@@ -392,6 +392,7 @@ public sealed class BossEncounterController : MonoBehaviour
 
     private void AbortFailedStart()
     {
+        State = BossEncounterState.Interrupted;
         for (int i = 0; participants != null && i < participants.Length; i++)
         {
             participants[i]?.Interrupt();
@@ -488,15 +489,23 @@ public sealed class BossEncounterController : MonoBehaviour
         }
 
         shuttingDown = true;
+
+        if (!completionCommitted && State != BossEncounterState.Dormant
+            && State != BossEncounterState.Interrupted)
+        {
+            State = BossEncounterState.Interrupted;
+            for (int i = 0; participants != null && i < participants.Length; i++)
+            {
+                participants[i]?.Interrupt();
+            }
+
+            SetBarriersOpen(true, true);
+        }
+
         ReleaseControlLock();
         SetCameraLockActive(false);
         BossHudEventService.RequestHide(this);
         UnsubscribeHeroDeath();
         UnsubscribeParticipantEvents();
-
-        if (!completionCommitted && State != BossEncounterState.Dormant)
-        {
-            State = BossEncounterState.Interrupted;
-        }
     }
 }

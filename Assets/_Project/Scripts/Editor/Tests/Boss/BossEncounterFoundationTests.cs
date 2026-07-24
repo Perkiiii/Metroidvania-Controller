@@ -147,6 +147,51 @@ public sealed class BossEncounterFoundationTests
         Assert.That(rig.ActorRoots[0].activeSelf, Is.False);
     }
 
+    [Test]
+    public void FailedStartupIgnoresCompletionCallbacksRaisedDuringInterruption()
+    {
+        TestRig rig = CreateRig(1);
+        rig.Behaviours[0].EmitCompletionDuringInterrupt = true;
+        SetPrivateField(rig.Participants[0].Health, "config", null);
+
+        LogAssert.Expect(
+            LogType.Error,
+            "[BossEncounterParticipant] 'Participant 0' activated actor 'ActorRoot', but its health component did not initialize.");
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
+
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Dormant));
+        Assert.That(rig.Controller.CompletionCommitted, Is.False);
+        Assert.That(registry.IsEncounterDefeated(definition.EncounterId), Is.False);
+        Assert.That(rig.Reward.activeSelf, Is.False);
+        Assert.That(rig.Barrier.IsOpen, Is.True);
+    }
+
+    [Test]
+    public void DisableDuringActiveEncounterInterruptsParticipantsAndOpensBarrier()
+    {
+        TestRig rig = CreateRig(1);
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.True);
+        rig.Behaviours[0].CompleteIntro();
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Active));
+
+        InvokePrivate(rig.Controller, "OnDisable");
+
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Interrupted));
+        Assert.That(rig.Behaviours[0].Interruptions, Is.EqualTo(1));
+        Assert.That(rig.ActorRoots[0].activeSelf, Is.False);
+        Assert.That(rig.Barrier.IsOpen, Is.True);
+        Assert.That(registry.IsEncounterDefeated(definition.EncounterId), Is.False);
+    }
+
+    [Test]
+    public void ParticipantDisableIsSafeWhenSubscribedHealthReferenceIsMissing()
+    {
+        TestRig rig = CreateRig(1);
+        SetPrivateField(rig.Participants[0], "health", null);
+
+        Assert.DoesNotThrow(() => InvokePrivate(rig.Participants[0], "OnDisable"));
+    }
+
     private TestRig CreateRig(int participantCount)
     {
         HeroHealthComponent heroHealth = testRoot.AddComponent<HeroHealthComponent>();
@@ -179,6 +224,7 @@ public sealed class BossEncounterFoundationTests
             SetPrivateField(participant, "actorRoot", actor);
             SetPrivateField(participant, "health", health);
             SetPrivateField(participant, "behaviourSource", behaviour);
+            behaviour.OwnerParticipant = participant;
             participants[i] = participant;
             behaviours[i] = behaviour;
             actorRoots[i] = actor;
@@ -262,11 +308,24 @@ public sealed class BossEncounterTestBehaviour : MonoBehaviour, IBossEncounterBe
     public int PrepareCalls { get; private set; }
     public int Interruptions { get; private set; }
     public int CompletionNotifications { get; private set; }
+    public bool EmitCompletionDuringInterrupt { get; set; }
+    public BossEncounterParticipant OwnerParticipant { get; set; }
 
     public void PrepareForEncounter() => PrepareCalls++;
     public void PlayIntro() { }
     public void BeginCombat() { }
-    public void InterruptEncounter() => Interruptions++;
+    public void InterruptEncounter()
+    {
+        Interruptions++;
+        if (EmitCompletionDuringInterrupt)
+        {
+            typeof(BossEncounterParticipant)
+                .GetMethod("HandleDefeated", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(OwnerParticipant, null);
+            IntroCompleted?.Invoke();
+            DefeatPresentationCompleted?.Invoke();
+        }
+    }
     public void NotifyEncounterCompleted()
     {
         CompletionNotifications++;
