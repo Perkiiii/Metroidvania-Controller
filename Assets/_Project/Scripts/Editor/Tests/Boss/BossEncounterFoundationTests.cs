@@ -71,6 +71,8 @@ public sealed class BossEncounterFoundationTests
         Assert.That(rig.Barrier.IsOpen, Is.True);
         Assert.That(rig.Behaviours[0].CompletionNotifications, Is.EqualTo(1));
         Assert.That(rig.Behaviours[1].CompletionNotifications, Is.EqualTo(1));
+        Assert.That(rig.ActorRoots[0].activeSelf, Is.False);
+        Assert.That(rig.ActorRoots[1].activeSelf, Is.False);
     }
 
     [Test]
@@ -265,7 +267,11 @@ public sealed class BossEncounterTestBehaviour : MonoBehaviour, IBossEncounterBe
     public void PlayIntro() { }
     public void BeginCombat() { }
     public void InterruptEncounter() => Interruptions++;
-    public void NotifyEncounterCompleted() => CompletionNotifications++;
+    public void NotifyEncounterCompleted()
+    {
+        CompletionNotifications++;
+        gameObject.SetActive(false);
+    }
     public void CompleteIntro() => IntroCompleted?.Invoke();
     public void CompleteDefeatPresentation() => DefeatPresentationCompleted?.Invoke();
 
