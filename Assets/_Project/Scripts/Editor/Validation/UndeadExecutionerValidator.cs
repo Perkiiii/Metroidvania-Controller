@@ -7,6 +7,14 @@ public static class UndeadExecutionerValidator
 {
     private const string ParticipantPrefabPath =
         "Assets/_Project/Prefabs/Bosses/UndeadExecutioner/UndeadExecutionerParticipant.prefab";
+    private const string HeroConfigPath =
+        "Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset";
+    private static readonly string[] RequiredSampleScene4Walkables =
+    {
+        "Platform",
+        "Platform (2)",
+        "Platform (9)"
+    };
 
     [MenuItem("Tools/Project/Validate Undead Executioner")]
     public static void ValidateUndeadExecutioner()
@@ -39,6 +47,11 @@ public static class UndeadExecutionerValidator
             }
 
             issues += ValidateSceneInstance(behaviour);
+        }
+
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "SampleScene4")
+        {
+            issues += ValidateSampleScene4Walkables();
         }
 
         return issues;
@@ -129,9 +142,24 @@ public static class UndeadExecutionerValidator
         {
             issues += Error(behaviour, "requires a stable body/hurt collider.");
         }
-        else if (bodyCollider.isTrigger)
+        else
         {
-            issues += Error(bodyCollider, "Body collider must be solid so the hero cannot remain merged inside the boss.");
+            if (bodyCollider.isTrigger)
+                issues += Error(bodyCollider, "Body collider must be solid so the hero cannot remain merged inside the boss.");
+            if (!bodyCollider.enabled)
+                issues += Error(bodyCollider, "Body collider must be authored enabled for active combat.");
+
+            int enemiesLayer = LayerMask.NameToLayer("Enemies");
+            if (enemiesLayer < 0 || bodyCollider.gameObject.layer != enemiesLayer)
+                issues += Error(bodyCollider, "Damageable body collider must be on the Enemies layer.");
+
+            if (behaviour.Health != null
+                && !ReferenceEquals(ResolveHeroAttackReceiver(bodyCollider), behaviour.Health))
+            {
+                issues += Error(
+                    bodyCollider,
+                    "Body collider parent chain must resolve the configured EnemyHealthComponent as IHeroAttackReceiver.");
+            }
         }
 
         if (behaviour.PresentationRoot == null || behaviour.SpriteRenderer == null || behaviour.Animancer == null)
@@ -191,6 +219,9 @@ public static class UndeadExecutionerValidator
                 issues += Error(hitbox, "Attack hitbox requires a trigger Collider2D.");
             if (collider != null && collider.enabled)
                 issues += Error(collider, "Attack hitbox must be authored disabled.");
+            int enemyAttackLayer = LayerMask.NameToLayer("Enemy Attack");
+            if (collider != null && (enemyAttackLayer < 0 || collider.gameObject.layer != enemyAttackLayer))
+                issues += Error(collider, "Attack hitbox must be on the Enemy Attack layer.");
             if (damage == null || damage.DamageDealt <= 0)
                 issues += Error(hitbox, "Attack hitbox requires positive DamageHero metadata.");
         }
@@ -201,6 +232,65 @@ public static class UndeadExecutionerValidator
     private static int ValidateSceneInstance(UndeadExecutionerBehaviour behaviour)
     {
         return ValidateBehaviour(behaviour, true);
+    }
+
+    internal static IHeroAttackReceiver ResolveHeroAttackReceiver(Collider2D collider)
+    {
+        if (collider == null)
+        {
+            return null;
+        }
+
+        MonoBehaviour[] behaviours = collider.GetComponentsInParent<MonoBehaviour>(true);
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] is IHeroAttackReceiver receiver)
+            {
+                return receiver;
+            }
+        }
+
+        return null;
+    }
+
+    internal static int ValidateSampleScene4Walkables()
+    {
+        HeroConfig heroConfig = AssetDatabase.LoadAssetAtPath<HeroConfig>(HeroConfigPath);
+        if (heroConfig == null)
+        {
+            return Error(null, $"Missing HeroConfig at '{HeroConfigPath}'.");
+        }
+
+        int issues = 0;
+        Collider2D[] colliders = Object.FindObjectsByType<Collider2D>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+        for (int nameIndex = 0; nameIndex < RequiredSampleScene4Walkables.Length; nameIndex++)
+        {
+            string requiredName = RequiredSampleScene4Walkables[nameIndex];
+            Collider2D walkable = colliders.FirstOrDefault(
+                candidate => candidate != null && candidate.gameObject.name == requiredName);
+            if (walkable == null)
+            {
+                issues += Error(null, $"SampleScene4 requires walkable collider '{requiredName}'.");
+                continue;
+            }
+
+            if (!walkable.enabled)
+                issues += Error(walkable, "Required SampleScene4 walkable collider must be enabled.");
+            if (walkable.isTrigger)
+                issues += Error(walkable, "Required SampleScene4 walkable collider must not be a trigger.");
+
+            int layerBit = 1 << walkable.gameObject.layer;
+            if ((heroConfig.terrainLayers.value & layerBit) == 0)
+            {
+                issues += Error(
+                    walkable,
+                    $"Required SampleScene4 walkable collider layer '{LayerMask.LayerToName(walkable.gameObject.layer)}' is not accepted by HeroConfig.terrainLayers.");
+            }
+        }
+
+        return issues;
     }
 
     private static int ValidateClips(UndeadExecutionerConfig config, Object context)

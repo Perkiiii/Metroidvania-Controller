@@ -33,6 +33,7 @@ public sealed class UndeadExecutionerValidatorTests
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] Rigidbody2D gravity scale must be zero.");
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] Rigidbody2D must freeze Y position for stable hover.");
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] Rigidbody2D must freeze rotation.");
+        LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] Damageable body collider must be on the Enemies layer.");
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] requires PresentationRoot, SpriteRenderer, and Animancer references.");
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] requires ComboFirst, ComboSecond, and ShadowBurst attack controllers.");
         LogAssert.Expect(LogType.Error, "[UndeadExecutionerValidator] requires one boss-owned spirit pressure helper.");
@@ -40,6 +41,22 @@ public sealed class UndeadExecutionerValidatorTests
 
         int issues = UndeadExecutionerValidator.ValidateBehaviour(behaviour, false);
 
-        Assert.That(issues, Is.EqualTo(10));
+        Assert.That(issues, Is.EqualTo(11));
+    }
+
+    [Test]
+    public void BodyColliderParentLookupResolvesConfiguredEnemyHealthReceiver()
+    {
+        root = new GameObject("ActorRoot");
+        root.layer = LayerMask.NameToLayer("Enemies");
+        EnemyHealthComponent health = root.AddComponent<EnemyHealthComponent>();
+        GameObject hurtbox = new GameObject("BodyHurtbox");
+        hurtbox.layer = root.layer;
+        hurtbox.transform.SetParent(root.transform);
+        BoxCollider2D bodyCollider = hurtbox.AddComponent<BoxCollider2D>();
+
+        IHeroAttackReceiver receiver = UndeadExecutionerValidator.ResolveHeroAttackReceiver(bodyCollider);
+
+        Assert.That(receiver, Is.SameAs(health));
     }
 }

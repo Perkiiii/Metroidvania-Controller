@@ -3,6 +3,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class HeroSensors : MonoBehaviour
 {
+    private readonly RaycastHit2D[] solidHitBuffer = new RaycastHit2D[1];
+
     private HeroConfig config;
     private HeroStateBlackboard blackboard;
     private Rigidbody2D body;
@@ -90,7 +92,9 @@ public sealed class HeroSensors : MonoBehaviour
 
     private bool RayHitsSolid(Vector2 origin, Vector2 direction, float distance)
     {
-        RaycastHit2D hit = Physics2D.Raycast(origin, direction, distance, config.terrainLayers);
-        return hit.collider != null && !hit.collider.isTrigger;
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(config.terrainLayers);
+        filter.useTriggers = false;
+        return Physics2D.Raycast(origin, direction, filter, solidHitBuffer, distance) > 0;
     }
 }
