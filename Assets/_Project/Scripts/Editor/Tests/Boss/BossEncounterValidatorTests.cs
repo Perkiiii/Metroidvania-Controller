@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -32,6 +33,31 @@ public sealed class BossEncounterValidatorTests
             Object.DestroyImmediate(wrapper);
             Object.DestroyImmediate(actor);
             Object.DestroyImmediate(external);
+        }
+    }
+
+    [Test]
+    public void PermanentEnemyIdCollisionIsDetectedAgainstDefinitions()
+    {
+        GameObject enemy = new GameObject("Legacy Permanent Boss");
+        try
+        {
+            EnemyPersistence persistence = enemy.AddComponent<EnemyPersistence>();
+            SetPrivateField(persistence, "mode", EnemyPersistenceMode.PermanentEncounter);
+            SetPrivateField(persistence, "worldObjectId", "shared_boss_id");
+            LogAssert.Expect(
+                LogType.Error,
+                "[BossEncounterValidator] 'Legacy Permanent Boss' PermanentEncounter ID 'shared_boss_id' collides with a BossEncounterDefinition.");
+
+            int issues = BossEncounterValidator.ValidatePermanentEncounterCollision(
+                persistence,
+                new HashSet<string> { "shared_boss_id" });
+
+            Assert.That(issues, Is.EqualTo(1));
+        }
+        finally
+        {
+            Object.DestroyImmediate(enemy);
         }
     }
 

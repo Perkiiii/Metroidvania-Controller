@@ -18,7 +18,17 @@ public static class BossEncounterValidator
             }
         }
 
-        int issues = ValidateDefinitions(LoadAllDefinitions());
+        List<BossEncounterDefinition> definitions = LoadAllDefinitions();
+        int issues = ValidateDefinitions(definitions);
+        HashSet<string> definitionIds = new HashSet<string>();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            if (definitions[i] != null && !string.IsNullOrWhiteSpace(definitions[i].EncounterId))
+            {
+                definitionIds.Add(definitions[i].EncounterId);
+            }
+        }
+
         SceneSetup[] previousSetup = EditorSceneManager.GetSceneManagerSetup();
 
         try
@@ -31,7 +41,7 @@ public static class BossEncounterValidator
                 }
 
                 Scene scene = EditorSceneManager.OpenScene(buildScene.path, OpenSceneMode.Single);
-                issues += ValidateScene(scene);
+                issues += ValidateScene(scene, definitionIds);
             }
         }
         finally
@@ -240,10 +250,9 @@ public static class BossEncounterValidator
         return issues;
     }
 
-    private static int ValidateScene(Scene scene)
+    private static int ValidateScene(Scene scene, HashSet<string> definitionIds)
     {
         int issues = 0;
-        Dictionary<string, EnemyPersistence> permanentEnemies = new Dictionary<string, EnemyPersistence>();
 
         foreach (GameObject root in scene.GetRootGameObjects())
         {
@@ -252,7 +261,7 @@ public static class BossEncounterValidator
                 if (persistence.Mode == EnemyPersistenceMode.PermanentEncounter
                     && !string.IsNullOrWhiteSpace(persistence.WorldObjectId))
                 {
-                    permanentEnemies[persistence.WorldObjectId] = persistence;
+                    issues += ValidatePermanentEncounterCollision(persistence, definitionIds);
                 }
             }
         }
@@ -263,14 +272,28 @@ public static class BossEncounterValidator
             {
                 issues += ValidateController(controller);
                 string id = controller.Definition != null ? controller.Definition.EncounterId : "";
-                if (!string.IsNullOrWhiteSpace(id) && permanentEnemies.TryGetValue(id, out EnemyPersistence conflict))
-                {
-                    issues += Error(controller, $"encounter ID '{id}' collides with PermanentEncounter enemy '{GetPath(conflict.transform)}' in scene '{scene.name}'.");
-                }
             }
         }
 
         return issues;
+    }
+
+    internal static int ValidatePermanentEncounterCollision(
+        EnemyPersistence persistence,
+        ISet<string> encounterDefinitionIds)
+    {
+        if (persistence == null
+            || persistence.Mode != EnemyPersistenceMode.PermanentEncounter
+            || string.IsNullOrWhiteSpace(persistence.WorldObjectId)
+            || encounterDefinitionIds == null
+            || !encounterDefinitionIds.Contains(persistence.WorldObjectId))
+        {
+            return 0;
+        }
+
+        return Error(
+            persistence,
+            $"PermanentEncounter ID '{persistence.WorldObjectId}' collides with a BossEncounterDefinition.");
     }
 
     private static List<BossEncounterDefinition> LoadAllDefinitions()
