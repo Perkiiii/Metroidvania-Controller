@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddd79ce837745444492443d3dc2f89b0, type: 3}
+  m_Name: UndeadExecutionerEnemyConfig
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
+  maxHealth: 24
+  knockbackForce: 0
+  knockbackLift: 0
+  stunDuration: 0.08
+  hitStopDuration: 0.06
+  freezeOnHit: 1
+  preventUpwardRecoil: 0
+  stopHorizontalVelocityOnUpwardRecoil: 1
+  deathType: 0
+  deathDestroyDelay: 2.25
+  respawnDuration: 30
+  hurtSfx: {fileID: 0}
+  deathSfx: {fileID: 0}
+  patrolSpeed: 0
+  chaseSpeed: 2.5
+  patrolIdleTime: 0
+  chaseTimeout: 0
+  attackRange: 2.5
+  attackCooldown: 1
+  detectionRadius: 40
+  terrainLayers:
+    serializedVersion: 2
+    m_Bits: 128

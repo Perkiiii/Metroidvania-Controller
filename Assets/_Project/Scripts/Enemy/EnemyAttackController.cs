@@ -151,6 +151,24 @@ public sealed class EnemyAttackController : MonoBehaviour
         return true;
     }
 
+    public bool TryConfigureTimings(float startup, float active, float recovery, float cooldown)
+    {
+        if (IsAttacking
+            || float.IsNaN(startup) || float.IsInfinity(startup) || startup < 0f
+            || float.IsNaN(active) || float.IsInfinity(active) || active < 0f
+            || float.IsNaN(recovery) || float.IsInfinity(recovery) || recovery < 0f
+            || float.IsNaN(cooldown) || float.IsInfinity(cooldown) || cooldown < -1f)
+        {
+            return false;
+        }
+
+        startupDuration = startup;
+        activeDuration = active;
+        recoveryDuration = recovery;
+        cooldownDuration = cooldown;
+        return true;
+    }
+
     public void OpenAttackWindow()
     {
         if (phase == EnemyAttackPhase.Active)
