@@ -7,8 +7,10 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
 {
     public event Action OnDamaged;
     public event Action OnDeath;
+    public event Action<int, int> OnHealthChanged;
 
     [SerializeField] private EnemyFeedbackController feedbackController;
+    [SerializeField] private EnemyDeathCleanupMode deathCleanupMode = EnemyDeathCleanupMode.DestroyAfterDelay;
 
     private EnemyConfig config;
     private EnemyStateBlackboard blackboard;
@@ -19,6 +21,11 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
     private EnemyContactDamage[] contactDamageComponents;
     private SpriteFlash flasher;
     private int currentHealth;
+
+    public int CurrentHealth => currentHealth;
+    public int MaximumHealth => config != null ? config.maxHealth : 0;
+    public bool IsInitialized => config != null && blackboard != null && body != null;
+    public EnemyDeathCleanupMode DeathCleanupMode => deathCleanupMode;
 
     public void Initialize(
         EnemyConfig enemyConfig,
@@ -49,6 +56,7 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         int healthBeforeHit = currentHealth;
         currentHealth = Mathf.Max(0, currentHealth - hit.Damage);
         int damageApplied = healthBeforeHit - currentHealth;
+        OnHealthChanged?.Invoke(currentHealth, MaximumHealth);
 
         flasher?.FlashHit();
         AudioManager.Instance?.PlaySFX(config.hurtSfx);
@@ -92,7 +100,10 @@ public sealed class EnemyHealthComponent : MonoBehaviour, IHeroAttackReceiver, I
         AudioManager.Instance?.PlaySFX(config.deathSfx);
         feedbackController?.PlayDeath(transform.position);
         OnDeath?.Invoke();
-        StartCoroutine(DestroyRoutine());
+        if (deathCleanupMode == EnemyDeathCleanupMode.DestroyAfterDelay)
+        {
+            StartCoroutine(DestroyRoutine());
+        }
     }
 
     private IEnumerator DestroyRoutine()

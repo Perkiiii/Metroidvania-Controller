@@ -47,7 +47,8 @@ public sealed class EnemyAttackController : MonoBehaviour
         && blackboard != null
         && !blackboard.dead
         && !blackboard.hurt
-        && !blackboard.recoiling;
+        && !blackboard.recoiling
+        && !blackboard.attacking;
 
     public void Initialize(EnemyConfig enemyConfig, EnemyStateBlackboard stateBlackboard, EnemyMotor enemyMotor)
     {
@@ -283,7 +284,7 @@ public sealed class EnemyAttackController : MonoBehaviour
 
     private void SubscribeToHealth()
     {
-        EnemyHealthComponent nextHealth = GetComponent<EnemyHealthComponent>();
+        EnemyHealthComponent nextHealth = GetComponentInParent<EnemyHealthComponent>();
         if (health == nextHealth)
         {
             return;

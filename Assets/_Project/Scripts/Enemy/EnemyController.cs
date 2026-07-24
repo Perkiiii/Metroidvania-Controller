@@ -28,7 +28,7 @@ public sealed class EnemyController : MonoBehaviour
 
         EnemyMotor motor = GetComponent<EnemyMotor>();
         EnemyPerception perception = GetComponent<EnemyPerception>();
-        EnemyAttackController attackController = GetComponent<EnemyAttackController>();
+        EnemyAttackController[] attackControllers = GetComponentsInChildren<EnemyAttackController>(true);
         EnemyContactDamage[] contactDamage = GetComponentsInChildren<EnemyContactDamage>(true);
         EnemyPersistence persistence = GetComponent<EnemyPersistence>();
         MonoBehaviour[] behaviours = GetComponents<MonoBehaviour>();
@@ -42,7 +42,7 @@ public sealed class EnemyController : MonoBehaviour
 
         if (suppressed)
         {
-            SuppressOnInitialization(motor, perception, attackController, contactDamage, behaviours);
+            SuppressOnInitialization(motor, perception, attackControllers, contactDamage, behaviours);
             return;
         }
 
@@ -59,9 +59,12 @@ public sealed class EnemyController : MonoBehaviour
         recoil.Initialize(config, blackboard, body);
         health.Initialize(config, blackboard, body, recoil);
 
-        if (attackController != null)
+        for (int i = 0; i < attackControllers.Length; i++)
         {
-            attackController.Initialize(config, blackboard, motor);
+            if (attackControllers[i] != null)
+            {
+                attackControllers[i].Initialize(config, blackboard, motor);
+            }
         }
 
         if (persistence != null)
@@ -84,7 +87,7 @@ public sealed class EnemyController : MonoBehaviour
     private void SuppressOnInitialization(
         EnemyMotor motor,
         EnemyPerception perception,
-        EnemyAttackController attackController,
+        EnemyAttackController[] attackControllers,
         EnemyContactDamage[] contactDamage,
         MonoBehaviour[] behaviours)
     {
@@ -113,7 +116,12 @@ public sealed class EnemyController : MonoBehaviour
 
         if (motor != null) motor.enabled = false;
         if (perception != null) perception.enabled = false;
-        if (attackController != null) attackController.enabled = false;
+
+        for (int i = 0; i < attackControllers.Length; i++)
+        {
+            if (attackControllers[i] != null)
+                attackControllers[i].enabled = false;
+        }
 
         for (int i = 0; i < contactDamage.Length; i++)
         {
