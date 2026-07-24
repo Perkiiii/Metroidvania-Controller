@@ -75,6 +75,24 @@ MonoBehaviour:
       IsInput: 1
       IsHorizontal: 1
       IsAdditional: 0
+    - Name: Right 0
+      Guid: 952a21c6-5018-4c10-bb59-82d12662c2aa
+      IsInput: 0
+      IsHorizontal: 1
+      IsAdditional: 0
+  - NodeName: SampleScene4
+    SceneAsset: {fileID: 102900000, guid: 4acd3bc1641a7c94bbb4e8b31640b0fb, type: 3}
+    SceneAssetGuid: 4acd3bc1641a7c94bbb4e8b31640b0fb
+    ScenePath: Assets/_Project/Scenes/SampleScene4
+    BuildIndex: 4
+    Guid: 2b371e4a-810f-4d81-8081-ddd0fcbb4724
+    Position: {x: 1212.7999, y: 297.6}
+    PortsData:
+    - Name: Left 0
+      Guid: fa33b3bf-583a-420c-a32a-768d814da7a4
+      IsInput: 1
+      IsHorizontal: 1
+      IsAdditional: 0
   _edgesData:
   - TransitionType: 0
     IsFacingRight: 0
@@ -91,6 +109,11 @@ MonoBehaviour:
     FromPortGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
     ToPortGuid: bf998044-cbee-430e-9c71-8b17d138450d
     EdgeGuid: b5e75128-ddb9-49a4-98a4-0505631cf1d4
+  - TransitionType: 0
+    IsFacingRight: 0
+    FromPortGuid: fa33b3bf-583a-420c-a32a-768d814da7a4
+    ToPortGuid: 952a21c6-5018-4c10-bb59-82d12662c2aa
+    EdgeGuid: 06d25bf6-17d1-456a-859d-4b5a4646b8d5
   _testResults: []
 --- !u!114 &11400000
 MonoBehaviour:
@@ -139,6 +162,16 @@ MonoBehaviour:
     - Name: Left 0
       Guid: 01833b88-20ca-4b2a-8a60-3da478f863c7
       IsAdditional: 0
+    - Name: Right 0
+      Guid: 952a21c6-5018-4c10-bb59-82d12662c2aa
+      IsAdditional: 0
+  - SceneName: SampleScene4
+    NodeName: SampleScene4
+    BuildIndex: 4
+    PortsData:
+    - Name: Left 0
+      Guid: fa33b3bf-583a-420c-a32a-768d814da7a4
+      IsAdditional: 0
   _connectionsData:
   - TransitionType: 0
     IsFacingRight: 0
@@ -152,5 +185,9 @@ MonoBehaviour:
     IsFacingRight: 0
     FromPortGuid: 01833b88-20ca-4b2a-8a60-3da478f863c7
     ToPortGuid: bf998044-cbee-430e-9c71-8b17d138450d
+  - TransitionType: 0
+    IsFacingRight: 0
+    FromPortGuid: fa33b3bf-583a-420c-a32a-768d814da7a4
+    ToPortGuid: 952a21c6-5018-4c10-bb59-82d12662c2aa
   _hasErrors: 0
   _editorData: {fileID: -3649234088410952803}
