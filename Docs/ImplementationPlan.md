@@ -100,7 +100,11 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Wire attack SFX through `AudioManager.PlaySFX` in `HeroAttackModule`. (Done)
 - [x] Add basic action SFX (jump, land, dash, hurt) via `HeroAudioController` in the relevant action classes. (Done — jump/double-jump in `HeroJumpAction`, dash in `HeroDashAction`, land/hurt/death in `HeroController`; also wall-jump, wall-slide, footsteps, attack slash, and terrain impact covered)
 
-**Enemy AI future boundaries:** wake/sleep activation, pooling, real bosses, and additional enemy archetypes remain planned/not implemented. Ordinary-enemy world persistence (timed suppression on scene re-initialization) is implemented — see `EnemyPersistence` in Architecture.md. The validated foundation currently targets Mushroom only.
+**Enemy AI future boundaries:** wake/sleep activation, pooling, a broader boss roster, and additional
+ordinary enemy archetypes remain planned. The reusable boss encounter foundation and first
+Undead Executioner actor are implemented outside the Mushroom foundation validator. Ordinary-enemy
+world persistence (timed suppression on scene re-initialization) is implemented — see
+`EnemyPersistence` in Architecture.md.
 
 ---
 
@@ -146,7 +150,7 @@ These must happen before any milestone work begins. Both are preconditions for t
 - [x] Application quit auto-save — `Application.quitting` callback; configurable `saveOnApplicationQuit` toggle. (Done)
 - [x] Implement `WorldStateRegistry` SO — visited rooms, defeated encounters, permanent object states, collected pickups; wired as `ISaveTarget` on `_SaveManager.prefab`. (Done — World Persistence Phase 1, 2026-07-23. Ordinary placed enemy persistence is the complete vertical slice: `EnemyPersistence` + `EnemyPersistenceMode` + `EnemyConfig.respawnDuration`, wired onto `Mushroom.prefab` and all 9 placed instances across `SampleScene`/`SampleScene2`/`SampleScene3`.)
 - [x] World Persistence Phase 2 — normal-death lifecycle integration and pickup reconciliation. (Done. `GameManager.BeginRespawnSequence` clears `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per normal death, before the checkpoint scene begins loading; checkpoint activation and recoverable-hazard reposition are unchanged and never clear transient records; Continue/New Game/slot change already worked for free via `WorldStateRegistry.ApplySaveData`. `AbilityPickup` reconciles against `WorldStateRegistry.collectedPickupIds` in favor of `PlayerAbilityState`. `WorldPersistenceValidator` extended to cover `AbilityPickup`.)
-- [x] World Persistence Phase 3 — doors, switches, breakables, and room visitation (2026-07-23). `PersistentDoor` (permanent shortcut gate), `PersistentSwitch` (one-shot lever, configurable `PersistenceLifetime`), and `PersistentBreakable` (implements `IHeroAttackReceiver` directly) are implemented and validated with a vertical slice in `SampleScene`. `WorldPersistenceValidator` extended with per-type local checks, a conflicting-participants check, and a single unified cross-type global-ID-uniqueness pass (previously separate for enemies vs. pickups). New `Breakable` Physics2D layer added to `HeroConfig.attackHitLayers`/`terrainLayers`. Coordinated encounter persistence is now implemented by the Boss Encounter Phase 1 foundation; production boss content remains pending.
+- [x] World Persistence Phase 3 — doors, switches, breakables, and room visitation (2026-07-23). `PersistentDoor` (permanent shortcut gate), `PersistentSwitch` (one-shot lever, configurable `PersistenceLifetime`), and `PersistentBreakable` (implements `IHeroAttackReceiver` directly) are implemented and validated with a vertical slice in `SampleScene`. `WorldPersistenceValidator` extended with per-type local checks, a conflicting-participants check, and a single unified cross-type global-ID-uniqueness pass (previously separate for enemies vs. pickups). New `Breakable` Physics2D layer added to `HeroConfig.attackHitLayers`/`terrainLayers`. Coordinated encounter persistence is implemented by the Boss Encounter foundation and exercised by the Undead Executioner in `SampleScene4`.
 - [x] World Persistence Phase 3.1 — Silksong-comparison refinement pass, pre-boss-milestone (see the Silksong Persistent World Objects research report). Replaced `GameManager.OnSceneLoaded`'s `MarkRoomVisited(scene.name)` with `RoomVisitReporter`, an authored-`roomId` participant placed once per gameplay scene (`room_sample_01`/`02`/`03`), so room identity no longer depends on `.unity` filenames; `GameManager` no longer touches `WorldStateRegistry` for room visitation. `WorldPersistenceValidator` extended with a parallel room-reporter pass (missing-reporter detection — exactly one per enabled Build Settings scene except `Boot` — plus an independent room-ID cross-scene uniqueness check). `HeroAttackResult.Damaged`/`Killed` gained an optional `resourceEligible` parameter (default `true`); `PersistentBreakable` now passes `false`, so breaking environmental objects no longer awards hero combat resource by default. `PersistentDoor`'s scope-clarifying header comment converted to an XML doc comment. See `Docs/ImplementationPlans/WorldPersistence.md` for the full rationale.
 - [x] Scene-name-driven boot continue — `Bootstrap` now resolves startup scene from `activeRespawnSceneName`, then `currentScene`, then `firstScene`. (Done; main-menu Continue button still deferred.)
 - [ ] Multi-slot save UI — slot selection screen on main menu; `LoadOrCreate(chosenSlot)` / `CreateFreshSave(chosenSlot)` routing.
@@ -154,7 +158,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 ### Boss Encounter Phase 1 — Foundation
 
 **Status:** Milestones A–C implemented 2026-07-24. Phase 2A first playable implemented in
-`SampleScene4`; Phase 2A.5 hardening pass implemented 2026-07-25; review and hands-on feel
+`SampleScene4`; Phase 2A.5 and Boss Framework Phase A production hardening implemented
+2026-07-25; review and hands-on feel
 validation remain before Phase 2B.
 
 - [x] Shared enemy prerequisites: additive health snapshots/events, default-preserving retained-root cleanup option, all-child attack initialization/root-health resolution, and shared-blackboard sibling attack exclusion with Mushroom regressions.
@@ -168,8 +173,8 @@ validation remain before Phase 2B.
   `room_sample_04`, neutral visual-only reward root, concrete validation, and focused tests.
   Numeric values remain provisional.
 - [x] Phase 2A.5 hardening pass (2026-07-25): documented the full-scene-reload retry contract
-  (`BossEncounterController` does not self-rearm; same-instance retry without a scene reload is
-  unsupported) in code comments and `BossEncounters.md`; added a read-only debug Inspector
+  (`BossEncounterController` does not self-rearm after ordinary hero death; same-instance death
+  retry without a scene reload is unsupported) in code comments and `BossEncounters.md`; added a read-only debug Inspector
   (`UndeadExecutionerBehaviourEditor`) surfacing effective attack timings and live state; added
   arena/hover/range gizmos to `UndeadExecutionerBehaviour` and a shared hitbox-bounds gizmo to
   `EnemyAttackHitbox`; removed the `SampleScene4`-name-coupled walkable check from
@@ -179,6 +184,13 @@ validation remain before Phase 2B.
   failure, and hero-death camera/control-lock release; removed the accidentally-committed
   `Assets/_Recovery/` Editor crash-recovery scene and ignored the path going forward. No
   encounter/actor architecture changed.
+- [x] Boss Framework Phase A hardening (2026-07-25): fail-closed silent participant preparation
+  before barriers/camera/HUD/control/intro, safe partial-roster cleanup and corrected same-instance
+  failed-start retry, duplicate controller-placement validation across enabled build scenes,
+  barrier and Executioner spirit-hierarchy validation, and Editor-owned clear-one-defeat
+  save/reload tooling. Normal hero-death retry remains scene-reconstruction-owned; the existing
+  in-place respawn fallback is documented as degraded recovery, not a retry guarantee. No camera,
+  music, Timeline, boss attack, tuning, presentation, or second-boss work was included.
 - [ ] Phase 2A review gate: hands-on player-input pogo, collider/platform behavior, attack
   readability, checkpoint death/retry through the full Boot/save flow, transition framing, and
   fight-duration/tuning approval.

@@ -1,6 +1,6 @@
 # Feature Spec — Enemy AI
 
-**Last audited:** 2026-06-05
+**Last audited:** 2026-07-25 — boss-status sync
 
 ## Responsibilities
 
@@ -282,22 +282,23 @@ Manual Mushroom regression checklist:
 - `EnemyAttackController` supports Startup, Active, Recovery, Cooldown, animation event methods, timer fallback, cooldown, duplicate-hit prevention, and interrupt cleanup.
 - `EnemyAttackHitbox` damages through `HeroBox` using `DamageHero` metadata.
 - Death disables contact damage and authored attack hitboxes/colliders.
+- The shared boss encounter foundation and first concrete `UndeadExecutionerBehaviour` are
+  implemented; they reuse health, motor, perception, authored attacks, and feedback seams while
+  keeping encounter lifecycle coordination in `Scripts/Boss/`.
 
 ## Planned
 
 - Additional enemy archetypes.
-- Boss-specific behaviours.
+- Additional boss-specific behaviours beyond the Undead Executioner.
 - Room-scale wake/sleep activation.
-- Defeated-enemy persistence through future world-state save ownership.
+- Additional persistence policies/content beyond the implemented world registry modes.
 - Pooling, if performance data later justifies it.
 - Enemy-specific impact profiles/attack telegraph feedback beyond the current local feedback hooks.
 
 ## Missing
 
 - No additional production enemy archetypes beyond Mushroom.
-- No boss framework.
 - No room-owned enemy wake/sleep layer.
-- No defeated-enemy persistence.
 - No pooling.
 
 ## Tech Debt

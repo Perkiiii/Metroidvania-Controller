@@ -1,6 +1,6 @@
 # Feature Spec — Boss Encounters
 
-**Last audited:** 2026-07-25
+**Last audited:** 2026-07-25 — Phase A production hardening
 
 ## Implementation status
 
@@ -10,6 +10,8 @@ and foundation validator are implemented. Phase 2A adds the first playable encou
 `boss_sample_04_executioner`. Phase 2A.5 hardened authoring/debugging around that same slice
 (retry-contract documentation, a read-only debug Inspector, authoring gizmos, a basic hit flash,
 and validator scope cleanup) without changing encounter or actor architecture.
+Phase A production hardening adds fail-closed silent preparation, enabled-build-scene placement
+uniqueness, stronger barrier/spirit validation, and Editor-owned defeated-record reset tooling.
 
 The Phase 2A fight has one coordinated participant, two boss-owned attacks, one local phase
 transition, Animancer presentation, a non-targetable spirit-pressure helper, and retained-root
@@ -27,7 +29,8 @@ It does not select attacks, run phases, move actors, play actor animation, time 
 
 `IBossEncounterBehaviour` is the actor-owned lifecycle seam:
 
-- `PrepareForEncounter`, `PlayIntro`, and `BeginCombat` start actor-local behavior.
+- `TryPrepareForEncounter` performs silent readiness/setup and reports explicit success.
+- `PlayIntro` is the first intentional visible actor presentation; `BeginCombat` starts decisions.
 - `IntroCompleted` ends the optional starting gate.
 - `DefeatPresentationCompleted` ends actor-owned death presentation.
 - `InterruptEncounter` stops actor-local work without applying a completed visual state.
@@ -48,7 +51,21 @@ BossParticipant                         active
     └── authored attack modules
 ```
 
-The active adapter subscribes before activating `ActorRoot`, verifies health initialized through the actor's normal Unity initialization, and then calls `PrepareForEncounter`. Startup failure returns control to the encounter, which releases its arena presentation without writing persistence.
+The active adapter subscribes before activating `ActorRoot`, temporarily suppresses every renderer
+and collider, verifies health initialized through the actor's normal Unity initialization, and then
+calls `TryPrepareForEncounter`. The entire roster must succeed before the controller closes
+barriers, activates the camera lock, shows HUD, acquires an intro control lock, emits
+`EncounterStarting`, or invokes any intro. `PlayIntro` restores each actor's authored
+renderer/collider states immediately before actor-owned presentation begins.
+
+Preparation failure is defensive authoring protection, not a gameplay result. The controller logs
+the failed roster index and participant, interrupts/deactivates every participant activated by the
+attempt, keeps or restores the quiet arena state, releases attempt-scoped hero-death/resources,
+writes no completion, keeps the reward hidden, and returns to retryable `Dormant`. Participant
+lifecycle subscriptions remain installed across this retryable failure; callbacks received after
+the abort cannot advance because the controller is no longer in `Starting`. A corrected participant
+may therefore succeed on a later `TryBeginEncounter` call on the same controller without duplicate
+subscriptions.
 
 `EnemyHealthComponent` uses `RetainRoot` only for actors that need a death presentation. Death still performs the normal same-frame terminal shutdown; retaining skips only automatic root destruction. After presentation completes, the actor remains retained until `NotifyEncounterCompleted` lets its concrete behavior choose a corpse, fade, hidden renderer, or deactivated root.
 
@@ -82,7 +99,7 @@ The actor is a floating spectral body:
 read-only debug section below the default Inspector: the effective `ComboFirst`/`ComboSecond`/
 `ShadowBurst`/spirit timings actually read from `UndeadExecutionerConfig` (the serialized
 Startup/Active/Recovery/Cooldown fields shown directly on each `EnemyAttackController` are prefab
-defaults that `TryConfigureTimings` overwrites at `PrepareForEncounter` time and must not be tuned
+defaults that `TryConfigureTimings` overwrites at `TryPrepareForEncounter` time and must not be tuned
 directly), plus live `State`/`CurrentAttack`/`IsPhaseTwo`/`Prepared`/hover-Y/arena-limit values
 while in Play Mode. `UndeadExecutionerBehaviour.OnDrawGizmosSelected` draws the arena span, hover
 height, and neutral-decision distance thresholds; the shared `EnemyAttackHitbox.OnDrawGizmosSelected`
@@ -123,20 +140,24 @@ Dormant -> Starting -> Active -> BossesDefeated -> Completing -> Completed
 
 `BossesDefeated` means every required health source has died. It does not reveal the reward or write permanent state. Completion waits independently for every required `DefeatPresentationCompleted`.
 
+`Starting` is entered internally while the controller performs synchronous silent preparation.
+No player-visible encounter state is committed until every participant reports ready. A failed
+preflight returns to `Dormant`; it does not traverse the combat/completion path.
+
 The final commit is synchronous, non-yielding, null-safe, and guarded by `completionCommitted`: unsubscribe hero death, enter `Completing`, mark the registry exactly once, reconcile reward/barriers/camera/HUD/control lock, notify participants, enter `Completed`, then emit `EncounterCompleted`. Source-scoped disable cleanup may still release control, HUD, camera, subscriptions, and routines after commit, but cannot interrupt the encounter, hide its reward, close barriers, reactivate actors, repeat persistence, or replay completion.
 
 Hero death during `Starting`, `Active`, or `BossesDefeated` enters `Interrupted`, stops participants, opens barriers, releases only this encounter's camera/control/HUD requests, unsubscribes callbacks, and writes no completion. `GameManager` remains the only respawn coordinator.
 
-**Retry contract.** `HandleHeroDeath` and the disable/destroy cleanup path deliberately do not
+**Retry contract.** Failed preparation is retryable on the same instance as described above.
+Ordinary hero death is different: `HandleHeroDeath` and the disable/destroy cleanup path deliberately do not
 restore `State` to `Dormant` or re-enable the trigger themselves — the only way this encounter
-re-arms is a fresh `InitializeEncounter()` run (i.e. a new `Awake()`). That is safe today only
-because `GameManager.BeginRespawnSequence` always performs a full `SceneManager.LoadSceneAsync`
-reload of the respawn scene, even for a same-scene checkpoint, which destroys and reconstructs the
-controller, every participant, and every actor from scratch. **Same-instance retry (reposition the
-hero without reloading the scene) is not currently supported by this controller.** If that respawn
-model is ever added, this controller and the actor's own runtime state will need an explicit
-reset/rearm API instead of relying on the scene-reload contract; do not assume `TryBeginEncounter`
-can be called again on a live, previously-interrupted instance.
+re-arms is a fresh `InitializeEncounter()` run (i.e. a new `Awake()`). The normal production path
+through `GameManager.BeginRespawnSequence` performs a full `SceneManager.LoadSceneAsync` reload of
+the checkpoint scene, including same-scene checkpoints, and reconstructs the encounter. If the
+saved scene is not loadable or the transition cannot start, `GameManager` deliberately falls back
+to degraded in-place respawn; an interrupted boss does not rearm in that emergency path.
+**Same-instance retry after ordinary hero death is unsupported.** Checkpoint/build validation must
+keep the full-reconstruction path available.
 
 ## Camera and HUD
 
@@ -146,7 +167,16 @@ Enabling a `CameraLockArea` around a hero already inside is supported by explici
 
 ## Validation
 
-`Tools/Project/Validate Boss Encounters` checks definitions and enabled Build Settings scenes. It reports empty/duplicate encounter IDs, collisions with `EnemyPersistenceMode.PermanentEncounter`, missing registry/roster/required arena references, invalid wrapper/actor hierarchy, invalid health/behavior references, and `EnemyPersistence` beneath coordinated participants. It never generates IDs or attempts static proof of movement authority. Validation cancels rather than opening scenes when any loaded scene is dirty.
+`Tools/Project/Validate Boss Encounters` checks definitions and enabled Build Settings scenes. It
+reports empty/duplicate definition IDs, multiple controller placements sharing one encounter ID
+(including exact scene and hierarchy paths), collisions with
+`EnemyPersistenceMode.PermanentEncounter`, missing registry/roster/required arena references,
+invalid wrapper/actor hierarchy, invalid health/behavior references, and `EnemyPersistence`
+beneath coordinated participants. Required barriers need at least one non-null, non-trigger solid
+blocker, but that blocker may be authored disabled while the arena is open. Encounter-trigger and
+camera-lock trigger colliders cannot be reused as blockers. Optional open/closed presentation roots
+may both be absent, but cannot reference the same object. The validator never generates IDs or
+mutates scenes and cancels rather than opening build scenes when any loaded scene is dirty.
 
 `Tools/Project/Validate Undead Executioner` validates the concrete prefab and loaded scene
 instances: floating Rigidbody2D setup, `EnemyMotor`, retained-root cleanup, actor references,
@@ -158,6 +188,16 @@ checks literal `SampleScene4` walkable-collider names (`"Platform"`, `"Platform 
 string match, unrelated to boss combat authoring, and fragile to renames. That floor is instead
 covered by the generic `HeroSensorsTests` ground-probe regression coverage and hands-on room
 checks.
+
+The Executioner validator also rejects any `BossEncounterParticipant` inside the spirit hierarchy;
+the spirit remains a boss-owned auxiliary actor rather than a coordinated encounter participant.
+
+In Play Mode, the component context command
+`Debug: Clear Defeated Record And Reload Scene` is implemented by Editor-only tooling. It requires
+the Boot-created initialized `SaveManager`, clears only the selected encounter fact, gathers and
+saves all ordinary targets so unrelated state remains intact, then uses the normal scene transition
+with direct same-scene reload only as an Editor fallback. Runtime `BossEncounterController` never
+calls `SaveManager.Save()`.
 
 ## Deferred
 

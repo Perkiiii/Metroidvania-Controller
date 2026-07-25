@@ -218,7 +218,20 @@ See `Docs/FeatureSpecs/EnemyAI.md` for the full state machine spec and config sc
 
 `BossEncounterController` is a thin scene-level coordinator and the sole writer of coordinated boss completion through `WorldStateRegistry.MarkEncounterDefeated`. Active `BossEncounterParticipant` wrappers hold inactive actor roots and typed `IBossEncounterBehaviour` references. The controller owns trigger/barrier/camera/control-lock/HUD requests, explicit participant aggregation, separate all-dead and all-presentation-complete gates, optional reward-root visibility, and interruption/unload cleanup; actor behavior owns attacks, phases, movement through `EnemyMotor`, Animancer playback, and death presentation. Coordinated actors do not use `EnemyPersistence`, never call `SaveManager.Save()`, and never independently mark the encounter complete.
 
-Hero death before the synchronous completion commit interrupts only encounter presentation and leaves respawn to `GameManager`. Already-completed initialization keeps actors dormant and quietly reconciles trigger, barrier, camera, HUD, and optional reward state.
+`IBossEncounterBehaviour.TryPrepareForEncounter` is a silent success contract. The participant
+adapter activates an actor only under temporary renderer/collider suppression, and every roster
+entry must prepare before the controller commits barriers, camera, HUD, control lock, lifecycle
+presentation events, or intro playback. Failure identifies the roster entry, interrupts and
+deactivates all activated participants, preserves participant subscriptions for a corrected
+same-instance retry, releases attempt-scoped resources, and writes no completion. `PlayIntro`
+restores authored actor presentation/targetability and is the first intentional visible actor step.
+
+Hero death before the synchronous completion commit interrupts only encounter presentation and
+leaves respawn to `GameManager`. Normal retry reconstructs the scene; the emergency in-place
+fallback for an unloadable/rejected respawn transition does not rearm the boss. Already-completed
+initialization keeps actors dormant and quietly reconciles trigger, barrier, camera, HUD, and
+optional reward state. Editor-only debug tooling, rather than the runtime controller, owns the
+narrow clear-one-defeat/save/reload workflow.
 
 Phase 2A authors the first concrete actor and arena integration: `UndeadExecutionerBehaviour` +
 `UndeadExecutionerConfig`, boss-specific Animancer clips/attack modules, a non-participant
@@ -506,7 +519,7 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Camera | `Docs/FeatureSpecs/Camera.md` | 1 | Done |
 | Scene Transitions | — (described in this doc) | 1 | Done |
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
-| Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 2A | Reusable lifecycle plus Undead Executioner playable vertical slice implemented; feel/polish review pending |
+| Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 2A + Phase A hardening | Reusable lifecycle, Undead Executioner slice, fail-closed preparation, and production authoring validation implemented; feel/polish review pending |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
 | HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; menus pending |

@@ -1,6 +1,6 @@
 # Feature Spec — Save System
 
-**Last audited:** 2026-07-23
+**Last audited:** 2026-07-25 — boss-status sync
 
 ## Responsibilities
 
@@ -32,6 +32,7 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `SaveDataMigrator` (v3) | `Scripts/Save/SaveDataMigrator.cs` | Done |
 | `SaveManager` persistent singleton | `Scripts/Save/SaveManager.cs` | Done |
 | `WorldStateRegistry` implements `ISaveTarget` | `Scripts/World/Persistence/Core/WorldStateRegistry.cs` | Done (World Persistence Phase 1) |
+| Coordinated boss completion (`BossEncounterController` → `WorldStateRegistry`) | `Scripts/Boss/BossEncounterController.cs` | Done; Undead Executioner authored in `SampleScene4` |
 | `EnemyPersistence` / `EnemyPersistenceMode` | `Scripts/Enemy/EnemyPersistence.cs`, `EnemyPersistenceMode.cs` | Done (World Persistence Phase 1) |
 | `PersistenceLifetime`, `PersistentDoor`, `PersistentSwitch`, `PersistentBreakable` | `Scripts/World/Persistence/Core/PersistenceLifetime.cs`, `Scripts/World/Persistence/Participants/PersistentDoor.cs`, `PersistentSwitch.cs`, `PersistentBreakable.cs` | Done (World Persistence Phase 3) |
 | Room visitation (`RoomVisitReporter.Awake` → `WorldStateRegistry.MarkRoomVisited`, authored `roomId` per gameplay scene) | `Scripts/World/Persistence/Participants/RoomVisitReporter.cs` | Done (World Persistence Phase 3.1) |
@@ -55,7 +56,6 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `HazardRespawnMarker` save key integration | Future |
 | Scene-name-driven boot continue (`activeRespawnSceneName` / `currentScene` instead of always `firstScene`) | Done |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
-| Real boss encounters using `PermanentEncounter` (mode and lifecycle are implemented and validated; no boss content exists yet) | World Persistence Phase 3 (remaining) |
 | Save slot UI (multi-slot selection, delete, stats display) | Milestone 5 |
 
 See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence), Phase 2 (normal-death lifecycle + pickup reconciliation), and Phase 3 (doors/switches/breakables + room visitation) are implemented; see the `WorldStateRegistry`, `EnemyPersistence`, and Phase 3 sections below and in `Docs/Architecture.md`.
@@ -533,8 +533,8 @@ When a schema change breaks backward compatibility:
 
 ## Future Expansion
 
-### World Persistence Phase 3 / 3.1 (implemented; real boss content remains)
-Phase 1 covers the registry foundation, save schema, stable world object IDs, and the full ordinary-placed-enemy vertical slice. Phase 2 adds normal-death lifecycle integration (`GameManager.BeginRespawnSequence` calls `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per death, before the checkpoint scene begins loading) and `AbilityPickup` reconciliation against `WorldStateRegistry.collectedPickupIds`, in favor of `PlayerAbilityState`. Phase 3 adds `PersistentDoor`/`PersistentSwitch`/`PersistentBreakable` (consuming `SetObjectState`/`SetUntilDeathState` via a shared `PersistenceLifetime` enum) and room-visitation. Phase 3.1 replaced the original scene-name-as-room-ID mechanism with `RoomVisitReporter`, an authored-`roomId` participant placed once per gameplay scene (so a `.unity` filename rename never changes saved room identity), and made `PersistentBreakable` non-resource-eligible by default (`HeroAttackResult.Damaged`/`Killed` gained an optional `resourceEligible` parameter for this) — see `Docs/Architecture.md` "Doors, switches, breakables, and room visitation" for the full implementation. Not yet built: real bosses/one-time encounters using `PermanentEncounter` (the mode itself is implemented and unit-tested; no boss content exists). See `Docs/ImplementationPlans/WorldPersistence.md` for the full plan and roadmap.
+### World Persistence Phase 3 / 3.1 (implemented; boss integration implemented)
+Phase 1 covers the registry foundation, save schema, stable world object IDs, and the full ordinary-placed-enemy vertical slice. Phase 2 adds normal-death lifecycle integration (`GameManager.BeginRespawnSequence` calls `ResetRespawnableEnemyDeaths()`/`ResetUntilDeathState()` exactly once per death, before the checkpoint scene begins loading) and `AbilityPickup` reconciliation against `WorldStateRegistry.collectedPickupIds`, in favor of `PlayerAbilityState`. Phase 3 adds `PersistentDoor`/`PersistentSwitch`/`PersistentBreakable` (consuming `SetObjectState`/`SetUntilDeathState` via a shared `PersistenceLifetime` enum) and room-visitation. Phase 3.1 replaced the original scene-name-as-room-ID mechanism with `RoomVisitReporter`, an authored-`roomId` participant placed once per gameplay scene (so a `.unity` filename rename never changes saved room identity), and made `PersistentBreakable` non-resource-eligible by default (`HeroAttackResult.Damaged`/`Killed` gained an optional `resourceEligible` parameter for this). The coordinated boss path is now exercised by `boss_sample_04_executioner`: only `BossEncounterController` marks the permanent encounter fact, and disk persistence still occurs only at the ordinary checkpoint/quit save boundaries. See `Docs/Architecture.md`, `Docs/FeatureSpecs/BossEncounters.md`, and the historical plan below.
 
 ### AbilityPickup persistence (resolved)
 `AbilityPickup.cs` now marks `WorldStateRegistry.MarkPickupCollected` alongside `PlayerAbilityState.Unlock` on collection, and reconciles the two on initialization in favor of `PlayerAbilityState`. This does not force an immediate disk save — per the `Save()` call-site rule below, collection only updates in-memory registry state; it is durably persisted at the next checkpoint or quit-save, same as any other mid-session progress.
