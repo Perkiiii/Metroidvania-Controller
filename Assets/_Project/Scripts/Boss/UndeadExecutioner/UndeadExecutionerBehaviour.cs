@@ -65,6 +65,7 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
     public UndeadExecutionerState State { get; private set; } = UndeadExecutionerState.Dormant;
     public UndeadExecutionerAttack CurrentAttack { get; private set; }
     public bool IsPhaseTwo => phaseTwo;
+    public bool IsPrepared => prepared;
     public float AuthoredHoverY => authoredHoverY;
     public UndeadExecutionerConfig Config => config;
     public EnemyMotor Motor => motor;
@@ -994,5 +995,51 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
     {
         State = next;
         stateTimer = 0f;
+    }
+
+    // Editor-only authoring aid: arena span, hover height, and (when a config is assigned)
+    // distance-threshold guidance for the neutral decision policy. Never called outside the
+    // Scene view.
+    private void OnDrawGizmosSelected()
+    {
+        float hoverY = prepared ? authoredHoverY : transform.position.y;
+        float centerX = transform.position.x;
+
+        if (arenaLeftLimit != null || arenaRightLimit != null)
+        {
+            float left = arenaLeftLimit != null ? arenaLeftLimit.position.x : centerX - 4f;
+            float right = arenaRightLimit != null ? arenaRightLimit.position.x : centerX + 4f;
+
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(new Vector3(left, hoverY - 1.5f, 0f), new Vector3(left, hoverY + 1.5f, 0f));
+            Gizmos.DrawLine(new Vector3(right, hoverY - 1.5f, 0f), new Vector3(right, hoverY + 1.5f, 0f));
+
+            Gizmos.color = new Color(1f, 1f, 0f, 0.4f);
+            Gizmos.DrawLine(new Vector3(left, hoverY, 0f), new Vector3(right, hoverY, 0f));
+        }
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(new Vector3(centerX - 0.6f, hoverY, 0f), new Vector3(centerX + 0.6f, hoverY, 0f));
+
+        if (config != null)
+        {
+            DrawRangeTick(centerX, hoverY, config.tooCloseDistance, new Color(1f, 0.2f, 0.2f, 0.8f));
+            DrawRangeTick(centerX, hoverY, config.comboMinimumRange, new Color(1f, 0.6f, 0f, 0.8f));
+            DrawRangeTick(centerX, hoverY, config.comboMaximumRange, new Color(1f, 0.6f, 0f, 0.8f));
+            DrawRangeTick(centerX, hoverY, config.preferredDistanceMinimum, new Color(0.2f, 1f, 0.4f, 0.6f));
+            DrawRangeTick(centerX, hoverY, config.preferredDistanceMaximum, new Color(0.2f, 1f, 0.4f, 0.6f));
+        }
+    }
+
+    private static void DrawRangeTick(float centerX, float hoverY, float distance, Color color)
+    {
+        if (distance <= 0f)
+        {
+            return;
+        }
+
+        Gizmos.color = color;
+        Gizmos.DrawLine(new Vector3(centerX - distance, hoverY - 0.35f, 0f), new Vector3(centerX - distance, hoverY + 0.35f, 0f));
+        Gizmos.DrawLine(new Vector3(centerX + distance, hoverY - 0.35f, 0f), new Vector3(centerX + distance, hoverY + 0.35f, 0f));
     }
 }

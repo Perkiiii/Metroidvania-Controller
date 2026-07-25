@@ -369,6 +369,14 @@ public sealed class BossEncounterController : MonoBehaviour
         heroDeathSubscribed = false;
     }
 
+    // Deliberately does not restore State to Dormant or re-enable the trigger: this encounter can
+    // only be re-armed by a fresh InitializeEncounter() run (i.e. a new Awake()). That is safe only
+    // because GameManager.BeginRespawnSequence always performs a full SceneManager.LoadSceneAsync
+    // reload of the respawn scene -- even for a same-scene checkpoint -- which destroys and
+    // reconstructs this controller, every participant, and every actor from scratch. There is
+    // currently no supported "reposition in place without a scene reload" respawn path. If one is
+    // ever added, this controller (and the actor's own runtime state) will need an explicit
+    // reset/rearm API instead of relying on this scene-reload contract. See BossEncounters.md.
     private void HandleHeroDeath()
     {
         if (completionCommitted || State == BossEncounterState.Completed || State == BossEncounterState.Interrupted)
@@ -481,6 +489,9 @@ public sealed class BossEncounterController : MonoBehaviour
         return roster;
     }
 
+    // Same non-rearming contract as HandleHeroDeath: this only ever runs once per scene load
+    // (guarded by shuttingDown), and a fresh instance is what re-arms the encounter on the next
+    // scene load, not this method reactivating anything in place.
     private void CleanupForDisableOrDestroy()
     {
         if (shuttingDown)

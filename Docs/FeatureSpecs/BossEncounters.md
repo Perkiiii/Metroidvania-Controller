@@ -1,13 +1,15 @@
 # Feature Spec — Boss Encounters
 
-**Last audited:** 2026-07-24
+**Last audited:** 2026-07-25
 
 ## Implementation status
 
 The reusable Phase 1 encounter lifecycle, shared enemy prerequisites, persistent boss-health HUD,
 and foundation validator are implemented. Phase 2A adds the first playable encounter in
 `SampleScene4`: the **Undead Executioner**, stable encounter ID
-`boss_sample_04_executioner`.
+`boss_sample_04_executioner`. Phase 2A.5 hardened authoring/debugging around that same slice
+(retry-contract documentation, a read-only debug Inspector, authoring gizmos, a basic hit flash,
+and validator scope cleanup) without changing encounter or actor architecture.
 
 The Phase 2A fight has one coordinated participant, two boss-owned attacks, one local phase
 transition, Animancer presentation, a non-targetable spirit-pressure helper, and retained-root
@@ -68,6 +70,25 @@ The actor is a floating spectral body:
 - `PresentationRoot` carries the visuals. The stable body collider covers the hood, central torso,
   and substantial shroud only; weapon/effect padding is excluded. There is no
   `EnemyContactDamage`.
+- `PresentationRoot` also carries a `SpriteFlash` (shared `SpriteFlash.mat`/`Custom/SpriteFlash`
+  shader, same asset Mushroom uses), auto-discovered by `EnemyHealthComponent.Initialize`'s
+  `GetComponentInChildren<SpriteFlash>(true)` — no additional wiring beyond the component and
+  material assignment. `EnemyFeedbackController` (MMF hit/death sparks) is not yet assigned; doing
+  so requires authoring new MMF feedback content and remains deferred.
+
+### Editor authoring support
+
+`UndeadExecutionerBehaviourEditor` (a small `CustomEditor`, not a full boss editor) appends a
+read-only debug section below the default Inspector: the effective `ComboFirst`/`ComboSecond`/
+`ShadowBurst`/spirit timings actually read from `UndeadExecutionerConfig` (the serialized
+Startup/Active/Recovery/Cooldown fields shown directly on each `EnemyAttackController` are prefab
+defaults that `TryConfigureTimings` overwrites at `PrepareForEncounter` time and must not be tuned
+directly), plus live `State`/`CurrentAttack`/`IsPhaseTwo`/`Prepared`/hover-Y/arena-limit values
+while in Play Mode. `UndeadExecutionerBehaviour.OnDrawGizmosSelected` draws the arena span, hover
+height, and neutral-decision distance thresholds; the shared `EnemyAttackHitbox.OnDrawGizmosSelected`
+draws any authored hitbox's bounds (green when enabled, grey when authored-disabled) so hitbox
+geometry can be inspected without toggling colliders on by hand. All of this is Editor/debug-only
+and changes no runtime behavior.
 
 The two core attacks are:
 
@@ -106,6 +127,17 @@ The final commit is synchronous, non-yielding, null-safe, and guarded by `comple
 
 Hero death during `Starting`, `Active`, or `BossesDefeated` enters `Interrupted`, stops participants, opens barriers, releases only this encounter's camera/control/HUD requests, unsubscribes callbacks, and writes no completion. `GameManager` remains the only respawn coordinator.
 
+**Retry contract.** `HandleHeroDeath` and the disable/destroy cleanup path deliberately do not
+restore `State` to `Dormant` or re-enable the trigger themselves — the only way this encounter
+re-arms is a fresh `InitializeEncounter()` run (i.e. a new `Awake()`). That is safe today only
+because `GameManager.BeginRespawnSequence` always performs a full `SceneManager.LoadSceneAsync`
+reload of the respawn scene, even for a same-scene checkpoint, which destroys and reconstructs the
+controller, every participant, and every actor from scratch. **Same-instance retry (reposition the
+hero without reloading the scene) is not currently supported by this controller.** If that respawn
+model is ever added, this controller and the actor's own runtime state will need an explicit
+reset/rearm API instead of relying on the scene-reload contract; do not assume `TryBeginEncounter`
+can be called again on a live, previously-interrupted instance.
+
 ## Camera and HUD
 
 Enabling a `CameraLockArea` around a hero already inside is supported by explicitly raising `CameraEventService.RaiseLockEntered`; cleanup raises the matching exit and disables the area. Camera code receives no hero-internal references.
@@ -120,7 +152,12 @@ Enabling a `CameraLockArea` around a hero already inside is supported by explici
 instances: floating Rigidbody2D setup, `EnemyMotor`, retained-root cleanup, actor references,
 required clips/events and loop settings, attack controllers/hitboxes/damage metadata, absence of
 contact damage and persistence, spirit ownership, and explicit scene arena limits. It complements
-the generic encounter validator; it does not attempt static movement-authority proof.
+the generic encounter validator; it does not attempt static movement-authority proof. It no longer
+checks literal `SampleScene4` walkable-collider names (`"Platform"`, `"Platform (2)"`, `"Platform
+(9)"`) — that was a scene-terrain-authoring concern coupled to default Unity object names by
+string match, unrelated to boss combat authoring, and fragile to renames. That floor is instead
+covered by the generic `HeroSensorsTests` ground-probe regression coverage and hands-on room
+checks.
 
 ## Deferred
 

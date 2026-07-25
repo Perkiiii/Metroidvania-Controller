@@ -7,14 +7,6 @@ public static class UndeadExecutionerValidator
 {
     private const string ParticipantPrefabPath =
         "Assets/_Project/Prefabs/Bosses/UndeadExecutioner/UndeadExecutionerParticipant.prefab";
-    private const string HeroConfigPath =
-        "Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset";
-    private static readonly string[] RequiredSampleScene4Walkables =
-    {
-        "Platform",
-        "Platform (2)",
-        "Platform (9)"
-    };
 
     [MenuItem("Tools/Project/Validate Undead Executioner")]
     public static void ValidateUndeadExecutioner()
@@ -47,11 +39,6 @@ public static class UndeadExecutionerValidator
             }
 
             issues += ValidateSceneInstance(behaviour);
-        }
-
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "SampleScene4")
-        {
-            issues += ValidateSampleScene4Walkables();
         }
 
         return issues;
@@ -251,46 +238,6 @@ public static class UndeadExecutionerValidator
         }
 
         return null;
-    }
-
-    internal static int ValidateSampleScene4Walkables()
-    {
-        HeroConfig heroConfig = AssetDatabase.LoadAssetAtPath<HeroConfig>(HeroConfigPath);
-        if (heroConfig == null)
-        {
-            return Error(null, $"Missing HeroConfig at '{HeroConfigPath}'.");
-        }
-
-        int issues = 0;
-        Collider2D[] colliders = Object.FindObjectsByType<Collider2D>(
-            FindObjectsInactive.Include,
-            FindObjectsSortMode.None);
-        for (int nameIndex = 0; nameIndex < RequiredSampleScene4Walkables.Length; nameIndex++)
-        {
-            string requiredName = RequiredSampleScene4Walkables[nameIndex];
-            Collider2D walkable = colliders.FirstOrDefault(
-                candidate => candidate != null && candidate.gameObject.name == requiredName);
-            if (walkable == null)
-            {
-                issues += Error(null, $"SampleScene4 requires walkable collider '{requiredName}'.");
-                continue;
-            }
-
-            if (!walkable.enabled)
-                issues += Error(walkable, "Required SampleScene4 walkable collider must be enabled.");
-            if (walkable.isTrigger)
-                issues += Error(walkable, "Required SampleScene4 walkable collider must not be a trigger.");
-
-            int layerBit = 1 << walkable.gameObject.layer;
-            if ((heroConfig.terrainLayers.value & layerBit) == 0)
-            {
-                issues += Error(
-                    walkable,
-                    $"Required SampleScene4 walkable collider layer '{LayerMask.LayerToName(walkable.gameObject.layer)}' is not accepted by HeroConfig.terrainLayers.");
-            }
-        }
-
-        return issues;
     }
 
     private static int ValidateClips(UndeadExecutionerConfig config, Object context)

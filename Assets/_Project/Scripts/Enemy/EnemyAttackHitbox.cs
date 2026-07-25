@@ -88,4 +88,23 @@ public sealed class EnemyAttackHitbox : MonoBehaviour
             damageHero = GetComponent<DamageHero>();
         }
     }
+
+    // Editor-only authoring aid: authored hitboxes are disabled outside their active window, so
+    // without this their geometry is otherwise invisible in the Scene view unless briefly enabled
+    // by hand. Green while enabled (window active), grey while authored-disabled (the normal
+    // resting state). Never called outside the Scene view.
+    private void OnDrawGizmosSelected()
+    {
+        CacheComponents();
+        if (hitboxCollider == null)
+        {
+            return;
+        }
+
+        Bounds bounds = hitboxCollider.bounds;
+        Gizmos.color = hitboxCollider.enabled
+            ? new Color(0.2f, 1f, 0.2f, 0.6f)
+            : new Color(0.6f, 0.6f, 0.6f, 0.5f);
+        Gizmos.DrawWireCube(bounds.center, bounds.size);
+    }
 }

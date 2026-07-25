@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-07-24
+**Last audited:** 2026-07-25
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -17,7 +17,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Boot scene / persistent infrastructure | Done |
 | Camera system | Done |
 | Enemy AI framework | Foundation validated |
-| Boss encounters | Phase 2A playable Undead Executioner vertical slice implemented; polish/feel review pending |
+| Boss encounters | Phase 2A playable Undead Executioner vertical slice implemented; Phase 2A.5 hardening pass done; polish/feel review pending |
 | Interactables / checkpoints | Partial |
 | HeroHealthComponent / hurt / death / respawn | Partial |
 | Ability unlock system | Done |
@@ -154,7 +154,8 @@ These must happen before any milestone work begins. Both are preconditions for t
 ### Boss Encounter Phase 1 — Foundation
 
 **Status:** Milestones A–C implemented 2026-07-24. Phase 2A first playable implemented in
-`SampleScene4`; review and hands-on feel validation remain before Phase 2B.
+`SampleScene4`; Phase 2A.5 hardening pass implemented 2026-07-25; review and hands-on feel
+validation remain before Phase 2B.
 
 - [x] Shared enemy prerequisites: additive health snapshots/events, default-preserving retained-root cleanup option, all-child attack initialization/root-health resolution, and shared-blackboard sibling attack exclusion with Mushroom regressions.
 - [x] Encounter foundation: stable definition, active participant wrappers with inactive actor roots, trigger/barrier/camera/control-lock integration, separate defeat/presentation gates, synchronous idempotent registry commit, optional reward root, hero-death/unload interruption cleanup, and `BossEncounterValidator`.
@@ -166,6 +167,18 @@ These must happen before any milestone work begins. Both are preconditions for t
   `SampleScene4` trigger/barrier/camera/HUD/completion wiring, normalized checkpoint and
   `room_sample_04`, neutral visual-only reward root, concrete validation, and focused tests.
   Numeric values remain provisional.
+- [x] Phase 2A.5 hardening pass (2026-07-25): documented the full-scene-reload retry contract
+  (`BossEncounterController` does not self-rearm; same-instance retry without a scene reload is
+  unsupported) in code comments and `BossEncounters.md`; added a read-only debug Inspector
+  (`UndeadExecutionerBehaviourEditor`) surfacing effective attack timings and live state; added
+  arena/hover/range gizmos to `UndeadExecutionerBehaviour` and a shared hitbox-bounds gizmo to
+  `EnemyAttackHitbox`; removed the `SampleScene4`-name-coupled walkable check from
+  `UndeadExecutionerValidator`; wired the existing `SpriteFlash` component/material onto the
+  boss's `PresentationRoot` (auto-discovered by `EnemyHealthComponent`); added targeted EditMode
+  coverage for glide-tolerance completion, spirit interruption, combo second-window handoff
+  failure, and hero-death camera/control-lock release; removed the accidentally-committed
+  `Assets/_Recovery/` Editor crash-recovery scene and ignored the path going forward. No
+  encounter/actor architecture changed.
 - [ ] Phase 2A review gate: hands-on player-input pogo, collider/platform behavior, attack
   readability, checkpoint death/retry through the full Boot/save flow, transition framing, and
   fight-duration/tuning approval.
