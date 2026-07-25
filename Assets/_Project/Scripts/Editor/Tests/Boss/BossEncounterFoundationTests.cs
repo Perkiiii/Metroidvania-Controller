@@ -192,7 +192,29 @@ public sealed class BossEncounterFoundationTests
         Assert.DoesNotThrow(() => InvokePrivate(rig.Participants[0], "OnDisable"));
     }
 
-    private TestRig CreateRig(int participantCount)
+    // Covers the "releases camera and control locks" half of the hero-death interruption
+    // contract. Interrupts while still Starting (before CompleteIntro) so the intro control lock
+    // and camera lock are still actually held at the moment of interruption, rather than already
+    // released by TryActivateCombat's normal intro->active handoff.
+    [Test]
+    public void HeroDeathDuringStartingReleasesCameraAndControlLocks()
+    {
+        TestRig rig = CreateRig(1, withCameraLock: true, withHeroControlLock: true);
+
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.True);
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Starting));
+        Assert.That(rig.CameraLock.gameObject.activeSelf, Is.True, "Camera lock should be active once the encounter starts.");
+        Assert.That(rig.Hero.IsControlLocked, Is.True, "Hero control should be locked during the intro.");
+
+        InvokePrivate(rig.Controller, "HandleHeroDeath");
+
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Interrupted));
+        Assert.That(rig.CameraLock.gameObject.activeSelf, Is.False, "Camera lock must be released on interruption.");
+        Assert.That(rig.Hero.IsControlLocked, Is.False, "Hero control lock must be released on interruption.");
+        Assert.That(rig.Barrier.IsOpen, Is.True);
+    }
+
+    private TestRig CreateRig(int participantCount, bool withCameraLock = false, bool withHeroControlLock = false)
     {
         HeroHealthComponent heroHealth = testRoot.AddComponent<HeroHealthComponent>();
         GameObject reward = new GameObject("Reward Root");
@@ -230,6 +252,9 @@ public sealed class BossEncounterFoundationTests
             actorRoots[i] = actor;
         }
 
+        CameraLockArea cameraLock = withCameraLock ? CreateCameraLock() : null;
+        HeroController hero = withHeroControlLock ? CreateHeroController() : null;
+
         BossEncounterController controller = testRoot.AddComponent<BossEncounterController>();
         SetPrivateField(controller, "definition", definition);
         SetPrivateField(controller, "worldStateRegistry", registry);
@@ -238,14 +263,16 @@ public sealed class BossEncounterFoundationTests
         SetPrivateField(controller, "rewardRoot", reward);
         SetPrivateField(controller, "requiresTrigger", false);
         SetPrivateField(controller, "requiresBarriers", true);
-        SetPrivateField(controller, "requiresCameraLock", false);
-        SetPrivateField(controller, "lockHeroDuringIntro", false);
-        SetPrivateField(controller, "lockHeroDuringOutro", false);
+        SetPrivateField(controller, "requiresCameraLock", withCameraLock);
+        SetPrivateField(controller, "cameraLockArea", cameraLock);
+        SetPrivateField(controller, "lockHeroDuringIntro", withHeroControlLock);
+        SetPrivateField(controller, "lockHeroDuringOutro", withHeroControlLock);
+        SetPrivateField(controller, "hero", hero);
         SetPrivateField(controller, "heroHealth", heroHealth);
 
         testRoot.SetActive(true);
         InvokePrivate(controller, "InitializeEncounter");
-        return new TestRig(controller, participants, behaviours, actorRoots, barrier, reward);
+        return new TestRig(controller, participants, behaviours, actorRoots, barrier, reward, cameraLock, hero);
     }
 
     private BossArenaBarrier CreateBarrier()
@@ -256,6 +283,33 @@ public sealed class BossEncounterFoundationTests
         BossArenaBarrier barrier = barrierObject.AddComponent<BossArenaBarrier>();
         SetPrivateField(barrier, "blockerColliders", new Collider2D[] { blocker });
         return barrier;
+    }
+
+    private CameraLockArea CreateCameraLock()
+    {
+        GameObject cameraLockObject = new GameObject("Camera Lock");
+        cameraLockObject.transform.SetParent(testRoot.transform);
+        cameraLockObject.AddComponent<BoxCollider2D>();
+        return cameraLockObject.AddComponent<CameraLockArea>();
+    }
+
+    // Constructs a real HeroController exercising the real AddControlLock/RemoveControlLock/
+    // IsControlLocked production code, without running HeroController.Awake()'s full
+    // ResolveDependencies/InitializeSystems chain (which needs a fully wired hero prefab and is
+    // out of scope for a boss-encounter test). The GameObject is added inactive so Awake never
+    // fires; only the one private dependency AddControlLock actually touches (blackboard) is
+    // injected directly.
+    private HeroController CreateHeroController()
+    {
+        GameObject heroObject = new GameObject("Hero (control-lock probe)");
+        heroObject.transform.SetParent(testRoot.transform);
+        heroObject.SetActive(false);
+        heroObject.AddComponent<Rigidbody2D>();
+        heroObject.AddComponent<BoxCollider2D>();
+        HeroController hero = heroObject.AddComponent<HeroController>();
+        HeroStateBlackboard blackboard = heroObject.AddComponent<HeroStateBlackboard>();
+        SetPrivateField(hero, "blackboard", blackboard);
+        return hero;
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)
@@ -280,7 +334,9 @@ public sealed class BossEncounterFoundationTests
             BossEncounterTestBehaviour[] behaviours,
             GameObject[] actorRoots,
             BossArenaBarrier barrier,
-            GameObject reward)
+            GameObject reward,
+            CameraLockArea cameraLock,
+            HeroController hero)
         {
             Controller = controller;
             Participants = participants;
@@ -288,6 +344,8 @@ public sealed class BossEncounterFoundationTests
             ActorRoots = actorRoots;
             Barrier = barrier;
             Reward = reward;
+            CameraLock = cameraLock;
+            Hero = hero;
         }
 
         public BossEncounterController Controller { get; }
@@ -296,6 +354,8 @@ public sealed class BossEncounterFoundationTests
         public GameObject[] ActorRoots { get; }
         public BossArenaBarrier Barrier { get; }
         public GameObject Reward { get; }
+        public CameraLockArea CameraLock { get; }
+        public HeroController Hero { get; }
     }
 }
 

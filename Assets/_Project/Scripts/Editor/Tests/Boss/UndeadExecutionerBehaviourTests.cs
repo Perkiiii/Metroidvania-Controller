@@ -9,6 +9,7 @@ public sealed class UndeadExecutionerBehaviourTests
     private GameObject root;
     private UndeadExecutionerConfig bossConfig;
     private EnemyConfig enemyConfig;
+    private UndeadExecutionerSpiritPressure spiritPressure;
 
     [TearDown]
     public void TearDown()
@@ -98,7 +99,104 @@ public sealed class UndeadExecutionerBehaviourTests
         Assert.That(behaviour.ShadowBurst.IsOnCooldown, Is.True);
     }
 
-    private UndeadExecutionerBehaviour CreateBehaviour()
+    [Test]
+    public void GlideReachingToleranceStopsMovementAndReturnsToNeutral()
+    {
+        UndeadExecutionerBehaviour behaviour = CreateBehaviour();
+        bossConfig.introDuration = 0f;
+        bossConfig.preferredDistanceMinimum = 3f;
+        bossConfig.preferredDistanceMaximum = 5f;
+        bossConfig.glideMaximumDistance = 4f;
+        bossConfig.glideMinimumDistance = 2f;
+        Rigidbody2D body = root.GetComponent<Rigidbody2D>();
+
+        behaviour.PrepareForEncounter();
+        behaviour.PlayIntro();
+        InvokePrivate(behaviour, "Update");
+        behaviour.BeginCombat();
+
+        // No arena limits are assigned, no EnemyController is present (enemyConfig stays null on
+        // the behaviour), so HasHorizontalObstruction is always false here -- this exercises only
+        // the tolerance/stop path, not obstruction handling.
+        InvokePrivate(behaviour, "TryBeginGlide", root.transform.position.x + 10f, false);
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.Repositioning));
+
+        // currentX(0) + direction(1) * min(desiredX=10-4=6, maxTarget=0+4=4) = 4, per the same
+        // math TryBeginGlide itself runs. Placing the body exactly there (as real physics
+        // integration eventually would) exercises FixedUpdate's stop-tolerance branch directly,
+        // matching this test suite's existing style of driving state transitions explicitly
+        // rather than stepping Physics2D simulation frame by frame.
+        body.position = new Vector2(4f, body.position.y);
+        InvokePrivate(behaviour, "FixedUpdate");
+
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.Neutral));
+        Assert.That(body.linearVelocity.x, Is.Zero);
+    }
+
+    [Test]
+    public void InterruptingDuringSpiritActionDeactivatesSpiritAndIgnoresLateCompletion()
+    {
+        UndeadExecutionerBehaviour behaviour = CreateBehaviour(withSpirit: true);
+        bossConfig.introDuration = 0f;
+        behaviour.PrepareForEncounter();
+        behaviour.PlayIntro();
+        InvokePrivate(behaviour, "Update");
+        behaviour.BeginCombat();
+
+        InvokePrivate(behaviour, "BeginSpiritPressure", root.transform.position.x);
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.SpiritAction));
+        Assert.That(spiritPressure.IsActive, Is.True);
+
+        // The coroutine-driven appear/idle/attack sequence cannot progress past its first
+        // WaitForSeconds synchronously in an EditMode test, so open the spirit's own attack
+        // window directly to simulate "mid-pressure-window" -- exactly the state
+        // InterruptEncounter must be able to close.
+        Assert.That(spiritPressure.AttackController.BeginAttack(), Is.True);
+
+        behaviour.InterruptEncounter();
+
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.Interrupted));
+        Assert.That(spiritPressure.IsActive, Is.False, "Interruption must deactivate the spirit.");
+        Assert.That(spiritPressure.AttackController.IsAttacking, Is.False, "Interruption must close the spirit's attack window.");
+
+        // A late/duplicate Completed signal (e.g. a stray coroutine tail) must not resurrect
+        // Neutral out from under an already-interrupted encounter.
+        InvokePrivate(behaviour, "HandleSpiritCompleted");
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.Interrupted));
+    }
+
+    [Test]
+    public void ComboSecondBeginFailureClosesTheActionSafelyAndReturnsToNeutral()
+    {
+        UndeadExecutionerBehaviour behaviour = CreateBehaviour();
+        bossConfig.introDuration = 0f;
+        bossConfig.executionerComboClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+            "Assets/_Project/Animations/Bosses/UndeadExecutioner/UndeadExecutionerCombo.anim");
+        Assert.That(bossConfig.executionerComboClip, Is.Not.Null);
+
+        behaviour.PrepareForEncounter();
+        behaviour.PlayIntro();
+        InvokePrivate(behaviour, "Update");
+        behaviour.BeginCombat();
+
+        InvokePrivate(behaviour, "BeginExecutionerCombo");
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.ExecutionerCombo));
+
+        behaviour.HandleComboFirstOpen();
+        behaviour.HandleComboFirstClose();
+
+        // Force the boss's own ComboSecond.BeginAttack() call to fail by consuming ComboSecond's
+        // Idle state out from under it first (CanStartAttack requires phase == Idle).
+        Assert.That(behaviour.ComboSecond.BeginAttack(), Is.True);
+        behaviour.HandleComboSecondBegin();
+
+        Assert.That(behaviour.State, Is.EqualTo(UndeadExecutionerState.Neutral));
+        Assert.That(behaviour.CurrentAttack, Is.EqualTo(UndeadExecutionerAttack.None));
+        Assert.That(behaviour.ComboSecond.Phase, Is.EqualTo(EnemyAttackPhase.Idle));
+        Assert.That(behaviour.ComboSecond.IsAttackWindowActive, Is.False);
+    }
+
+    private UndeadExecutionerBehaviour CreateBehaviour(bool withSpirit = false)
     {
         root = new GameObject("Undead Executioner Test");
         Rigidbody2D body = root.AddComponent<Rigidbody2D>();
@@ -133,6 +231,17 @@ public sealed class UndeadExecutionerBehaviourTests
         SetField(behaviour, "comboFirst", first);
         SetField(behaviour, "comboSecond", second);
         SetField(behaviour, "shadowBurst", burst);
+
+        // Must be wired before Initialize()/OnEnable() run SubscribeEvents(), which only
+        // subscribes to spiritPressure.Completed once and never re-subscribes on a later
+        // assignment (matches real authoring, where spiritPressure is assigned in the Inspector
+        // before the object is ever enabled).
+        if (withSpirit)
+        {
+            spiritPressure = CreateSpiritPressure(blackboard, motor);
+            SetField(behaviour, "spiritPressure", spiritPressure);
+        }
+
         behaviour.Initialize(blackboard, body);
         return behaviour;
     }
@@ -144,6 +253,20 @@ public sealed class UndeadExecutionerBehaviourTests
         EnemyAttackController controller = child.AddComponent<EnemyAttackController>();
         controller.Initialize(enemyConfig, blackboard, motor);
         return controller;
+    }
+
+    private UndeadExecutionerSpiritPressure CreateSpiritPressure(EnemyStateBlackboard blackboard, EnemyMotor motor)
+    {
+        GameObject spiritObject = new GameObject("Spirit");
+        spiritObject.transform.SetParent(root.transform);
+        UndeadExecutionerSpiritPressure spirit = spiritObject.AddComponent<UndeadExecutionerSpiritPressure>();
+        EnemyAttackController attack = AddAttack("SpiritAttack", blackboard, motor);
+        Animator spiritAnimator = spiritObject.AddComponent<Animator>();
+        AnimancerComponent spiritAnimancer = spiritObject.AddComponent<AnimancerComponent>();
+        spiritAnimancer.Animator = spiritAnimator;
+        SetField(spirit, "attackController", attack);
+        SetField(spirit, "animancer", spiritAnimancer);
+        return spirit;
     }
 
     private static void SetField(object target, string name, object value)
