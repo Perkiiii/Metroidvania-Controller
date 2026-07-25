@@ -18,5 +18,6 @@
   <Project Path="SingularityGroup.HotReload.Runtime.Public.csproj" />
   <Project Path="Lofelt.NiceVibrations.csproj" />
   <Project Path="Sirenix.OdinInspector.Modules.UnityMathematics.csproj" />
+  <Project Path="Underbrew.Camera.PlayModeTests.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
 </Solution>

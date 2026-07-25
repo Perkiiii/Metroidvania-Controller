@@ -131,6 +131,12 @@ public static class CameraPhaseOneValidator
             issues += Error(area, "has Look Y Min greater than Look Y Max.");
         }
 
+        if (area.UseTransitionOverride)
+        {
+            issues += ValidateTransitionSettings(area, "entry transition override", area.EntryTransitionOverride);
+            issues += ValidateTransitionSettings(area, "exit transition override", area.ExitTransitionOverride);
+        }
+
         Rect rect = GetWorldRect(collider);
         if (rect.width <= 0f || rect.height <= 0f)
         {
@@ -265,7 +271,53 @@ public static class CameraPhaseOneValidator
             halfWidth = halfHeight * (16f / 9f);
         }
 
+        issues += ValidateSharedTransitionConfig(cameras);
         return issues;
+    }
+
+    private static int ValidateSharedTransitionConfig(GameCameras cameras)
+    {
+        if (cameras.Controller == null)
+        {
+            return 0;
+        }
+
+        SerializedObject controllerObject = new SerializedObject(cameras.Controller);
+        SerializedProperty configProperty = controllerObject.FindProperty("config");
+        CameraConfig config = configProperty != null ? configProperty.objectReferenceValue as CameraConfig : null;
+
+        if (config == null)
+        {
+            Debug.LogWarning(
+                "[CameraPhaseOneValidator] CameraController has no CameraConfig assigned; using serialized fallback values including default lock-transition settings.",
+                cameras.Controller);
+            return 0;
+        }
+
+        int issues = 0;
+        issues += ValidateTransitionSettings(config, "sceneStartTransition", config.sceneStartTransition);
+        issues += ValidateTransitionSettings(config, "followToLockTransition", config.followToLockTransition);
+        issues += ValidateTransitionSettings(config, "lockToLockTransition", config.lockToLockTransition);
+        issues += ValidateTransitionSettings(config, "lockToFollowTransition", config.lockToFollowTransition);
+        issues += ValidateTransitionSettings(config, "overrideReleasedTransition", config.overrideReleasedTransition);
+        return issues;
+    }
+
+    private static int ValidateTransitionSettings(Object context, string label, CameraTransitionSettings settings)
+    {
+        if (!settings.IsFinite())
+        {
+            Debug.LogError($"[CameraPhaseOneValidator] '{context.name}' {label} has a non-finite value (NaN/Infinity).", context);
+            return 1;
+        }
+
+        if (!settings.IsNonNegative())
+        {
+            Debug.LogError($"[CameraPhaseOneValidator] '{context.name}' {label} has a negative damp time or blend duration.", context);
+            return 1;
+        }
+
+        return 0;
     }
 
     private static bool InsetAxesOverlap(
