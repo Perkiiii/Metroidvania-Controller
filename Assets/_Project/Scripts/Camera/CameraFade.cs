@@ -12,6 +12,10 @@ public sealed class CameraFade : MonoBehaviour
 
     public bool IsFading { get; private set; }
 
+    // Current screen-cover alpha (1 = fully black, 0 = fully clear). Lets the scene-transition
+    // owner gate entry motion on real reveal progress instead of an arbitrary delay.
+    public float CurrentAlpha => canvasGroup != null ? canvasGroup.alpha : 0f;
+
     private Coroutine activeFade;
 
     private void Awake()

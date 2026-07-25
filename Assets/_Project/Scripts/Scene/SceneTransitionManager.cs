@@ -7,6 +7,10 @@ public sealed class SceneTransitionManager
 {
     private static readonly SceneTransitionTraceMarker[] EmptyMarkers = new SceneTransitionTraceMarker[0];
     private const float CameraReadinessTimeoutSeconds = 0.5f;
+    // Fade cover alpha (1 = black, 0 = clear) below which the destination is "becoming visible" and
+    // directional entry motion may begin. Frame cap bounds the wait if a fade stalls or is absent.
+    private const float RevealStartAlphaThreshold = 0.9f;
+    private const int RevealStartMaxWaitFrames = 30;
 
     private readonly GameManager owner;
     private readonly SceneLoader sceneLoader;
@@ -67,6 +71,7 @@ public sealed class SceneTransitionManager
         bool fallbackControlLockAdded = false;
         bool completed = false;
         CameraRequestHandle cameraFreeze = default;
+        bool cameraFreezeReleased = false;
 
         try
         {
@@ -199,6 +204,19 @@ public sealed class SceneTransitionManager
 
             if (dest != null && owner.CurrentHero != null)
             {
+                // Reveal seam: the camera was framed at the entry gate while black and stays frozen
+                // through the first moments of the fade-in (the player sees the framed destination).
+                // Once the screen has started to reveal, hand the camera back to normal follow so it
+                // tracks the directional walk-in live. Without this the transition freeze would pin
+                // the camera and its target at the gate for the whole entry, forcing a visible
+                // catch-up glide onto the hero only after the walk-in had already finished.
+                yield return WaitForRevealStart();
+                if (!cameraFreezeReleased)
+                {
+                    cameraFreeze.Release();
+                    cameraFreezeReleased = true;
+                }
+
                 Trace(SceneTransitionTraceMarker.EntryMotionStarted);
                 owner.CurrentHero.BeginSceneEntryMotion(dest);
                 while (owner.CurrentHero != null && owner.CurrentHero.IsEnteringScene)
@@ -228,7 +246,8 @@ public sealed class SceneTransitionManager
         }
         finally
         {
-            cameraFreeze.Release();
+            if (!cameraFreezeReleased)
+                cameraFreeze.Release();
 
             if (!completed && activeTrace != null && !activeTrace.IsFailed)
                 TraceFailure("Transition coroutine exited before completion.");
@@ -289,6 +308,24 @@ public sealed class SceneTransitionManager
         }
 
         Trace(SceneTransitionTraceMarker.CameraReadinessFallback, readiness.Detail);
+    }
+
+    // Holds until the reveal has visibly started, so directional entry motion begins while the
+    // destination is becoming visible rather than under a fully black screen. Bounded by a frame
+    // cap so a stalled or missing fade can never hang the entry.
+    private IEnumerator WaitForRevealStart()
+    {
+        if (GameCameras.Instance == null)
+            yield break;
+
+        int frames = 0;
+        while (GameCameras.Instance != null
+            && GameCameras.Instance.FadeAlpha > RevealStartAlphaThreshold
+            && frames < RevealStartMaxWaitFrames)
+        {
+            frames++;
+            yield return null;
+        }
     }
 
     private void Trace(SceneTransitionTraceMarker marker, string detail = "")

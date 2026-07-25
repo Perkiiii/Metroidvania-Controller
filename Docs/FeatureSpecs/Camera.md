@@ -109,20 +109,35 @@ updates teleport overlap geometry in the same hidden frame; no arbitrary `FixedU
 black-screen delay is required. The coroutine may yield one frame only while a late scene
 dependency finishes enabling, and has a 0.5-second unscaled timeout.
 
+Readiness frames the camera from the hero's `Transform`, so the state it verifies is only
+render-valid if the `Transform` already reflects the destination gate. Gate placement therefore
+writes the hero `Transform` immediately (`HeroMotor.TeleportTo` sets the `Transform`, not only
+`Rigidbody2D.position`, which would not propagate to the `Transform` until the next physics step).
+Without this, readiness would snap and "verify" the camera against the stale pre-teleport position
+(the self-consistent `RenderedPosition == CurrentDestination` check still passes), then the hero
+would appear at the real gate one physics step later, forcing a large camera catch-up on reveal.
+
 On timeout, `GameCameras` logs the destination scene and unresolved dependency, applies the safest
 available direct snap to the positioned hero, clears stale camera motion/transition state, reports
 that fallback in `LastSceneEntryReadiness`, and lets the transition reveal continue. A failed
 transition also clears the fade in guaranteed cleanup rather than trapping the player behind black.
 
-The transition-owned persistent hard freeze remains active across load, readiness, fade-in, and
-entry motion. Explicit hidden immediate positioning is permitted while frozen. Its handle alone is
-released in `SceneTransitionManager` cleanup; that release suppresses the transition handle's
-otherwise-normal `OverrideReleased` blend because the incoming state was already committed.
-Unrelated freeze handles remain registered and retain their normal release semantics.
+The transition-owned persistent hard freeze remains active across load, readiness, and the first
+moments of fade-in — the player sees the framed destination while the screen is still black or just
+beginning to reveal. Explicit hidden immediate positioning is permitted while frozen. The freeze is
+then released at the reveal seam (see below), not after entry motion; releasing it suppresses the
+transition handle's otherwise-normal `OverrideReleased` blend because the incoming state was already
+committed. If the transition fails or takes the no-entry path, the handle is instead released in
+`finally`. Unrelated freeze handles remain registered and retain their normal release semantics.
 
-Fade-in and `HeroSceneEntry` motion begin only after readiness, in the same reveal frame. Thus the
-first visible destination frame is already framed, while directional entry motion remains visible
-and owned by the hero subsystem.
+Reveal sequencing: after readiness the fade-in starts while the camera is still frozen at the framed
+gate. Once the fade has begun to reveal (`GameCameras.FadeAlpha` crosses a small threshold, bounded
+by a frame cap so a stalled fade cannot hang entry), `SceneTransitionManager` releases the transition
+freeze and *then* begins `HeroSceneEntry` motion. Handing the camera back to normal follow before the
+walk-in means the camera tracks the directional entry live, so the first visible destination frame is
+already framed on the hero and the camera never performs a second late correction after the walk-in
+finishes. Entry motion thus begins after the destination is becoming visible rather than under a
+fully black screen, without any arbitrary fixed delay.
 
 ---
 

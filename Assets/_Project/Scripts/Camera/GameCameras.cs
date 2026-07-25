@@ -41,6 +41,10 @@ public sealed class GameCameras : MonoBehaviour
     public int ActiveFreezeCount => freezeRegistrations.Count;
     public CameraSceneEntryReadiness LastSceneEntryReadiness { get; private set; }
 
+    // Screen-cover alpha of the persistent fade (1 = fully black, 0 = fully clear), or 1 when no
+    // fade is assigned so callers gating on visibility default to "still hidden".
+    public float FadeAlpha => fade != null ? fade.CurrentAlpha : 1f;
+
     private void Awake()
     {
         if (Instance != null)

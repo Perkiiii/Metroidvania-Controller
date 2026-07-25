@@ -355,6 +355,7 @@ public sealed class CameraLifecyclePlayModeTests
 
         float deadline = Time.realtimeSinceStartup + 8f;
         bool sawVisibleFrame = false;
+        bool sawFollowWhileRevealing = false;
         while ((bool)GetProperty(gameManager, "IsSceneTransitioning"))
         {
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline), $"Transition to {targetScene} timed out.");
@@ -367,8 +368,21 @@ public sealed class CameraLifecyclePlayModeTests
                 sawVisibleFrame = true;
                 Assert.That(TraceContains(trace, "CameraReady"), Is.True, "Destination became visible before camera readiness.");
                 Assert.That((bool)GetProperty(controller, "LastApplicationWasImmediate"), Is.True);
-                Assert.That((Vector3)GetProperty(controller, "RenderedPosition"),
-                    Is.EqualTo((Vector3)GetProperty(controller, "CurrentDestination")));
+
+                int freezeCount = (int)GetProperty(cameras, "ActiveFreezeCount");
+                if (freezeCount > 0)
+                {
+                    // While the transition freeze still holds, the rendered camera must sit exactly on
+                    // the framed entry destination -- no empty or stale framing shown behind the fade.
+                    Assert.That((Vector3)GetProperty(controller, "RenderedPosition"),
+                        Is.EqualTo((Vector3)GetProperty(controller, "CurrentDestination")));
+                }
+                else
+                {
+                    // Freeze handed back to normal follow before the screen is clear, so the camera
+                    // tracks the directional walk-in live instead of catching up after entry completes.
+                    sawFollowWhileRevealing = true;
+                }
             }
 
             yield return null;
@@ -376,20 +390,26 @@ public sealed class CameraLifecyclePlayModeTests
 
         object completedTrace = GetProperty(gameManager, "LastSceneTransitionTimeline");
         Assert.That(sawVisibleFrame, Is.True, "The transition never produced a visible reveal frame.");
+        Assert.That(sawFollowWhileRevealing, Is.True,
+            "Camera never resumed live follow while the screen was revealing; the walk-in would be a post-entry catch-up.");
         Assert.That(TraceIndex(completedTrace, "HeroPlaced"), Is.LessThan(TraceIndex(completedTrace, "CameraReady")));
         Assert.That(TraceIndex(completedTrace, "CameraReady"), Is.LessThan(TraceIndex(completedTrace, "FadeInStarted")));
-        Assert.That(TraceIndex(completedTrace, "CameraReady"), Is.LessThan(TraceIndex(completedTrace, "EntryMotionStarted")));
+        Assert.That(TraceIndex(completedTrace, "FadeInStarted"), Is.LessThan(TraceIndex(completedTrace, "EntryMotionStarted")));
         float fadeInStarted = TraceRealtime(completedTrace, "FadeInStarted");
         float entryMotionStarted = TraceRealtime(completedTrace, "EntryMotionStarted");
         float overlapEnded = Mathf.Min(
             TraceRealtime(completedTrace, "FadeInComplete"),
             TraceRealtime(completedTrace, "EntryMotionComplete"));
-        Assert.That(entryMotionStarted, Is.EqualTo(fadeInStarted).Within(0.05f));
+        // Entry motion now begins after the fade-in has started to reveal (so the walk-in is visible),
+        // but within the reveal window rather than after an arbitrary delay.
+        Assert.That(entryMotionStarted, Is.GreaterThanOrEqualTo(fadeInStarted - 0.001f),
+            "Entry motion started before the fade-in began revealing.");
+        Assert.That(entryMotionStarted, Is.LessThan(fadeInStarted + 0.75f),
+            "Entry motion started too long after the reveal began (arbitrary delay).");
         Assert.That(overlapEnded, Is.GreaterThan(fadeInStarted), "Entry motion did not overlap the visible fade-in interval.");
         Assert.That(GetProperty(cameras, "ActiveFreezeCount"), Is.Zero);
-        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"));
-        Assert.That((Vector3)GetProperty(controller, "RenderedPosition"),
-            Is.EqualTo((Vector3)GetProperty(controller, "CurrentDestination")));
+        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"),
+            "A late camera correction (transition blend) occurred after reveal.");
         Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo(targetScene));
     }
 

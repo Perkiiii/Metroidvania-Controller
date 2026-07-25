@@ -77,6 +77,16 @@ These must happen before any milestone work begins. Both are preconditions for t
   fallback, and transition-specific freeze-release handoff. Fade-in and `HeroSceneEntry` motion now
   begin only after readiness, preventing the deferred scene-start/`OverrideReleased` camera snap
   after entry motion. (Done 2026-07-25.)
+- [x] Scene-entry reveal — render-valid framing + live-follow walk-in. Fixed the still-visible reveal
+  defect after the item above: (1) `HeroMotor.TeleportTo` now writes the hero `Transform`, not only
+  `Rigidbody2D.position`, so scene-entry readiness frames the true gate instead of the stale
+  pre-teleport position (the previous readiness verify was self-consistent against a stale transform,
+  so it passed while the camera framed the wrong spot and then catch-glided onto the hero on reveal);
+  (2) the transition freeze is now released at the reveal seam — after fade-in starts revealing and
+  before entry motion — so the camera follows the directional walk-in live with no post-entry
+  correction; (3) entry motion begins once the fade crosses a small visibility threshold rather than
+  under a fully black screen. Verified frame-by-frame through the real Boot path
+  (`SampleScene ⇄ SampleScene2`, both directions). (Done 2026-07-25.)
 - [ ] Later camera presentation (Phase 3) — temporary focus/pan, boss presentation requests,
   Timeline adapter, automatic zoom, and dynamic multi-target framing only when real content
   proves need.

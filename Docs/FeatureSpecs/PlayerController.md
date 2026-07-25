@@ -73,9 +73,14 @@ Subsystem responsibilities:
 
 `HeroSceneEntry` owns destination-gate placement, facing, control locking, and directional entry
 motion. Placement remains synchronous and routes through `HeroMotor` while the screen is black.
+`HeroMotor.TeleportTo` writes the hero `Transform` immediately (not only `Rigidbody2D.position`), so
+the same-frame scene-entry camera readiness that runs right after placement frames the true gate
+rather than the stale pre-teleport position.
 `SceneTransitionManager` does not start `BeginSceneEntryMotion` until `GameCameras` reports that the
-positioned hero, incoming camera geometry, target, and rendered camera are ready. Fade-in and entry
-motion then start in the same reveal frame so the movement is visible.
+positioned hero, incoming camera geometry, target, and rendered camera are ready. Entry motion then
+begins once the fade-in has started to reveal the destination (not while fully black), after the
+transition freeze has been handed back to normal follow, so the camera tracks the walk-in live and
+the movement is visible without a late camera correction.
 
 `HeroMotor` remains the only authority that writes scripted-entry `Rigidbody2D` velocity. Camera
 readiness changes no run acceleration, top speed, entry distance, duration, or supported direction.

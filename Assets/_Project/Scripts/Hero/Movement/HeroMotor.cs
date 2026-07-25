@@ -248,6 +248,13 @@ public sealed class HeroMotor : MonoBehaviour
         }
 
         body.position = position;
+        // Rigidbody2D.position only propagates to the Transform on the next physics step, so a
+        // same-frame reader of transform.position (e.g. the scene-entry camera readiness that runs
+        // immediately after placement, behind the black screen) would otherwise see the stale
+        // pre-teleport position and frame the wrong spot. Writing the Transform makes the teleport
+        // visible in the same frame; the Transform change is also picked up by the readiness path's
+        // Physics2D.SyncTransforms() so the body stays consistent.
+        transform.position = new Vector3(position.x, position.y, transform.position.z);
     }
 
     public Vector2 GetPositionWithFeetAt(Vector2 desiredPosition, float groundY, float skin = 0.02f)
