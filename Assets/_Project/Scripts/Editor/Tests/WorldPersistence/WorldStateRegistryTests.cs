@@ -83,6 +83,49 @@ public sealed class WorldStateRegistryTests
     }
 
     [Test]
+    public void ClearEncounterDefeatedRecord_RemovesRecordWithoutNotifying()
+    {
+        WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
+        try
+        {
+            registry.MarkEncounterDefeated("boss_1");
+            Assert.That(registry.IsEncounterDefeated("boss_1"), Is.True);
+
+            int notifyCount = 0;
+            registry.Subscribe(new WorldStateKey(WorldStateCategory.DefeatedEncounter, "boss_1"), _ => notifyCount++);
+
+            bool removed = registry.EditorClearEncounterDefeatedRecord("boss_1");
+
+            Assert.That(removed, Is.True);
+            Assert.That(registry.IsEncounterDefeated("boss_1"), Is.False);
+            Assert.That(notifyCount, Is.EqualTo(0), "Clearing a defeated record is debug-only and must never notify subscribers.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(registry);
+        }
+    }
+
+    [Test]
+    public void ClearEncounterDefeatedRecord_EmptyOrUnknownId_IsNoOp()
+    {
+        WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
+        try
+        {
+            registry.MarkEncounterDefeated("boss_1");
+
+            Assert.That(registry.EditorClearEncounterDefeatedRecord(""), Is.False);
+            Assert.That(registry.EditorClearEncounterDefeatedRecord("boss_unknown"), Is.False);
+
+            Assert.That(registry.IsEncounterDefeated("boss_1"), Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(registry);
+        }
+    }
+
+    [Test]
     public void ObjectState_RoundTripsThroughSave_AndOverwriteNotifiesWithNewValue()
     {
         WorldStateRegistry registry = ScriptableObject.CreateInstance<WorldStateRegistry>();
@@ -250,4 +293,5 @@ public sealed class WorldStateRegistryTests
         MethodInfo method = typeof(WorldStateRegistry).GetMethod("ShouldSuppressEnemyOnInitialization", BindingFlags.Instance | BindingFlags.NonPublic);
         return (bool)method.Invoke(registry, new object[] { enemyId });
     }
+
 }

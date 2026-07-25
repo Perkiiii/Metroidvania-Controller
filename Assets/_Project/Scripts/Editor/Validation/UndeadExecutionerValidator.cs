@@ -165,11 +165,7 @@ public static class UndeadExecutionerValidator
         }
         else
         {
-            if (behaviour.SpiritPressure.GetComponentInParent<BossEncounterParticipant>() != null
-                && behaviour.SpiritPressure.GetComponent<BossEncounterParticipant>() != null)
-            {
-                issues += Error(behaviour.SpiritPressure, "Spirit must not be an encounter participant.");
-            }
+            issues += ValidateSpiritHierarchy(behaviour.SpiritPressure);
 
             if (behaviour.SpiritPressure.GetComponentInChildren<EnemyPersistence>(true) != null)
             {
@@ -214,6 +210,17 @@ public static class UndeadExecutionerValidator
         }
 
         return issues;
+    }
+
+    internal static int ValidateSpiritHierarchy(UndeadExecutionerSpiritPressure spiritPressure)
+    {
+        if (spiritPressure == null
+            || spiritPressure.GetComponentInChildren<BossEncounterParticipant>(true) == null)
+        {
+            return 0;
+        }
+
+        return Error(spiritPressure, "Spirit hierarchy must not contain a BossEncounterParticipant.");
     }
 
     private static int ValidateSceneInstance(UndeadExecutionerBehaviour behaviour)

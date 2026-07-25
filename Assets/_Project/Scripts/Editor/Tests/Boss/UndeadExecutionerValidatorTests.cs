@@ -59,4 +59,19 @@ public sealed class UndeadExecutionerValidatorTests
 
         Assert.That(receiver, Is.SameAs(health));
     }
+
+    [Test]
+    public void SpiritHierarchyCannotContainEncounterParticipant()
+    {
+        root = new GameObject("Spirit");
+        UndeadExecutionerSpiritPressure spirit = root.AddComponent<UndeadExecutionerSpiritPressure>();
+        GameObject child = new GameObject("Forbidden Participant");
+        child.transform.SetParent(root.transform);
+        child.AddComponent<BossEncounterParticipant>();
+        LogAssert.Expect(
+            LogType.Error,
+            "[UndeadExecutionerValidator] Spirit hierarchy must not contain a BossEncounterParticipant.");
+
+        Assert.That(UndeadExecutionerValidator.ValidateSpiritHierarchy(spirit), Is.EqualTo(1));
+    }
 }

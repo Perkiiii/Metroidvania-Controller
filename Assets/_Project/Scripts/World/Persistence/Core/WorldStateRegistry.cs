@@ -148,6 +148,16 @@ public sealed class WorldStateRegistry : ScriptableObject, ISaveTarget
         Notify(new WorldStateKey(WorldStateCategory.DefeatedEncounter, encounterId), true);
     }
 
+#if UNITY_EDITOR
+    // Editor-only tooling may clear one fact so an authored encounter can be retested without
+    // wiping unrelated save state. A real scene reload is still required to re-arm the encounter.
+    public bool EditorClearEncounterDefeatedRecord(string encounterId)
+    {
+        if (string.IsNullOrEmpty(encounterId)) return false;
+        return defeatedEncounterIds.Remove(encounterId);
+    }
+#endif
+
     // -------------------------------------------------------------------------
     // Permanent physical object state (serialized, arbitrary string payload)
     // -------------------------------------------------------------------------
