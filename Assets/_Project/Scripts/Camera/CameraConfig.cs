@@ -68,4 +68,16 @@ public sealed class CameraConfig : ScriptableObject
     [Header("Scene Start")]
     public float startLockedTimer = 0.65f;
     public float positioningSettleTime = 0.1f;
+
+    [Header("Lock Transitions")]
+    [Tooltip("Applied immediately: scene start, hidden rebind, and other synchronous placement.")]
+    public CameraTransitionSettings sceneStartTransition = CameraTransitionSettings.Immediate();
+    [Tooltip("Live follow -> first lock entry.")]
+    public CameraTransitionSettings followToLockTransition = CameraTransitionSettings.Live(0.15f, 0.35f, false);
+    [Tooltip("Live switch between two overlapping locks.")]
+    public CameraTransitionSettings lockToLockTransition = CameraTransitionSettings.Live(0.15f, 0.35f, false);
+    [Tooltip("Live exit from the final active lock back to room follow.")]
+    public CameraTransitionSettings lockToFollowTransition = CameraTransitionSettings.Live(0.15f, 0.35f, false);
+    [Tooltip("The final freeze/free override releases back to the current underlying framing.")]
+    public CameraTransitionSettings overrideReleasedTransition = CameraTransitionSettings.Live(0.15f, 0.35f, true);
 }
