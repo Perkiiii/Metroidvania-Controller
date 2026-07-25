@@ -138,6 +138,7 @@ public sealed class BossEncounterFoundationTests
         SetPrivateField(rig.Participants[0], "health", null);
 
         LogAssert.Expect(LogType.Error, "[BossEncounterParticipant] 'Participant 0' is missing its actor root, health, or typed behaviour reference.");
+        ExpectPreparationFailure(0);
         Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
 
         Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Dormant));
@@ -157,6 +158,7 @@ public sealed class BossEncounterFoundationTests
         LogAssert.Expect(
             LogType.Error,
             "[BossEncounterParticipant] 'Participant 0' activated actor 'ActorRoot', but its health component did not initialize.");
+        ExpectPreparationFailure(0);
         Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
 
         Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Dormant));
@@ -164,6 +166,94 @@ public sealed class BossEncounterFoundationTests
         Assert.That(registry.IsEncounterDefeated(definition.EncounterId), Is.False);
         Assert.That(rig.Reward.activeSelf, Is.False);
         Assert.That(rig.Barrier.IsOpen, Is.True);
+    }
+
+    [Test]
+    public void PreparationFailureDoesNotCommitVisibleEncounterState()
+    {
+        TestRig rig = CreateRig(1, withCameraLock: true, withHeroControlLock: true);
+        rig.Behaviours[0].PreparationSucceeds = false;
+        int encounterStartingCount = 0;
+        int hudShowCount = 0;
+        rig.Controller.EncounterStarting += () => encounterStartingCount++;
+        BossHudEventService.ShowRequested += HandleHudShow;
+
+        try
+        {
+            ExpectPreparationFailure(0);
+            Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
+
+            Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Dormant));
+            Assert.That(encounterStartingCount, Is.Zero);
+            Assert.That(hudShowCount, Is.Zero);
+            Assert.That(rig.Behaviours[0].IntroCalls, Is.Zero);
+            Assert.That(rig.Behaviours[0].BeginCombatCalls, Is.Zero);
+            Assert.That(rig.Behaviours[0].WasColliderEnabledDuringPreparation, Is.False);
+            Assert.That(rig.Behaviours[0].WasRendererEnabledDuringPreparation, Is.False);
+            Assert.That(rig.Barrier.IsOpen, Is.True);
+            Assert.That(rig.CameraLock.gameObject.activeSelf, Is.False);
+            Assert.That(rig.Hero.IsControlLocked, Is.False);
+            Assert.That(rig.ActorRoots[0].activeSelf, Is.False);
+            Assert.That(rig.Controller.CompletionCommitted, Is.False);
+            Assert.That(registry.IsEncounterDefeated(definition.EncounterId), Is.False);
+            Assert.That(rig.Reward.activeSelf, Is.False);
+        }
+        finally
+        {
+            BossHudEventService.ShowRequested -= HandleHudShow;
+        }
+
+        void HandleHudShow(BossHudShowRequest request)
+        {
+            if (ReferenceEquals(request.Source, rig.Controller))
+            {
+                hudShowCount++;
+            }
+        }
+    }
+
+    [Test]
+    public void FailedPreparationCanRetryWithoutDuplicatingParticipantSubscriptions()
+    {
+        TestRig rig = CreateRig(1);
+        rig.Behaviours[0].PreparationSucceeds = false;
+        int activatedCount = 0;
+        rig.Controller.EncounterActivated += () => activatedCount++;
+
+        ExpectPreparationFailure(0);
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Dormant));
+
+        rig.Behaviours[0].PreparationSucceeds = true;
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.True);
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Starting));
+
+        rig.Behaviours[0].CompleteIntro();
+
+        Assert.That(rig.Controller.State, Is.EqualTo(BossEncounterState.Active));
+        Assert.That(activatedCount, Is.EqualTo(1));
+        Assert.That(rig.Behaviours[0].PrepareCalls, Is.EqualTo(2));
+        Assert.That(rig.Behaviours[0].IntroCalls, Is.EqualTo(1));
+        Assert.That(rig.Behaviours[0].BeginCombatCalls, Is.EqualTo(1));
+        Assert.That(rig.Behaviours[0].ColliderEnabledWhenIntroPlayed, Is.True);
+        Assert.That(rig.Behaviours[0].RendererEnabledWhenIntroPlayed, Is.True);
+    }
+
+    [Test]
+    public void LaterPreparationFailureInterruptsEarlierPreparedParticipant()
+    {
+        TestRig rig = CreateRig(2);
+        rig.Behaviours[1].PreparationSucceeds = false;
+
+        ExpectPreparationFailure(1);
+        Assert.That(rig.Controller.TryBeginEncounter(), Is.False);
+
+        Assert.That(rig.Behaviours[0].PrepareCalls, Is.EqualTo(1));
+        Assert.That(rig.Behaviours[0].Interruptions, Is.EqualTo(1));
+        Assert.That(rig.Behaviours[1].Interruptions, Is.EqualTo(1));
+        Assert.That(rig.ActorRoots[0].activeSelf, Is.False);
+        Assert.That(rig.ActorRoots[1].activeSelf, Is.False);
+        Assert.That(registry.IsEncounterDefeated(definition.EncounterId), Is.False);
     }
 
     [Test]
@@ -234,6 +324,8 @@ public sealed class BossEncounterFoundationTests
             GameObject actor = new GameObject("ActorRoot");
             actor.transform.SetParent(wrapper.transform);
             Rigidbody2D body = actor.AddComponent<Rigidbody2D>();
+            actor.AddComponent<BoxCollider2D>();
+            actor.AddComponent<SpriteRenderer>();
             EnemyStateBlackboard blackboard = actor.AddComponent<EnemyStateBlackboard>();
             EnemyHealthComponent health = actor.AddComponent<EnemyHealthComponent>();
             BossEncounterTestBehaviour behaviour = actor.AddComponent<BossEncounterTestBehaviour>();
@@ -326,6 +418,14 @@ public sealed class BossEncounterFoundationTests
         method.Invoke(target, null);
     }
 
+    private static void ExpectPreparationFailure(int rosterIndex)
+    {
+        LogAssert.Expect(
+            LogType.Error,
+            $"[BossEncounterController] 'Boss Encounter Test' failed to prepare participant at roster index {rosterIndex}: 'Participant {rosterIndex}'. "
+            + "The encounter remains dormant; correct the participant's authoring or initialization failure and retry.");
+    }
+
     private readonly struct TestRig
     {
         public TestRig(
@@ -371,9 +471,28 @@ public sealed class BossEncounterTestBehaviour : MonoBehaviour, IBossEncounterBe
     public bool EmitCompletionDuringInterrupt { get; set; }
     public BossEncounterParticipant OwnerParticipant { get; set; }
 
-    public void PrepareForEncounter() => PrepareCalls++;
-    public void PlayIntro() { }
-    public void BeginCombat() { }
+    public bool PreparationSucceeds { get; set; } = true;
+    public int IntroCalls { get; private set; }
+    public int BeginCombatCalls { get; private set; }
+    public bool WasColliderEnabledDuringPreparation { get; private set; }
+    public bool WasRendererEnabledDuringPreparation { get; private set; }
+    public bool ColliderEnabledWhenIntroPlayed { get; private set; }
+    public bool RendererEnabledWhenIntroPlayed { get; private set; }
+
+    public bool TryPrepareForEncounter()
+    {
+        PrepareCalls++;
+        WasColliderEnabledDuringPreparation = GetComponent<Collider2D>().enabled;
+        WasRendererEnabledDuringPreparation = GetComponent<Renderer>().enabled;
+        return PreparationSucceeds;
+    }
+    public void PlayIntro()
+    {
+        IntroCalls++;
+        ColliderEnabledWhenIntroPlayed = GetComponent<Collider2D>().enabled;
+        RendererEnabledWhenIntroPlayed = GetComponent<Renderer>().enabled;
+    }
+    public void BeginCombat() => BeginCombatCalls++;
     public void InterruptEncounter()
     {
         Interruptions++;

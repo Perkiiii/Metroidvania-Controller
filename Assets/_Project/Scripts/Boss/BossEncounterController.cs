@@ -77,7 +77,19 @@ public sealed class BossEncounterController : MonoBehaviour
 
         State = BossEncounterState.Starting;
         trigger?.SetAvailable(false);
-        EncounterStarting?.Invoke();
+
+        for (int i = 0; i < participants.Length; i++)
+        {
+            if (!participants[i].ActivateAndPrepare())
+            {
+                Debug.LogError(
+                    $"[{nameof(BossEncounterController)}] '{name}' failed to prepare participant at roster index {i}: '{participants[i].name}'. "
+                    + "The encounter remains dormant; correct the participant's authoring or initialization failure and retry.",
+                    participants[i]);
+                AbortFailedStart();
+                return false;
+            }
+        }
 
         ResolveHeroReferences();
         if (heroHealth == null || ((lockHeroDuringIntro || lockHeroDuringOutro) && hero == null))
@@ -88,19 +100,10 @@ public sealed class BossEncounterController : MonoBehaviour
         }
 
         SubscribeHeroDeath();
+        EncounterStarting?.Invoke();
         AcquireControlLock(lockHeroDuringIntro);
         SetBarriersOpen(false, false);
         SetCameraLockActive(true);
-
-        for (int i = 0; i < participants.Length; i++)
-        {
-            if (!participants[i].ActivateAndPrepare())
-            {
-                AbortFailedStart();
-                return false;
-            }
-        }
-
         BossHudEventService.RequestShow(this, definition, BuildHealthRoster());
         for (int i = 0; i < participants.Length; i++)
         {
@@ -371,12 +374,12 @@ public sealed class BossEncounterController : MonoBehaviour
 
     // Deliberately does not restore State to Dormant or re-enable the trigger: this encounter can
     // only be re-armed by a fresh InitializeEncounter() run (i.e. a new Awake()). That is safe only
-    // because GameManager.BeginRespawnSequence always performs a full SceneManager.LoadSceneAsync
-    // reload of the respawn scene -- even for a same-scene checkpoint -- which destroys and
-    // reconstructs this controller, every participant, and every actor from scratch. There is
-    // currently no supported "reposition in place without a scene reload" respawn path. If one is
-    // ever added, this controller (and the actor's own runtime state) will need an explicit
-    // reset/rearm API instead of relying on this scene-reload contract. See BossEncounters.md.
+    // because the normal GameManager.BeginRespawnSequence path performs a full
+    // SceneManager.LoadSceneAsync reload of the checkpoint scene -- even for a same-scene
+    // checkpoint -- which reconstructs this controller and its actors. GameManager's emergency
+    // fallback can reposition in place when that scene is not loadable or the transition cannot
+    // start; that degraded path intentionally does not rearm an interrupted boss. See
+    // BossEncounters.md.
     private void HandleHeroDeath()
     {
         if (completionCommitted || State == BossEncounterState.Completed || State == BossEncounterState.Interrupted)

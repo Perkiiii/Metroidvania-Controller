@@ -3,6 +3,7 @@ using Animancer;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 public sealed class UndeadExecutionerBehaviourTests
 {
@@ -25,13 +26,53 @@ public sealed class UndeadExecutionerBehaviourTests
         UndeadExecutionerBehaviour behaviour = CreateBehaviour();
         Rigidbody2D body = root.GetComponent<Rigidbody2D>();
 
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
 
         Assert.That(body.gravityScale, Is.Zero);
         Assert.That(body.constraints.HasFlag(RigidbodyConstraints2D.FreezePositionY), Is.True);
         Assert.That(body.constraints.HasFlag(RigidbodyConstraints2D.FreezeRotation), Is.True);
         Assert.That(behaviour.AuthoredHoverY, Is.EqualTo(body.position.y));
         Assert.That(typeof(UndeadExecutionerBehaviour).GetField("IsGrounded"), Is.Null);
+    }
+
+    [Test]
+    public void MissingRequiredReferenceFailsPreparation()
+    {
+        UndeadExecutionerBehaviour behaviour = CreateBehaviour();
+        SetField(behaviour, "config", null);
+
+        LogAssert.Expect(
+            LogType.Error,
+            "[UndeadExecutionerBehaviour] 'Undead Executioner Test' is missing required foundation, config, motor, health, or Animancer references.");
+
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.False);
+        Assert.That(behaviour.IsPrepared, Is.False);
+        Assert.That(behaviour.ComboFirst.IsAttackWindowActive, Is.False);
+        Assert.That(behaviour.ComboSecond.IsAttackWindowActive, Is.False);
+        Assert.That(behaviour.ShadowBurst.IsAttackWindowActive, Is.False);
+    }
+
+    [Test]
+    public void InvalidAttackTimingFailsPreparationAndClosesExistingAttackWindow()
+    {
+        UndeadExecutionerBehaviour behaviour = CreateBehaviour();
+        Assert.That(behaviour.ComboFirst.BeginAttack(), Is.True);
+        behaviour.ComboFirst.OpenAttackWindow();
+        Assert.That(behaviour.ComboFirst.IsAttackWindowActive, Is.True);
+
+        UndeadExecutionerConfig.AttackTiming invalid = bossConfig.comboFirstTiming;
+        invalid.startup = -1f;
+        bossConfig.comboFirstTiming = invalid;
+        LogAssert.Expect(
+            LogType.Error,
+            "[UndeadExecutionerBehaviour] 'Undead Executioner Test' could not configure all authored attack controllers.");
+
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.False);
+        Assert.That(behaviour.IsPrepared, Is.False);
+        Assert.That(behaviour.ComboFirst.IsAttackWindowActive, Is.False);
+        Assert.That(behaviour.ComboFirst.IsAttacking, Is.False);
+        Assert.That(behaviour.ComboSecond.IsAttackWindowActive, Is.False);
+        Assert.That(behaviour.ShadowBurst.IsAttackWindowActive, Is.False);
     }
 
     [Test]
@@ -44,7 +85,7 @@ public sealed class UndeadExecutionerBehaviourTests
         behaviour.IntroCompleted += () => introCount++;
         behaviour.DefeatPresentationCompleted += () => defeatCount++;
 
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         InvokePrivate(behaviour, "Update");
@@ -62,7 +103,7 @@ public sealed class UndeadExecutionerBehaviourTests
     {
         UndeadExecutionerBehaviour behaviour = CreateBehaviour();
         bossConfig.introDuration = 0f;
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         behaviour.BeginCombat();
@@ -84,7 +125,7 @@ public sealed class UndeadExecutionerBehaviourTests
         Assert.That(bossConfig.shadowBurstClip, Is.Not.Null);
         bossConfig.introDuration = 0f;
 
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         behaviour.BeginCombat();
@@ -110,7 +151,7 @@ public sealed class UndeadExecutionerBehaviourTests
         bossConfig.glideMinimumDistance = 2f;
         Rigidbody2D body = root.GetComponent<Rigidbody2D>();
 
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         behaviour.BeginCombat();
@@ -138,7 +179,7 @@ public sealed class UndeadExecutionerBehaviourTests
     {
         UndeadExecutionerBehaviour behaviour = CreateBehaviour(withSpirit: true);
         bossConfig.introDuration = 0f;
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         behaviour.BeginCombat();
@@ -174,7 +215,7 @@ public sealed class UndeadExecutionerBehaviourTests
             "Assets/_Project/Animations/Bosses/UndeadExecutioner/UndeadExecutionerCombo.anim");
         Assert.That(bossConfig.executionerComboClip, Is.Not.Null);
 
-        behaviour.PrepareForEncounter();
+        Assert.That(behaviour.TryPrepareForEncounter(), Is.True);
         behaviour.PlayIntro();
         InvokePrivate(behaviour, "Update");
         behaviour.BeginCombat();

@@ -17,6 +17,11 @@ public sealed class BossEncounterParticipant : MonoBehaviour
     private bool defeated;
     private bool introComplete;
     private bool defeatPresentationComplete;
+    private Renderer[] preparationRenderers;
+    private bool[] preparationRendererStates;
+    private Collider2D[] preparationColliders;
+    private bool[] preparationColliderStates;
+    private bool preparationSuppressed;
 
     public GameObject ActorRoot => actorRoot;
     public EnemyHealthComponent Health => health;
@@ -42,6 +47,7 @@ public sealed class BossEncounterParticipant : MonoBehaviour
         defeated = false;
         introComplete = false;
         defeatPresentationComplete = false;
+        RestorePreparedActorState();
 
         if (actorRoot != null)
         {
@@ -62,21 +68,30 @@ public sealed class BossEncounterParticipant : MonoBehaviour
         defeated = false;
         introComplete = false;
         defeatPresentationComplete = false;
+        CaptureAndSuppressPreparedActorState();
         actorRoot.SetActive(true);
 
         if (!health.IsInitialized)
         {
             Debug.LogError($"[{nameof(BossEncounterParticipant)}] '{name}' activated actor '{actorRoot.name}', but its health component did not initialize.", this);
+            RestorePreparedActorState();
             actorRoot.SetActive(false);
             return false;
         }
 
-        resolvedBehaviour.PrepareForEncounter();
-        return true;
+        bool prepared = resolvedBehaviour.TryPrepareForEncounter();
+        ApplyPreparationSuppression();
+        if (prepared)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     public void PlayIntro()
     {
+        RestorePreparedActorState();
         ResolveBehaviour()?.PlayIntro();
     }
 
@@ -88,6 +103,7 @@ public sealed class BossEncounterParticipant : MonoBehaviour
     public void Interrupt()
     {
         ResolveBehaviour()?.InterruptEncounter();
+        RestorePreparedActorState();
         if (actorRoot != null)
         {
             actorRoot.SetActive(false);
@@ -107,6 +123,85 @@ public sealed class BossEncounterParticipant : MonoBehaviour
         }
 
         return behaviour;
+    }
+
+    private void CaptureAndSuppressPreparedActorState()
+    {
+        if (actorRoot == null)
+        {
+            return;
+        }
+
+        preparationRenderers = actorRoot.GetComponentsInChildren<Renderer>(true);
+        preparationRendererStates = new bool[preparationRenderers.Length];
+        for (int i = 0; i < preparationRenderers.Length; i++)
+        {
+            preparationRendererStates[i] = preparationRenderers[i] != null && preparationRenderers[i].enabled;
+        }
+
+        preparationColliders = actorRoot.GetComponentsInChildren<Collider2D>(true);
+        preparationColliderStates = new bool[preparationColliders.Length];
+        for (int i = 0; i < preparationColliders.Length; i++)
+        {
+            preparationColliderStates[i] = preparationColliders[i] != null && preparationColliders[i].enabled;
+        }
+
+        preparationSuppressed = true;
+        ApplyPreparationSuppression();
+    }
+
+    private void ApplyPreparationSuppression()
+    {
+        if (!preparationSuppressed)
+        {
+            return;
+        }
+
+        for (int i = 0; preparationRenderers != null && i < preparationRenderers.Length; i++)
+        {
+            if (preparationRenderers[i] != null)
+            {
+                preparationRenderers[i].enabled = false;
+            }
+        }
+
+        for (int i = 0; preparationColliders != null && i < preparationColliders.Length; i++)
+        {
+            if (preparationColliders[i] != null)
+            {
+                preparationColliders[i].enabled = false;
+            }
+        }
+    }
+
+    private void RestorePreparedActorState()
+    {
+        if (!preparationSuppressed)
+        {
+            return;
+        }
+
+        for (int i = 0; preparationRenderers != null && i < preparationRenderers.Length; i++)
+        {
+            if (preparationRenderers[i] != null)
+            {
+                preparationRenderers[i].enabled = preparationRendererStates[i];
+            }
+        }
+
+        for (int i = 0; preparationColliders != null && i < preparationColliders.Length; i++)
+        {
+            if (preparationColliders[i] != null)
+            {
+                preparationColliders[i].enabled = preparationColliderStates[i];
+            }
+        }
+
+        preparationRenderers = null;
+        preparationRendererStates = null;
+        preparationColliders = null;
+        preparationColliderStates = null;
+        preparationSuppressed = false;
     }
 
     private void Subscribe()

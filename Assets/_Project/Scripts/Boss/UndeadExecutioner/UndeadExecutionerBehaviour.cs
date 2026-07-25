@@ -236,7 +236,7 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
         SubscribeEvents();
     }
 
-    public void PrepareForEncounter()
+    public bool TryPrepareForEncounter()
     {
         CacheComponents();
         SubscribeEvents();
@@ -261,15 +261,17 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
 
         if (!prepared)
         {
+            StopEncounterWork();
             Debug.LogError($"[{nameof(UndeadExecutionerBehaviour)}] '{name}' is missing required foundation, config, motor, health, or Animancer references.", this);
-            return;
+            return false;
         }
 
         if (!ConfigureAttackControllers())
         {
             prepared = false;
+            StopEncounterWork();
             Debug.LogError($"[{nameof(UndeadExecutionerBehaviour)}] '{name}' could not configure all authored attack controllers.", this);
-            return;
+            return false;
         }
 
         if (presentationRoot != null)
@@ -284,6 +286,7 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
 
         SetState(UndeadExecutionerState.Dormant);
         PlayLoop(config.idleClip);
+        return true;
     }
 
     public void PlayIntro()

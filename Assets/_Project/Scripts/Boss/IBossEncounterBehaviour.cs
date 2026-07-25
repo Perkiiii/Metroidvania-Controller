@@ -5,7 +5,7 @@ public interface IBossEncounterBehaviour
     event Action IntroCompleted;
     event Action DefeatPresentationCompleted;
 
-    void PrepareForEncounter();
+    bool TryPrepareForEncounter();
     void PlayIntro();
     void BeginCombat();
     void InterruptEncounter();

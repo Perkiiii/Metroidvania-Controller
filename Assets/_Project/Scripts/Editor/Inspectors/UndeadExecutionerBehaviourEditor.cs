@@ -6,7 +6,7 @@ using UnityEngine;
 //
 // Exists because EnemyAttackController.TryConfigureTimings overwrites the serialized
 // Startup/Active/Recovery/Cooldown fields shown directly on ComboFirst/ComboSecond/ShadowBurst
-// and the spirit's own EnemyAttackController at PrepareForEncounter time. Selecting one of those
+// and the spirit's own EnemyAttackController at TryPrepareForEncounter time. Selecting one of those
 // components in the Inspector while not in Play Mode shows unused prefab defaults, not the real
 // timing. UndeadExecutionerConfig remains the single source of truth; this only surfaces it.
 [CustomEditor(typeof(UndeadExecutionerBehaviour))]
@@ -43,7 +43,7 @@ public sealed class UndeadExecutionerBehaviourEditor : Editor
         }
 
         EditorGUILayout.HelpBox(
-            "PrepareForEncounter applies these values to ComboFirst/ComboSecond/ShadowBurst/Spirit " +
+            "TryPrepareForEncounter applies these values to ComboFirst/ComboSecond/ShadowBurst/Spirit " +
             "via TryConfigureTimings. The serialized fields shown directly on those EnemyAttackController " +
             "components are prefab defaults that get overwritten at runtime -- tune combat timing here, " +
             "not there.",
