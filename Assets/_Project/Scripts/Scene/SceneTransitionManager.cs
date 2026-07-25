@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 public sealed class SceneTransitionManager
 {
     private static readonly SceneTransitionTraceMarker[] EmptyMarkers = new SceneTransitionTraceMarker[0];
+    private const float CameraReadinessTimeoutSeconds = 0.5f;
 
     private readonly GameManager owner;
     private readonly SceneLoader sceneLoader;
@@ -72,6 +73,12 @@ public sealed class SceneTransitionManager
             owner.SetGameState(GameState.Loading);
             CameraShakeRequester.ShakeStop();
 
+            if (GameCameras.Instance != null)
+            {
+                cameraFreeze = GameCameras.Instance.FreezeForSceneTransition(this);
+                Trace(SceneTransitionTraceMarker.CameraFreezeRequested);
+            }
+
             if (owner.CurrentHero != null)
             {
                 lockedHero = owner.CurrentHero;
@@ -85,8 +92,6 @@ public sealed class SceneTransitionManager
 
             if (GameCameras.Instance != null)
             {
-                cameraFreeze = GameCameras.Instance.FreezeForSceneTransition(this);
-                Trace(SceneTransitionTraceMarker.CameraFreezeRequested);
                 Trace(SceneTransitionTraceMarker.FadeOutStarted);
                 yield return owner.StartCoroutine(GameCameras.Instance.FadeOut(fadeProfile));
                 Trace(SceneTransitionTraceMarker.FadeOutComplete);
@@ -117,11 +122,9 @@ public sealed class SceneTransitionManager
                 if (GameCameras.Instance != null)
                 {
                     Trace(SceneTransitionTraceMarker.CameraRebindStarted);
-                    GameCameras.Instance.RebindForSceneEntry();
+                    yield return WaitForCameraReadiness(request.TargetScene);
                     Trace(SceneTransitionTraceMarker.CameraRebindComplete);
                 }
-
-                yield return new WaitForSecondsRealtime(0.1f);
 
                 if (GameCameras.Instance != null)
                 {
@@ -183,11 +186,9 @@ public sealed class SceneTransitionManager
             if (GameCameras.Instance != null)
             {
                 Trace(SceneTransitionTraceMarker.CameraRebindStarted);
-                GameCameras.Instance.RebindForSceneEntry();
+                yield return WaitForCameraReadiness(request.TargetScene);
                 Trace(SceneTransitionTraceMarker.CameraRebindComplete);
             }
-
-            yield return new WaitForSecondsRealtime(0.1f);
 
             Coroutine entryFadeIn = null;
             if (GameCameras.Instance != null)
@@ -241,10 +242,53 @@ public sealed class SceneTransitionManager
             if (!completed && (owner.State == GameState.Loading || owner.State == GameState.EnteringLevel || owner.State == GameState.ExitingLevel))
                 owner.SetGameState(GameState.Playing);
 
+            if (!completed)
+                GameCameras.Instance?.SetClear();
+
             owner.ClearPendingNormalDeathRespawn();
             IsTransitioning = false;
             CloseActiveTrace(completed);
         }
+    }
+
+    private IEnumerator WaitForCameraReadiness(string destinationScene)
+    {
+        Trace(SceneTransitionTraceMarker.CameraReadinessStarted);
+
+        if (GameCameras.Instance == null)
+        {
+            string detail = $"No persistent GameCameras instance exists for destination scene '{destinationScene}'.";
+            Debug.LogError($"[SceneTransitionManager] {detail}");
+            Trace(SceneTransitionTraceMarker.CameraReadinessFallback, detail);
+            yield break;
+        }
+
+        CameraSceneEntryReadiness readiness = default;
+        bool completed = false;
+        yield return owner.StartCoroutine(GameCameras.Instance.RebindAndPositionForSceneEntry(
+            destinationScene,
+            CameraReadinessTimeoutSeconds,
+            result =>
+            {
+                readiness = result;
+                completed = true;
+            }));
+
+        if (!completed)
+        {
+            string detail = $"Camera readiness coroutine returned no result for destination scene '{destinationScene}'.";
+            Debug.LogError($"[SceneTransitionManager] {detail}");
+            Trace(SceneTransitionTraceMarker.CameraReadinessFallback, detail);
+            yield break;
+        }
+
+        if (readiness.IsReady)
+        {
+            Trace(SceneTransitionTraceMarker.CameraReady);
+            yield break;
+        }
+
+        Trace(SceneTransitionTraceMarker.CameraReadinessFallback, readiness.Detail);
     }
 
     private void Trace(SceneTransitionTraceMarker marker, string detail = "")

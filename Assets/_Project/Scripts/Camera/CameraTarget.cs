@@ -48,6 +48,8 @@ public sealed class CameraTarget : MonoBehaviour
     public bool IsRising => inferredVelocity.y > GetRisingThreshold();
     public bool IsFalling => inferredVelocity.y < -GetFallingThreshold();
     public bool IsFastFalling => inferredVelocity.y < GetFastFallThreshold();
+    public bool HasHeroBinding => heroTransform != null;
+    public Transform BoundHero => heroTransform;
 
     private readonly List<CameraOffsetArea> offsetStack = new List<CameraOffsetArea>();
 

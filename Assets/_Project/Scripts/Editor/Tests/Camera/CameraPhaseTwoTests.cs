@@ -1,6 +1,8 @@
 using System.Reflection;
+using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 public sealed class CameraPhaseTwoTests
 {
@@ -346,6 +348,112 @@ public sealed class CameraPhaseTwoTests
     }
 
     [Test]
+    public void SceneEntryImmediatePositionsTargetAndRenderedCameraAndClearsMotionState()
+    {
+        hero.transform.position = new Vector3(12f, -3f, 0f);
+        target.SceneInit();
+        SetField(target, "currentVerticalOffset", 0f);
+        SetField(controller, "velocityX", Vector3.one);
+        SetField(controller, "velocityY", Vector3.one);
+
+        CameraLockArea area = CreateLock("Scene Entry Lock", 1, center: hero.transform.position);
+        try
+        {
+            controller.EnterLockArea(area);
+            Assert.That(controller.IsTransitioning, Is.True);
+
+            target.SnapToHero();
+            bool applied = controller.ApplySceneEntryImmediate(out string failureDetail);
+
+            Assert.That(applied, Is.True, failureDetail);
+            Assert.That(target.transform.position, Is.EqualTo(hero.transform.position));
+            Assert.That(controller.RenderedPosition, Is.EqualTo(controller.CurrentDestination));
+            Assert.That(GetField(controller, "velocityX"), Is.EqualTo(Vector3.zero));
+            Assert.That(GetField(controller, "velocityY"), Is.EqualTo(Vector3.zero));
+            Assert.That(GetField(controller, "startTimer"), Is.EqualTo(0f));
+            Assert.That(controller.IsTransitioning, Is.False);
+            Assert.That(controller.CurrentTransitionCause, Is.EqualTo(CameraTransitionCause.None));
+            Assert.That(controller.LastApplicationWasImmediate, Is.True);
+        }
+        finally
+        {
+            DestroyLocks(area);
+        }
+    }
+
+    [Test]
+    public void TransitionFreezeReleaseAfterImmediateSceneEntryDoesNotStartOverrideTransition()
+    {
+        controller.ApplyFreezeState(true, true);
+        target.SnapToHero();
+        Assert.That(controller.ApplySceneEntryImmediate(out string failureDetail), Is.True, failureDetail);
+
+        controller.ApplyFreezeState(false, false, true);
+
+        Assert.That(controller.IsTransitioning, Is.False);
+        Assert.That(controller.CurrentTransitionCause, Is.EqualTo(CameraTransitionCause.None));
+        Assert.That(controller.LastApplicationWasImmediate, Is.True);
+    }
+
+    [Test]
+    public void OrdinaryFreezeReleaseStillUsesOverrideReleasedTransition()
+    {
+        controller.ApplyFreezeState(true, true);
+        SetField(controller, "startTimer", 0f);
+
+        controller.ApplyFreezeState(false, false);
+
+        Assert.That(controller.CurrentTransitionCause, Is.EqualTo(CameraTransitionCause.OverrideReleased));
+    }
+
+    [Test]
+    public void ReadinessFailureAppliesDirectFallbackInsteadOfLeavingCameraUnresolved()
+    {
+        Object.DestroyImmediate(hero.GetComponent<BoxCollider2D>());
+        hero.transform.position = new Vector3(7f, 4f, 0f);
+        GameCameras cameras = CreateGameCameras();
+        CameraSceneEntryReadiness result = default;
+        LogAssert.Expect(
+            LogType.Error,
+            "[GameCameras] Camera readiness failed for destination scene 'MalformedRoom': Positioned hero 'Camera Test Hero' has no enabled Collider2D for camera-volume readiness. Applied direct hero-position fallback.");
+
+        IEnumerator routine = cameras.RebindAndPositionForSceneEntry(
+            "MalformedRoom",
+            0f,
+            value => result = value);
+        while (routine.MoveNext())
+        {
+        }
+
+        Assert.That(result.IsReady, Is.False);
+        Assert.That(result.UsedFallback, Is.True);
+        Assert.That(result.Detail, Does.Contain("Collider2D"));
+        Assert.That(controller.RenderedPosition.x, Is.EqualTo(hero.transform.position.x));
+        Assert.That(controller.RenderedPosition.y, Is.EqualTo(hero.transform.position.y));
+        Assert.That(controller.IsTransitioning, Is.False);
+    }
+
+    [Test]
+    public void ReleasingTransitionFreezeLeavesUnrelatedHandleActive()
+    {
+        GameCameras cameras = CreateGameCameras();
+        CameraRequestHandle transition = cameras.FreezeForSceneTransition(this);
+        CameraRequestHandle unrelated = cameras.AcquireFreeze(
+            CameraFreezeKind.Soft,
+            -1f,
+            "unrelated",
+            CameraRequestLifetime.Persistent);
+
+        transition.Release();
+
+        Assert.That(cameras.ActiveFreezeCount, Is.EqualTo(1));
+        Assert.That(controller.Mode, Is.EqualTo(CameraMode.Frozen));
+
+        unrelated.Release();
+        Assert.That(cameras.ActiveFreezeCount, Is.Zero);
+    }
+
+    [Test]
     public void RegisteredLocksAreReportedInSelectionOrder()
     {
         CameraLockArea low = CreateLock("Low", 1);
@@ -429,6 +537,15 @@ public sealed class CameraPhaseTwoTests
         SetField(area, "lockX", lockX);
         SetField(area, "lockY", lockY);
         return area;
+    }
+
+    private GameCameras CreateGameCameras()
+    {
+        GameObject root = new GameObject("Game Cameras");
+        GameCameras cameras = root.AddComponent<GameCameras>();
+        SetField(cameras, "cameraTarget", target);
+        SetField(cameras, "cameraController", controller);
+        return cameras;
     }
 
     private static void DestroyLocks(params CameraLockArea[] areas)

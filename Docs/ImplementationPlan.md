@@ -71,6 +71,12 @@ These must happen before any milestone work begins. Both are preconditions for t
   Camera Phase 1 validator. (Done 2026-07-25; human camera-feel approval and the
   `SampleScene4` fixed-centre-framing decision remain outstanding — see
   `Docs/FeatureSpecs/Camera.md`.)
+- [x] Scene-entry camera readiness and reveal sequencing — removed the arbitrary post-rebind
+  wait, added bounded `GameCameras` readiness with immediate target/rendered-camera positioning,
+  bounds/ordinary-lock overlap refresh, stale smoothing/transition reset, actionable direct-snap
+  fallback, and transition-specific freeze-release handoff. Fade-in and `HeroSceneEntry` motion now
+  begin only after readiness, preventing the deferred scene-start/`OverrideReleased` camera snap
+  after entry motion. (Done 2026-07-25.)
 - [ ] Later camera presentation (Phase 3) — temporary focus/pan, boss presentation requests,
   Timeline adapter, automatic zoom, and dynamic multi-target framing only when real content
   proves need.

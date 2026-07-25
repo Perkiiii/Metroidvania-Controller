@@ -299,6 +299,11 @@ public sealed class CameraController : MonoBehaviour
 
     public void ApplyFreezeState(bool frozen, bool freezeTarget)
     {
+        ApplyFreezeState(frozen, freezeTarget, false);
+    }
+
+    public void ApplyFreezeState(bool frozen, bool freezeTarget, bool suppressReleaseTransition)
+    {
         bool wasFrozen = freezeOverride;
         freezeOverride = frozen;
         freezeTargetOverride = frozen && freezeTarget;
@@ -309,7 +314,15 @@ public sealed class CameraController : MonoBehaviour
 
         if (wasFrozen && !frozen && !freeOverride)
         {
-            BeginOverrideReleaseTransition();
+            if (suppressReleaseTransition)
+            {
+                EndTransition();
+                lastApplicationWasImmediate = true;
+            }
+            else
+            {
+                BeginOverrideReleaseTransition();
+            }
         }
     }
 
@@ -363,6 +376,69 @@ public sealed class CameraController : MonoBehaviour
         CameraInfoCache.UpdateCache(cam, true);
         EndTransition();
         lastApplicationWasImmediate = true;
+    }
+
+    public bool ApplySceneEntryImmediate(out string failureDetail)
+    {
+        failureDetail = "";
+        if (cameraTarget == null)
+        {
+            failureDetail = "CameraController has no CameraTarget reference.";
+            return false;
+        }
+
+        if (!cameraTarget.HasHeroBinding)
+        {
+            failureDetail = "CameraTarget is not bound to the positioned hero.";
+            return false;
+        }
+
+        SnapToTarget();
+
+        // The ordinary scene-start timer snaps while it counts down. A transition hard-freeze
+        // pauses LateUpdate, so leaving the timer armed would defer those snaps until reveal
+        // cleanup and visibly correct the camera after the hero's entry motion.
+        startTimer = 0f;
+        currentDampX = dampTimeNormal;
+        currentDampY = GetGroundedDampTimeY();
+
+        Vector3 expected = ComputeDestination();
+        if (!IsFinite(expected) || !IsFinite(transform.position))
+        {
+            failureDetail = "Camera scene-entry destination was not finite.";
+            return false;
+        }
+
+        if ((transform.position - expected).sqrMagnitude > 0.0001f)
+        {
+            failureDetail = $"Rendered camera did not reach its scene-entry destination. Expected {expected}, got {transform.position}.";
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool ApplySceneEntryFallback(Vector3 heroPosition, out string failureDetail)
+    {
+        failureDetail = "";
+        Vector3 fallback = new Vector3(heroPosition.x, heroPosition.y, transform.position.z);
+        if (!IsFinite(fallback))
+        {
+            failureDetail = $"Fallback hero position {heroPosition} was not finite.";
+            return false;
+        }
+
+        transform.position = fallback;
+        velocityX = Vector3.zero;
+        velocityY = Vector3.zero;
+        currentDampX = dampTimeNormal;
+        currentDampY = GetGroundedDampTimeY();
+        startTimer = 0f;
+        EndTransition();
+        lastApplicationWasImmediate = true;
+        lastComputedDestination = fallback;
+        CameraInfoCache.UpdateCache(cam, true);
+        return true;
     }
 
     public void SnapToY(float worldY)
@@ -699,6 +775,11 @@ public sealed class CameraController : MonoBehaviour
         Vector3 p = transform.localPosition;
         p.z = cameraZ;
         transform.localPosition = p;
+    }
+
+    private static bool IsFinite(Vector3 value)
+    {
+        return float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
     }
 
     private void GetFrustumHalfExtents(out float halfW, out float halfH)

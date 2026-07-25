@@ -93,6 +93,39 @@ Bounds, locks, and offset areas must be authored in scene space with `BoxCollide
 
 ---
 
+## Destination Scene Readiness
+
+`SceneTransitionManager` keeps the persistent fade fully black after destination activation until
+`GameCameras.RebindAndPositionForSceneEntry` reports completion. Readiness is dependency-driven:
+the positioned `Player` hero and its collider must exist, `CameraTarget` must bind to that hero,
+enabled `CameraBoundsVolume` and ordinary `CameraLockArea` overlaps must be refreshed, and
+`CameraController` must apply and verify the resolved legal destination.
+
+Scene-entry application is always the hidden `Immediate` / `SceneStart` path. It snaps
+`CameraTarget`, positions the rendered camera, clears both target/controller smoothing velocity,
+clears stale live transition state, and consumes the ordinary scene-start snap timer while the
+screen is black. No live follow-to-lock transition is replayed on reveal. `Physics2D.SyncTransforms`
+updates teleport overlap geometry in the same hidden frame; no arbitrary `FixedUpdate` or fixed
+black-screen delay is required. The coroutine may yield one frame only while a late scene
+dependency finishes enabling, and has a 0.5-second unscaled timeout.
+
+On timeout, `GameCameras` logs the destination scene and unresolved dependency, applies the safest
+available direct snap to the positioned hero, clears stale camera motion/transition state, reports
+that fallback in `LastSceneEntryReadiness`, and lets the transition reveal continue. A failed
+transition also clears the fade in guaranteed cleanup rather than trapping the player behind black.
+
+The transition-owned persistent hard freeze remains active across load, readiness, fade-in, and
+entry motion. Explicit hidden immediate positioning is permitted while frozen. Its handle alone is
+released in `SceneTransitionManager` cleanup; that release suppresses the transition handle's
+otherwise-normal `OverrideReleased` blend because the incoming state was already committed.
+Unrelated freeze handles remain registered and retain their normal release semantics.
+
+Fade-in and `HeroSceneEntry` motion begin only after readiness, in the same reveal frame. Thus the
+first visible destination frame is already framed, while directional entry motion remains visible
+and owned by the hero subsystem.
+
+---
+
 ## Underlying Framing And Temporary Requests
 
 Underlying framing is hero follow + current room bounds + the selected lock + offset areas. Freeze and free/manual mode are temporary overrides layered above it. Lock entry, exit, disable, fallback, and scene cleanup continue updating underlying framing while an override is active. Releasing the final freeze or ending free mode resolves the current underlying lock; it never restores a stale snapshot from when the override began.
@@ -109,7 +142,7 @@ Freeze acquisition returns a `CameraRequestHandle`. Each registration has a uniq
 
 `CameraTransitionCause` is one of `SceneStart`, `FollowToLock`, `LockToLock`, `LockToFollow`, or `OverrideReleased`. `CameraTransitionSettings` (`dampTimeX`, `dampTimeY`, `blendDuration`, `resetVelocity`, `applyImmediate`) is a small serializable struct. `CameraConfig` owns one shared default per cause (`sceneStartTransition`, `followToLockTransition`, `lockToLockTransition`, `lockToFollowTransition`, `overrideReleasedTransition`); `CameraController` keeps matching serialized fallback fields so older prefabs without a `CameraConfig` reference still behave sensibly.
 
-- **Scene start / hidden rebind** applies immediately: `SceneInit`, `SnapToTarget`, and `PositionToHero` bypass the live blend entirely, reset `SmoothDamp` velocity, and clear any in-progress transition. Nothing replays behind a fade-in.
+- **Scene start / hidden rebind** applies immediately: `SceneInit`, `RebindAndPositionForSceneEntry`, `SnapToTarget`, and `PositionToHero` bypass the live blend entirely, reset `SmoothDamp` velocity, consume the scene-start snap timer, and clear any in-progress transition. Nothing replays after fade-in.
 - **Follow → lock** (no lock selected, then one becomes selected), **lock → lock** (the selected lock changes to a different one), and **lock → follow** (the selected lock becomes none) each select their configured settings and blend `currentDampX`/`currentDampY` from the transition's starting damp values toward the normal state-driven target over `blendDuration`. The move always resolves from the camera's current rendered position — nothing is snapped or replayed.
 - **Override release**: when the final active freeze (`CameraController.ApplyFreezeState`) or free mode (`EndFreeMode`) ends, the controller begins an `OverrideReleased` transition toward whatever lock is currently selected (which may have changed while frozen — lock/bounds registration keeps updating underneath an override; only the live blend is suppressed). It never restores a stale pre-freeze snapshot.
 - Live transitions are only started when `startTimer <= 0` and no freeze/free/positioning override is active; lock registration itself (`EnterLockArea`/`ExitLockArea`/`ClearSceneRegistrations`) always runs regardless, so underlying framing stays correct even while a transition is suppressed.
@@ -151,7 +184,7 @@ Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `
 - Do not add tk2d or PlayMaker dependencies.
 - Do not call `Animator` APIs from the camera system.
 - Room bounds go through `CameraBoundsVolume`; temporary locks go through `CameraLockArea`.
-- Scene transitions snap `CameraTarget` to the repositioned hero before snapping `CameraController`.
+- Scene transitions await `GameCameras` readiness while black; readiness snaps `CameraTarget` to the repositioned hero before snapping and verifying `CameraController`.
 
 ## TODOs
 

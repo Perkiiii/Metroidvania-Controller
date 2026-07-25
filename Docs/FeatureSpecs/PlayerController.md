@@ -69,6 +69,20 @@ Subsystem responsibilities:
 
 ---
 
+## Scene Entry
+
+`HeroSceneEntry` owns destination-gate placement, facing, control locking, and directional entry
+motion. Placement remains synchronous and routes through `HeroMotor` while the screen is black.
+`SceneTransitionManager` does not start `BeginSceneEntryMotion` until `GameCameras` reports that the
+positioned hero, incoming camera geometry, target, and rendered camera are ready. Fade-in and entry
+motion then start in the same reveal frame so the movement is visible.
+
+`HeroMotor` remains the only authority that writes scripted-entry `Rigidbody2D` velocity. Camera
+readiness changes no run acceleration, top speed, entry distance, duration, or supported direction.
+`HeroSceneEntry` retains its own control-lock and guaranteed motor cleanup contract.
+
+---
+
 ## Hero Hurtbox
 
 - `PlayerHealthState` is the sole owner of current, maximum, and bonus health. `HeroHealthComponent` stays on the Hero root as the scene-side facade for i-frames, damage/hazard context, and death events; `HeroController` injects the state asset during initialization without resetting it.

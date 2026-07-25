@@ -14,6 +14,7 @@ public sealed class GameCameras : MonoBehaviour
         public CameraRequestLifetime Lifetime;
         public int SourceSceneHandle;
         public float ExpiresAt;
+        public bool SuppressFinalReleaseTransition;
     }
 
     public static GameCameras Instance { get; private set; }
@@ -38,6 +39,7 @@ public sealed class GameCameras : MonoBehaviour
     private long nextFreezeRequestId;
 
     public int ActiveFreezeCount => freezeRegistrations.Count;
+    public CameraSceneEntryReadiness LastSceneEntryReadiness { get; private set; }
 
     private void Awake()
     {
@@ -135,13 +137,65 @@ public sealed class GameCameras : MonoBehaviour
         cameraController?.SnapToTarget();
     }
 
+    public IEnumerator RebindAndPositionForSceneEntry(
+        string destinationScene,
+        float timeoutSeconds,
+        System.Action<CameraSceneEntryReadiness> completed)
+    {
+        float deadline = Time.realtimeSinceStartup + Mathf.Max(0f, timeoutSeconds);
+        string failureDetail;
+
+        do
+        {
+            if (TryApplySceneEntryImmediate(out failureDetail))
+            {
+                LastSceneEntryReadiness = new CameraSceneEntryReadiness(
+                    destinationScene,
+                    true,
+                    false,
+                    "");
+                completed?.Invoke(LastSceneEntryReadiness);
+                yield break;
+            }
+
+            if (Time.realtimeSinceStartup >= deadline)
+            {
+                break;
+            }
+
+            // Scene activation normally creates every dependency synchronously. This yield only
+            // permits late Awake/enable work to finish when an authored scene creates its hero
+            // or collider one frame after activation; readiness is still dependency-driven.
+            yield return null;
+        }
+        while (true);
+
+        string fallbackDetail;
+        bool fallbackApplied = TryApplySceneEntryFallback(out fallbackDetail);
+        string detail = fallbackApplied
+            ? $"{failureDetail} Applied direct hero-position fallback."
+            : $"{failureDetail} Direct fallback also failed: {fallbackDetail}";
+
+        Debug.LogError(
+            $"[GameCameras] Camera readiness failed for destination scene '{destinationScene}': {detail}",
+            this);
+
+        LastSceneEntryReadiness = new CameraSceneEntryReadiness(
+            destinationScene,
+            false,
+            fallbackApplied,
+            detail);
+        completed?.Invoke(LastSceneEntryReadiness);
+    }
+
     public CameraRequestHandle FreezeForSceneTransition(object source)
     {
-        return AcquireFreeze(
+        return AcquireFreezeInternal(
             CameraFreezeKind.Hard,
             -1f,
             source,
-            CameraRequestLifetime.Persistent);
+            CameraRequestLifetime.Persistent,
+            true);
     }
 
     public IEnumerator FadeOut(float duration = -1f)
@@ -197,6 +251,16 @@ public sealed class GameCameras : MonoBehaviour
         }
 
         fade.SetBlack();
+    }
+
+    public void SetClear()
+    {
+        if (fade == null)
+        {
+            return;
+        }
+
+        fade.SetClear();
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -331,6 +395,16 @@ public sealed class GameCameras : MonoBehaviour
         object source,
         CameraRequestLifetime lifetime)
     {
+        return AcquireFreezeInternal(kind, duration, source, lifetime, false);
+    }
+
+    private CameraRequestHandle AcquireFreezeInternal(
+        CameraFreezeKind kind,
+        float duration,
+        object source,
+        CameraRequestLifetime lifetime,
+        bool suppressFinalReleaseTransition)
+    {
         if (nextFreezeRequestId == long.MaxValue)
         {
             if (freezeRegistrations.Count > 0)
@@ -350,7 +424,8 @@ public sealed class GameCameras : MonoBehaviour
             Source = source,
             Lifetime = lifetime,
             SourceSceneHandle = ResolveSourceSceneHandle(source),
-            ExpiresAt = duration > 0f ? Time.realtimeSinceStartup + duration : -1f
+            ExpiresAt = duration > 0f ? Time.realtimeSinceStartup + duration : -1f,
+            SuppressFinalReleaseTransition = suppressFinalReleaseTransition
         });
         ApplyFreezeAggregate();
         return new CameraRequestHandle(this, id);
@@ -358,10 +433,20 @@ public sealed class GameCameras : MonoBehaviour
 
     internal void ReleaseFreeze(long requestId)
     {
-        int removed = freezeRegistrations.RemoveAll(registration => registration.Id == requestId);
+        bool suppressFinalReleaseTransition = false;
+        int removed = freezeRegistrations.RemoveAll(registration =>
+        {
+            if (registration.Id != requestId)
+            {
+                return false;
+            }
+
+            suppressFinalReleaseTransition |= registration.SuppressFinalReleaseTransition;
+            return true;
+        });
         if (removed > 0)
         {
-            ApplyFreezeAggregate();
+            ApplyFreezeAggregate(suppressFinalReleaseTransition && freezeRegistrations.Count == 0);
         }
     }
 
@@ -448,6 +533,11 @@ public sealed class GameCameras : MonoBehaviour
 
     private void ApplyFreezeAggregate()
     {
+        ApplyFreezeAggregate(false);
+    }
+
+    private void ApplyFreezeAggregate(bool suppressReleaseTransition)
+    {
         bool anyFreeze = freezeRegistrations.Count > 0;
         bool anyHardFreeze = false;
         for (int i = 0; i < freezeRegistrations.Count; i++)
@@ -459,13 +549,86 @@ public sealed class GameCameras : MonoBehaviour
             }
         }
 
-        cameraController?.ApplyFreezeState(anyFreeze, anyHardFreeze);
+        cameraController?.ApplyFreezeState(anyFreeze, anyHardFreeze, suppressReleaseTransition);
     }
 
     private void ClearFreezeRegistrations()
     {
         freezeRegistrations.Clear();
         cameraController?.ApplyFreezeState(false, false);
+    }
+
+    private bool TryApplySceneEntryImmediate(out string failureDetail)
+    {
+        failureDetail = "";
+        if (cameraTarget == null)
+        {
+            failureDetail = "GameCameras has no CameraTarget reference.";
+            return false;
+        }
+
+        if (cameraController == null)
+        {
+            failureDetail = "GameCameras has no CameraController reference.";
+            return false;
+        }
+
+        GameObject hero = GameObject.FindWithTag("Player");
+        if (hero == null)
+        {
+            failureDetail = "No active GameObject tagged 'Player' exists.";
+            return false;
+        }
+
+        BindTrackedPlayerCollider();
+        if (trackedPlayerCollider == null)
+        {
+            failureDetail = $"Positioned hero '{hero.name}' has no enabled Collider2D for camera-volume readiness.";
+            return false;
+        }
+
+        // Teleport placement changes overlap geometry without waiting for a physics step.
+        // Synchronising here lets the existing idempotent overlap registries resolve bounds and
+        // ordinary locks in the same hidden frame, so no arbitrary FixedUpdate delay is needed.
+        Physics2D.SyncTransforms();
+        cameraTarget.SceneInit(false);
+        cameraController.SceneInit();
+        BindTrackedPlayerCollider();
+        RefreshSceneOverlaps();
+        ApplyFreezeAggregate();
+        cameraTarget.SnapToHero();
+
+        if (!cameraController.ApplySceneEntryImmediate(out failureDetail))
+        {
+            return false;
+        }
+
+        return cameraTarget.HasHeroBinding
+            && cameraTarget.BoundHero == hero.transform;
+    }
+
+    private bool TryApplySceneEntryFallback(out string failureDetail)
+    {
+        GameObject hero = GameObject.FindWithTag("Player");
+        if (hero == null)
+        {
+            failureDetail = "No positioned hero was available for a direct camera fallback.";
+            return false;
+        }
+
+        if (cameraTarget != null)
+        {
+            cameraTarget.SceneInit(false);
+            cameraTarget.SnapToHero();
+        }
+
+        if (cameraController == null)
+        {
+            failureDetail = "No CameraController was available for a direct camera fallback.";
+            return false;
+        }
+
+        return cameraController.ApplySceneEntryFallback(hero.transform.position, out failureDetail);
     }
 
     private static bool IsDestroyedUnitySource(object source)

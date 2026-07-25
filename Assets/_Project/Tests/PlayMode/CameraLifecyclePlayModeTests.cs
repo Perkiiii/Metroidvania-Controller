@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -71,6 +72,19 @@ public sealed class CameraLifecyclePlayModeTests
         createdVolumes.Clear();
         if (camerasRoot != null) UnityEngine.Object.Destroy(camerasRoot);
         if (hero != null) UnityEngine.Object.Destroy(hero);
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.name.StartsWith("SampleScene", StringComparison.Ordinal))
+        {
+            Scene cleanupScene = SceneManager.CreateScene("Camera Lifecycle Test Cleanup");
+            SceneManager.SetActiveScene(cleanupScene);
+            AsyncOperation unload = SceneManager.UnloadSceneAsync(activeScene);
+            while (unload != null && !unload.isDone)
+            {
+                yield return null;
+            }
+        }
+
         yield return null;
     }
 
@@ -152,6 +166,105 @@ public sealed class CameraLifecyclePlayModeTests
     }
 
     [UnityTest]
+    public IEnumerator SceneEntryReadinessRegistersGeometryAndPositionsBeforeCompletion()
+    {
+        hero.transform.position = new Vector2(16f, 3f);
+        Component bounds = CreateBounds("Entry Bounds", hero.transform.position, new Vector2(40f, 30f));
+        Component area = CreateLock("Entry Lock", hero.transform.position, new Vector2(12f, 10f), 2);
+        Physics2D.SyncTransforms();
+
+        object readiness = null;
+        Delegate readinessCallback = CreateBoxingAction(
+            RuntimeType("CameraSceneEntryReadiness"),
+            value => readiness = value);
+        IEnumerator routine = (IEnumerator)Invoke(
+            cameras,
+            "RebindAndPositionForSceneEntry",
+            "PlayModeReadinessRoom",
+            0.5f,
+            readinessCallback);
+        yield return routine;
+
+        Assert.That(readiness, Is.Not.Null);
+        Assert.That((bool)GetProperty(readiness, "IsReady"), Is.True);
+        Assert.That((bool)GetProperty(readiness, "UsedFallback"), Is.False);
+        Assert.That(GetProperty(controller, "CurrentBoundsVolume"), Is.SameAs(bounds));
+        Assert.That(GetProperty(controller, "CurrentLockArea"), Is.SameAs(area));
+        Assert.That((bool)GetProperty(controller, "LastApplicationWasImmediate"), Is.True);
+        Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False);
+
+        Vector3 rendered = (Vector3)GetProperty(controller, "RenderedPosition");
+        Vector3 destination = (Vector3)GetProperty(controller, "CurrentDestination");
+        Assert.That(rendered, Is.EqualTo(destination));
+    }
+
+    [UnityTest]
+    public IEnumerator TransitionFreezeReleaseAfterReadinessHasNoLateOverrideSnap()
+    {
+        object handle = Invoke(cameras, "FreezeForSceneTransition", this);
+        object readiness = null;
+        Delegate readinessCallback = CreateBoxingAction(
+            RuntimeType("CameraSceneEntryReadiness"),
+            value => readiness = value);
+        IEnumerator routine = (IEnumerator)Invoke(
+            cameras,
+            "RebindAndPositionForSceneEntry",
+            "PlayModeFreezeRoom",
+            0.5f,
+            readinessCallback);
+        yield return routine;
+        Assert.That((bool)GetProperty(readiness, "IsReady"), Is.True);
+
+        Invoke(handle, "Release");
+        yield return null;
+
+        Assert.That(GetProperty(cameras, "ActiveFreezeCount"), Is.Zero);
+        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"));
+        Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator HorizontalRoomTransitionsRevealOnlyAfterReadinessInBothDirections()
+    {
+        GameObject fadeObject = new GameObject("Transition Fade");
+        fadeObject.transform.SetParent(camerasRoot.transform);
+        CanvasGroup canvasGroup = fadeObject.AddComponent<CanvasGroup>();
+        Component cameraFade = fadeObject.AddComponent(RuntimeType("CameraFade"));
+        SetField(cameras, "fade", cameraFade);
+
+        GameObject managerObject = new GameObject("Transition Test Game Manager");
+        Component gameManager = managerObject.AddComponent(RuntimeType("GameManager"));
+
+        yield return LoadSingle("SampleScene");
+        Invoke(gameManager, "OnSceneLoaded", SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        yield return RunAndVerifyHorizontalTransition(
+            gameManager,
+            canvasGroup,
+            "SampleScene2",
+            "68be6e2e-2440-4f65-b987-5bd652a097c8");
+        yield return RunAndVerifyHorizontalTransition(
+            gameManager,
+            canvasGroup,
+            "SampleScene",
+            "c6a379cc-35f6-449f-be7f-f853733735aa");
+
+        Scene cleanupScene = SceneManager.CreateScene("Camera Transition Test Cleanup");
+        SceneManager.SetActiveScene(cleanupScene);
+        Scene gameplayScene = SceneManager.GetSceneByName("SampleScene");
+        if (gameplayScene.IsValid() && gameplayScene.isLoaded)
+        {
+            AsyncOperation unload = SceneManager.UnloadSceneAsync(gameplayScene);
+            while (unload != null && !unload.isDone)
+            {
+                yield return null;
+            }
+        }
+
+        UnityEngine.Object.Destroy(managerObject);
+        yield return null;
+    }
+
+    [UnityTest]
     public IEnumerator SampleScene4ArenaLockAcquiresAndReleasesWithoutStaleRegistration()
     {
         AsyncOperation load = SceneManager.LoadSceneAsync("SampleScene4", LoadSceneMode.Additive);
@@ -221,11 +334,133 @@ public sealed class CameraLifecyclePlayModeTests
         return go.AddComponent(boundsType);
     }
 
+    private IEnumerator RunAndVerifyHorizontalTransition(
+        Component gameManager,
+        CanvasGroup canvasGroup,
+        string targetScene,
+        string destinationGuid)
+    {
+        Type requestType = RuntimeType("SceneTransitionRequest");
+        Type kindType = RuntimeType("SceneTransitionKind");
+        object request = Activator.CreateInstance(
+            requestType,
+            targetScene,
+            destinationGuid,
+            null,
+            Enum.Parse(kindType, "Gate"),
+            $"PlayMode {targetScene} transition");
+
+        bool started = (bool)Invoke(gameManager, "BeginSceneTransition", request);
+        Assert.That(started, Is.True);
+
+        float deadline = Time.realtimeSinceStartup + 8f;
+        bool sawVisibleFrame = false;
+        while ((bool)GetProperty(gameManager, "IsSceneTransitioning"))
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline), $"Transition to {targetScene} timed out.");
+
+            object trace = GetProperty(gameManager, "ActiveSceneTransitionTimeline");
+            if (canvasGroup.alpha < 0.999f
+                && trace != null
+                && TraceContains(trace, "SceneLoaded"))
+            {
+                sawVisibleFrame = true;
+                Assert.That(TraceContains(trace, "CameraReady"), Is.True, "Destination became visible before camera readiness.");
+                Assert.That((bool)GetProperty(controller, "LastApplicationWasImmediate"), Is.True);
+                Assert.That((Vector3)GetProperty(controller, "RenderedPosition"),
+                    Is.EqualTo((Vector3)GetProperty(controller, "CurrentDestination")));
+            }
+
+            yield return null;
+        }
+
+        object completedTrace = GetProperty(gameManager, "LastSceneTransitionTimeline");
+        Assert.That(sawVisibleFrame, Is.True, "The transition never produced a visible reveal frame.");
+        Assert.That(TraceIndex(completedTrace, "HeroPlaced"), Is.LessThan(TraceIndex(completedTrace, "CameraReady")));
+        Assert.That(TraceIndex(completedTrace, "CameraReady"), Is.LessThan(TraceIndex(completedTrace, "FadeInStarted")));
+        Assert.That(TraceIndex(completedTrace, "CameraReady"), Is.LessThan(TraceIndex(completedTrace, "EntryMotionStarted")));
+        float fadeInStarted = TraceRealtime(completedTrace, "FadeInStarted");
+        float entryMotionStarted = TraceRealtime(completedTrace, "EntryMotionStarted");
+        float overlapEnded = Mathf.Min(
+            TraceRealtime(completedTrace, "FadeInComplete"),
+            TraceRealtime(completedTrace, "EntryMotionComplete"));
+        Assert.That(entryMotionStarted, Is.EqualTo(fadeInStarted).Within(0.05f));
+        Assert.That(overlapEnded, Is.GreaterThan(fadeInStarted), "Entry motion did not overlap the visible fade-in interval.");
+        Assert.That(GetProperty(cameras, "ActiveFreezeCount"), Is.Zero);
+        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"));
+        Assert.That((Vector3)GetProperty(controller, "RenderedPosition"),
+            Is.EqualTo((Vector3)GetProperty(controller, "CurrentDestination")));
+        Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo(targetScene));
+    }
+
+    private static IEnumerator LoadSingle(string sceneName)
+    {
+        AsyncOperation load = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
+        Assert.That(load, Is.Not.Null);
+        while (!load.isDone)
+        {
+            yield return null;
+        }
+    }
+
+    private static bool TraceContains(object trace, string markerName)
+    {
+        return TraceIndex(trace, markerName) >= 0;
+    }
+
+    private static int TraceIndex(object trace, string markerName)
+    {
+        object markers = GetProperty(trace, "Markers");
+        int count = (int)markers.GetType().GetProperty("Count").GetValue(markers);
+        PropertyInfo indexer = markers.GetType().GetProperty("Item");
+        for (int i = 0; i < count; i++)
+        {
+            object marker = indexer.GetValue(markers, new object[] { i });
+            if (marker.ToString() == markerName)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static float TraceRealtime(object trace, string markerName)
+    {
+        object entries = GetProperty(trace, "Entries");
+        int count = (int)entries.GetType().GetProperty("Count").GetValue(entries);
+        PropertyInfo indexer = entries.GetType().GetProperty("Item");
+        for (int i = 0; i < count; i++)
+        {
+            object entry = indexer.GetValue(entries, new object[] { i });
+            object marker = entry.GetType().GetField("Marker").GetValue(entry);
+            if (marker.ToString() == markerName)
+            {
+                return (float)entry.GetType().GetField("Realtime").GetValue(entry);
+            }
+        }
+
+        Assert.Fail($"Trace marker '{markerName}' was not found.");
+        return -1f;
+    }
+
     private static Type RuntimeType(string name)
     {
         Type type = Type.GetType($"{name}, Assembly-CSharp");
         Assert.That(type, Is.Not.Null, $"Runtime type '{name}' was not found in Assembly-CSharp.");
         return type;
+    }
+
+    private static Delegate CreateBoxingAction(Type valueType, Action<object> callback)
+    {
+        Type delegateType = typeof(Action<>).MakeGenericType(valueType);
+        ParameterExpression value = Expression.Parameter(valueType, "value");
+        MethodInfo invoke = typeof(Action<object>).GetMethod(nameof(Action<object>.Invoke));
+        MethodCallExpression body = Expression.Call(
+            Expression.Constant(callback),
+            invoke,
+            Expression.Convert(value, typeof(object)));
+        return Expression.Lambda(delegateType, body, value).Compile();
     }
 
     private static object GetProperty(object instance, string property)
