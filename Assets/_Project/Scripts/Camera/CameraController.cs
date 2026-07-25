@@ -2,10 +2,31 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Camera))]
 public sealed class CameraController : MonoBehaviour
 {
+    private sealed class LockRegistration
+    {
+        public CameraLockArea Area;
+        public int Priority;
+        public long EntrySequence;
+        public int SceneHandle;
+    }
+
+    private readonly struct AxisInterval
+    {
+        public AxisInterval(float min, float max)
+        {
+            Min = min;
+            Max = max;
+        }
+
+        public float Min { get; }
+        public float Max { get; }
+    }
+
     [Header("Config")]
     [SerializeField] private CameraConfig config;
 
@@ -42,12 +63,30 @@ public sealed class CameraController : MonoBehaviour
             lookOffsetTarget = value;
         }
     }
-    public CameraLockArea CurrentLockArea => GetActiveLockArea();
+    public CameraLockArea CurrentLockArea => GetActiveLockRegistration()?.Area;
+    public CameraBoundsVolume CurrentBoundsVolume => GetActiveBoundsVolume();
+    public int ActiveBoundsCount
+    {
+        get
+        {
+            GetActiveBoundsVolume();
+            return boundsStack.Count;
+        }
+    }
+    public int ActiveLockCount
+    {
+        get
+        {
+            RemoveInvalidLockRegistrations();
+            return lockRegistrations.Count;
+        }
+    }
+    public long CurrentLockEntrySequence => GetActiveLockRegistration()?.EntrySequence ?? 0L;
     public float LookInputThreshold => config != null ? config.lookInputThreshold : 0.5f;
     public float ManualLookHoldDelay => config != null ? config.manualLookHoldDelay : 2f;
 
     private readonly List<CameraBoundsVolume> boundsStack = new List<CameraBoundsVolume>();
-    private readonly List<CameraLockArea> lockStack = new List<CameraLockArea>();
+    private readonly List<LockRegistration> lockRegistrations = new List<LockRegistration>();
 
     private Camera cam;
     private Coroutine positioningRoutine;
@@ -58,6 +97,11 @@ public sealed class CameraController : MonoBehaviour
     private float lookSlowTimer;
     private float startTimer;
     private float lookOffsetTarget;
+    private long nextLockEntrySequence;
+    private bool freezeOverride;
+    private bool freezeTargetOverride;
+    private bool freeOverride;
+    private bool positioningOverride;
 
     private void Awake()
     {
@@ -77,11 +121,21 @@ public sealed class CameraController : MonoBehaviour
 
     public void SceneInit()
     {
+        if (positioningRoutine != null)
+        {
+            StopCoroutine(positioningRoutine);
+            positioningRoutine = null;
+        }
+
+        positioningOverride = false;
+        IsPositioningCamera = false;
+        freeOverride = false;
         ApplyConfig();
         EnforceProjection();
         boundsStack.Clear();
-        lockStack.Clear();
-        SetMode(CameraMode.Follow);
+        lockRegistrations.Clear();
+        nextLockEntrySequence = 0L;
+        RefreshResolvedMode();
         velocityX = Vector3.zero;
         velocityY = Vector3.zero;
         currentDampX = dampTimeNormal;
@@ -126,23 +180,52 @@ public sealed class CameraController : MonoBehaviour
 
     public void EnterLockArea(CameraLockArea area)
     {
-        if (area == null || lockStack.Contains(area))
+        if (area == null || FindRegistration(area) != null)
         {
             return;
         }
 
-        lockStack.Add(area);
+        EnsureSequenceCapacity();
+        lockRegistrations.Add(new LockRegistration
+        {
+            Area = area,
+            Priority = area.Priority,
+            EntrySequence = ++nextLockEntrySequence,
+            SceneHandle = area.gameObject.scene.handle
+        });
         RefreshActiveLock();
     }
 
     public void ExitLockArea(CameraLockArea area)
     {
-        if (area == null || !lockStack.Remove(area))
+        LockRegistration registration = FindRegistration(area);
+        if (registration == null)
         {
             return;
         }
 
-        RefreshActiveLock();
+        CameraLockArea previous = CurrentLockArea;
+        lockRegistrations.Remove(registration);
+        if (previous == area)
+        {
+            RefreshActiveLock();
+        }
+    }
+
+    public void ClearSceneRegistrations(Scene scene)
+    {
+        CameraLockArea previous = CurrentLockArea;
+        lockRegistrations.RemoveAll(registration =>
+            registration == null
+            || registration.Area == null
+            || registration.SceneHandle == scene.handle);
+        boundsStack.RemoveAll(volume =>
+            volume == null || volume.gameObject.scene.handle == scene.handle);
+
+        if (previous != CurrentLockArea)
+        {
+            RefreshActiveLock();
+        }
     }
 
     public void SetLookInput(float verticalInput)
@@ -177,45 +260,38 @@ public sealed class CameraController : MonoBehaviour
 
     public void FreezeInPlace(bool freezeTarget = false)
     {
-        SetMode(CameraMode.Frozen);
+        ApplyFreezeState(true, freezeTarget);
+    }
+
+    public void ApplyFreezeState(bool frozen, bool freezeTarget)
+    {
+        freezeOverride = frozen;
+        freezeTargetOverride = frozen && freezeTarget;
         velocityX = Vector3.zero;
         velocityY = Vector3.zero;
-
-        if (freezeTarget)
-        {
-            cameraTarget?.FreezeInPlace();
-        }
+        RefreshResolvedMode();
+        RefreshTargetMode();
     }
 
     public void StopFreeze(bool stopFreezeTarget = false)
     {
-        SetMode(lockStack.Count > 0 ? CameraMode.Locked : CameraMode.Follow);
-
-        if (stopFreezeTarget)
-        {
-            if (lockStack.Count > 0)
-            {
-                RefreshActiveLock();
-            }
-            else
-            {
-                cameraTarget?.EndFreeMode();
-            }
-        }
+        ApplyFreezeState(false, false);
     }
 
     public void StartFreeMode(bool keepTargetHorizontalOffset = true)
     {
-        SetMode(CameraMode.Free);
+        freeOverride = true;
         velocityX = Vector3.zero;
         velocityY = Vector3.zero;
         cameraTarget?.StartFreeMode(keepTargetHorizontalOffset);
+        RefreshResolvedMode();
     }
 
     public void EndFreeMode()
     {
-        SetMode(lockStack.Count > 0 ? CameraMode.Locked : CameraMode.Follow);
-        cameraTarget?.EndFreeMode();
+        freeOverride = false;
+        RefreshResolvedMode();
+        RefreshTargetMode();
     }
 
     public Coroutine PositionToHero(bool freezeTarget = true)
@@ -256,6 +332,12 @@ public sealed class CameraController : MonoBehaviour
         if (cameraTarget == null)
         {
             return;
+        }
+
+        if (RemoveInvalidLockRegistrations())
+        {
+            RefreshResolvedMode();
+            RefreshTargetMode();
         }
 
         cameraTarget.Tick();
@@ -309,7 +391,6 @@ public sealed class CameraController : MonoBehaviour
     private IEnumerator PositionToHeroRoutine(bool freezeTarget)
     {
         IsPositioningCamera = true;
-        CameraMode previousMode = Mode;
 
         if (freezeTarget)
         {
@@ -320,7 +401,8 @@ public sealed class CameraController : MonoBehaviour
 
         cameraTarget?.SnapToHero();
         SnapToTarget();
-        FreezeInPlace(false);
+        positioningOverride = true;
+        RefreshResolvedMode();
 
         float settleTime = config != null ? config.positioningSettleTime : 0.1f;
         if (settleTime > 0f)
@@ -328,21 +410,13 @@ public sealed class CameraController : MonoBehaviour
             yield return new WaitForSeconds(settleTime);
         }
 
-        SetMode(previousMode == CameraMode.Frozen
-            ? (lockStack.Count > 0 ? CameraMode.Locked : CameraMode.Follow)
-            : previousMode);
+        positioningOverride = false;
+        RefreshResolvedMode();
         CameraInfoCache.UpdateCache(cam, true);
 
         if (freezeTarget)
         {
-            if (lockStack.Count > 0)
-            {
-                RefreshActiveLock();
-            }
-            else
-            {
-                cameraTarget?.EndFreeMode();
-            }
+            RefreshTargetMode();
         }
 
         IsPositioningCamera = false;
@@ -389,27 +463,14 @@ public sealed class CameraController : MonoBehaviour
             cameraTarget.transform.position.y + cameraTarget.CurrentVerticalOffset + lookOffset,
             z);
 
-        ClampToBounds(ref dest);
-        ClampToLockArea(ref dest);
+        ClampToLegalRegion(ref dest);
         return dest;
     }
 
     private void RefreshActiveLock()
     {
-        CameraLockArea area = GetActiveLockArea();
-        if (area == null)
-        {
-            SetMode(CameraMode.Follow);
-            cameraTarget?.ExitLockZone();
-            currentDampX = dampTimeSlow;
-            currentDampY = dampTimeSlow;
-            return;
-        }
-
-        SetMode(CameraMode.Locked);
-        Rect rect = area.GetLockRect();
-        float distanceToRect = GetDistanceToRect(cameraTarget != null ? cameraTarget.transform.position : transform.position, rect);
-        cameraTarget?.EnterLockZone(rect, distanceToRect);
+        RefreshResolvedMode();
+        RefreshTargetMode();
         currentDampX = dampTimeSlow;
         currentDampY = dampTimeSlow;
 
@@ -443,55 +504,68 @@ public sealed class CameraController : MonoBehaviour
         halfW = halfH * cam.aspect;
     }
 
-    private void ClampToBounds(ref Vector3 dest)
+    private void ClampToLegalRegion(ref Vector3 dest)
     {
         CameraBoundsVolume boundsVolume = GetActiveBoundsVolume();
-        if (boundsVolume == null)
-        {
-            return;
-        }
-
         GetFrustumHalfExtents(out float halfW, out float halfH);
-        Bounds b = boundsVolume.GetBounds();
+        CameraLockArea area = CurrentLockArea;
+        bool hasRoom = boundsVolume != null;
+        bool hasLock = area != null;
 
-        dest.x = ClampOrCenter(dest.x, b.min.x + halfW, b.max.x - halfW);
-        dest.y = ClampOrCenter(dest.y, b.min.y + halfH, b.max.y - halfH);
-    }
+        AxisInterval roomX = default;
+        AxisInterval roomY = default;
+        if (hasRoom)
+        {
+            Bounds room = boundsVolume.GetBounds();
+            roomX = Inset(room.min.x, room.max.x, halfW);
+            roomY = Inset(room.min.y, room.max.y, halfH);
+        }
 
-    private void ClampToLockArea(ref Vector3 dest)
-    {
-        CameraLockArea area = GetActiveLockArea();
-        if (area == null)
+        AxisInterval lockX = default;
+        AxisInterval lockY = default;
+        if (hasLock)
+        {
+            Rect lockRect = area.GetLockRect();
+            lockX = Inset(lockRect.xMin, lockRect.xMax, halfW);
+            lockY = Inset(lockRect.yMin, lockRect.yMax, halfH);
+        }
+
+        if (hasRoom || (hasLock && area.LockX))
+        {
+            AxisInterval legalX = hasRoom
+                ? roomX
+                : lockX;
+            if (hasRoom && hasLock && area.LockX)
+            {
+                legalX = IntersectOrCollapse(roomX, lockX);
+            }
+
+            dest.x = Mathf.Clamp(dest.x, legalX.Min, legalX.Max);
+        }
+
+        if (!hasRoom && (!hasLock || !area.LockY))
         {
             return;
         }
 
-        GetFrustumHalfExtents(out float halfW, out float halfH);
-        Rect r = area.GetLockRect();
-
-        if (area.LockX)
+        AxisInterval legalY = hasRoom
+            ? roomY
+            : lockY;
+        if (hasRoom && hasLock && area.LockY)
         {
-            dest.x = ClampOrCenter(dest.x, r.xMin + halfW, r.xMax - halfW);
+            legalY = IntersectOrCollapse(roomY, lockY);
         }
 
-        if (!area.LockY)
+        if (hasLock && area.LockY && lookOffset > 0f && area.PreventLookUp)
         {
-            return;
+            dest.y = Mathf.Min(dest.y, area.HasLookYMax ? area.LookYMax : legalY.Max);
+        }
+        else if (hasLock && area.LockY && lookOffset < 0f && area.PreventLookDown)
+        {
+            dest.y = Mathf.Max(dest.y, area.HasLookYMin ? area.LookYMin : legalY.Min);
         }
 
-        float minY = r.yMin + halfH;
-        float maxY = r.yMax - halfH;
-
-        if (lookOffset > 0f && area.PreventLookUp)
-        {
-            dest.y = Mathf.Min(dest.y, area.HasLookYMax ? area.LookYMax : maxY);
-        }
-        else if (lookOffset < 0f && area.PreventLookDown)
-        {
-            dest.y = Mathf.Max(dest.y, area.HasLookYMin ? area.LookYMin : minY);
-        }
-
-        dest.y = ClampOrCenter(dest.y, minY, maxY);
+        dest.y = Mathf.Clamp(dest.y, legalY.Min, legalY.Max);
     }
 
     private CameraBoundsVolume GetActiveBoundsVolume()
@@ -510,26 +584,135 @@ public sealed class CameraController : MonoBehaviour
         return null;
     }
 
-    private CameraLockArea GetActiveLockArea()
+    private LockRegistration GetActiveLockRegistration()
     {
-        CameraLockArea best = null;
+        RemoveInvalidLockRegistrations();
+        LockRegistration best = null;
 
-        for (int i = lockStack.Count - 1; i >= 0; i--)
+        for (int i = 0; i < lockRegistrations.Count; i++)
         {
-            CameraLockArea area = lockStack[i];
-            if (area == null || !area.isActiveAndEnabled)
+            LockRegistration candidate = lockRegistrations[i];
+            if (best == null
+                || candidate.Priority > best.Priority
+                || (candidate.Priority == best.Priority
+                    && candidate.EntrySequence > best.EntrySequence))
             {
-                lockStack.RemoveAt(i);
-                continue;
-            }
-
-            if (best == null || area.Priority > best.Priority)
-            {
-                best = area;
+                best = candidate;
             }
         }
 
         return best;
+    }
+
+    private void RefreshResolvedMode()
+    {
+        if (freezeOverride || positioningOverride)
+        {
+            SetMode(CameraMode.Frozen);
+        }
+        else if (freeOverride)
+        {
+            SetMode(CameraMode.Free);
+        }
+        else
+        {
+            SetMode(CurrentLockArea != null ? CameraMode.Locked : CameraMode.Follow);
+        }
+    }
+
+    private void RefreshTargetMode()
+    {
+        if (cameraTarget == null)
+        {
+            return;
+        }
+
+        if (freeOverride)
+        {
+            cameraTarget.StartFreeMode(true);
+            return;
+        }
+
+        if (freezeOverride && freezeTargetOverride)
+        {
+            cameraTarget.FreezeInPlace();
+            return;
+        }
+
+        CameraLockArea area = CurrentLockArea;
+        if (area == null)
+        {
+            cameraTarget.ExitLockZone();
+            return;
+        }
+
+        Rect rect = area.GetLockRect();
+        float distanceToRect = GetDistanceToRect(cameraTarget.transform.position, rect);
+        cameraTarget.EnterLockZone(distanceToRect);
+    }
+
+    private LockRegistration FindRegistration(CameraLockArea area)
+    {
+        for (int i = 0; i < lockRegistrations.Count; i++)
+        {
+            if (lockRegistrations[i].Area == area)
+            {
+                return lockRegistrations[i];
+            }
+        }
+
+        return null;
+    }
+
+    private bool RemoveInvalidLockRegistrations()
+    {
+        return lockRegistrations.RemoveAll(registration =>
+            registration == null
+            || registration.Area == null
+            || !registration.Area.isActiveAndEnabled) > 0;
+    }
+
+    private void EnsureSequenceCapacity()
+    {
+        if (nextLockEntrySequence < long.MaxValue)
+        {
+            return;
+        }
+
+        lockRegistrations.Sort((a, b) => a.EntrySequence.CompareTo(b.EntrySequence));
+        for (int i = 0; i < lockRegistrations.Count; i++)
+        {
+            lockRegistrations[i].EntrySequence = i + 1L;
+        }
+
+        nextLockEntrySequence = lockRegistrations.Count;
+    }
+
+    private static AxisInterval Inset(float min, float max, float halfExtent)
+    {
+        float insetMin = min + halfExtent;
+        float insetMax = max - halfExtent;
+        if (insetMin <= insetMax)
+        {
+            return new AxisInterval(insetMin, insetMax);
+        }
+
+        float center = (min + max) * 0.5f;
+        return new AxisInterval(center, center);
+    }
+
+    private static AxisInterval IntersectOrCollapse(AxisInterval room, AxisInterval cameraLock)
+    {
+        float min = Mathf.Max(room.Min, cameraLock.Min);
+        float max = Mathf.Min(room.Max, cameraLock.Max);
+        if (min <= max)
+        {
+            return new AxisInterval(min, max);
+        }
+
+        float lockCenter = (cameraLock.Min + cameraLock.Max) * 0.5f;
+        float nearestRoomPoint = Mathf.Clamp(lockCenter, room.Min, room.Max);
+        return new AxisInterval(nearestRoomPoint, nearestRoomPoint);
     }
 
     private float GetGroundedDampTimeY()
@@ -561,11 +744,6 @@ public sealed class CameraController : MonoBehaviour
 
         Mode = mode;
         CameraEventService.RaiseModeChanged(mode);
-    }
-
-    private static float ClampOrCenter(float value, float min, float max)
-    {
-        return min > max ? (min + max) * 0.5f : Mathf.Clamp(value, min, max);
     }
 
     private static float GetDistanceToRect(Vector3 position, Rect rect)

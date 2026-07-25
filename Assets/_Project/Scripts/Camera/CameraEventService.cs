@@ -10,8 +10,37 @@ public enum CameraFadeDirection
 public enum CameraFreezeKind
 {
     Soft,
-    Hard,
-    Release
+    Hard
+}
+
+public enum CameraRequestLifetime
+{
+    Scene,
+    Persistent
+}
+
+public readonly struct CameraRequestHandle : IDisposable
+{
+    private readonly GameCameras owner;
+    private readonly long requestId;
+
+    internal CameraRequestHandle(GameCameras owner, long requestId)
+    {
+        this.owner = owner;
+        this.requestId = requestId;
+    }
+
+    public bool IsValid => owner != null && requestId != 0L;
+
+    public void Release()
+    {
+        owner?.ReleaseFreeze(requestId);
+    }
+
+    public void Dispose()
+    {
+        Release();
+    }
 }
 
 public readonly struct CameraFadeRequest
@@ -24,20 +53,6 @@ public readonly struct CameraFadeRequest
 
     public CameraFadeDirection Direction { get; }
     public float Duration { get; }
-}
-
-public readonly struct CameraFreezeRequest
-{
-    public CameraFreezeRequest(CameraFreezeKind kind, float duration, object source)
-    {
-        Kind = kind;
-        Duration = duration;
-        Source = source;
-    }
-
-    public CameraFreezeKind Kind { get; }
-    public float Duration { get; }
-    public object Source { get; }
 }
 
 public readonly struct CameraShakeRequest
@@ -76,7 +91,6 @@ public static class CameraEventService
     public static event Action<CameraFadeRequest> FadeRequested;
     public static event Action<CameraShakeRequest> ShakeRequested;
     public static event Action<object> ShakeCancelRequested;
-    public static event Action<CameraFreezeRequest> FreezeRequested;
     public static event Action<CameraMode> ModeChanged;
 
     public static void RaiseLockEntered(CameraLockArea area) => LockEntered?.Invoke(area);
@@ -87,6 +101,15 @@ public static class CameraEventService
     public static void RequestShake(CameraShakeIntensity intensity, Vector2 worldPosition, float intensityMultiplier = 1f, object source = null) => ShakeRequested?.Invoke(new CameraShakeRequest(intensity, worldPosition, intensityMultiplier, source));
     public static void RequestShake(CameraShakeProfile profile, Vector2 worldPosition, float intensityMultiplier = 1f, object source = null) => ShakeRequested?.Invoke(new CameraShakeRequest(profile, worldPosition, intensityMultiplier, source));
     public static void RequestShakeCancel(object source = null) => ShakeCancelRequested?.Invoke(source);
-    public static void RequestFreeze(CameraFreezeKind kind, float duration = -1f, object source = null) => FreezeRequested?.Invoke(new CameraFreezeRequest(kind, duration, source));
+    public static CameraRequestHandle AcquireFreeze(
+        CameraFreezeKind kind,
+        float duration = -1f,
+        object source = null,
+        CameraRequestLifetime lifetime = CameraRequestLifetime.Scene)
+    {
+        return GameCameras.Instance != null
+            ? GameCameras.Instance.AcquireFreeze(kind, duration, source, lifetime)
+            : default;
+    }
     public static void RaiseModeChanged(CameraMode mode) => ModeChanged?.Invoke(mode);
 }

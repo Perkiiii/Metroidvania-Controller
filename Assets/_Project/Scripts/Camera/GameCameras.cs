@@ -1,10 +1,21 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
 public sealed class GameCameras : MonoBehaviour
 {
+    private sealed class FreezeRegistration
+    {
+        public long Id;
+        public CameraFreezeKind Kind;
+        public object Source;
+        public CameraRequestLifetime Lifetime;
+        public int SourceSceneHandle;
+        public float ExpiresAt;
+    }
+
     public static GameCameras Instance { get; private set; }
 
     [SerializeField] private CameraController cameraController;
@@ -22,7 +33,11 @@ public sealed class GameCameras : MonoBehaviour
     public Camera           HudCamera  => hudCamera;
 
     private Coroutine fadeRoutine;
-    private Coroutine freezeRoutine;
+    private readonly List<FreezeRegistration> freezeRegistrations = new List<FreezeRegistration>();
+    private Collider2D trackedPlayerCollider;
+    private long nextFreezeRequestId;
+
+    public int ActiveFreezeCount => freezeRegistrations.Count;
 
     private void Awake()
     {
@@ -54,8 +69,8 @@ public sealed class GameCameras : MonoBehaviour
         CameraEventService.FadeRequested += OnCameraFadeRequested;
         CameraEventService.ShakeRequested += OnCameraShakeRequested;
         CameraEventService.ShakeCancelRequested += OnCameraShakeCancelRequested;
-        CameraEventService.FreezeRequested += OnCameraFreezeRequested;
         SceneManager.sceneLoaded += OnSceneLoaded;
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
     }
 
     private void OnDisable()
@@ -67,8 +82,9 @@ public sealed class GameCameras : MonoBehaviour
         CameraEventService.FadeRequested -= OnCameraFadeRequested;
         CameraEventService.ShakeRequested -= OnCameraShakeRequested;
         CameraEventService.ShakeCancelRequested -= OnCameraShakeCancelRequested;
-        CameraEventService.FreezeRequested -= OnCameraFreezeRequested;
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        ClearFreezeRegistrations();
     }
 
     private void Start()
@@ -89,6 +105,8 @@ public sealed class GameCameras : MonoBehaviour
 
     private void OnDestroy()
     {
+        ClearFreezeRegistrations();
+
         if (Instance == this)
             Instance = null;
 
@@ -101,18 +119,29 @@ public sealed class GameCameras : MonoBehaviour
         DisableExternalAudioListeners();
         cameraTarget?.SceneInit();
         cameraController?.SceneInit();
+        BindTrackedPlayerCollider();
+        RefreshSceneOverlaps();
+        ApplyFreezeAggregate();
     }
 
     public void RebindForSceneEntry()
     {
-        if (cameraController != null) cameraController.SceneInit();
-        if (cameraTarget != null)     cameraTarget.SnapToHero();
-        if (cameraController != null) cameraController.SnapToTarget();
+        cameraTarget?.SceneInit();
+        cameraController?.SceneInit();
+        BindTrackedPlayerCollider();
+        RefreshSceneOverlaps();
+        ApplyFreezeAggregate();
+        cameraTarget?.SnapToHero();
+        cameraController?.SnapToTarget();
     }
 
-    public void FreezeForSceneTransition()
+    public CameraRequestHandle FreezeForSceneTransition(object source)
     {
-        cameraController?.FreezeInPlace(true);
+        return AcquireFreeze(
+            CameraFreezeKind.Hard,
+            -1f,
+            source,
+            CameraRequestLifetime.Persistent);
     }
 
     public IEnumerator FadeOut(float duration = -1f)
@@ -173,6 +202,15 @@ public sealed class GameCameras : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         DisableExternalAudioListeners();
+    }
+
+    private void OnSceneUnloaded(Scene scene)
+    {
+        cameraController?.ClearSceneRegistrations(scene);
+        freezeRegistrations.RemoveAll(registration =>
+            registration.Lifetime == CameraRequestLifetime.Scene
+            && registration.SourceSceneHandle == scene.handle);
+        ApplyFreezeAggregate();
     }
 
     private void DisableExternalAudioListeners()
@@ -269,37 +307,156 @@ public sealed class GameCameras : MonoBehaviour
         shakeCues?.Cancel(source);
     }
 
-    private void OnCameraFreezeRequested(CameraFreezeRequest request)
+    private void Update()
     {
-        if (cameraController == null)
+        if (freezeRegistrations.Count == 0)
         {
             return;
         }
 
-        if (freezeRoutine != null)
-        {
-            StopCoroutine(freezeRoutine);
-            freezeRoutine = null;
-        }
+        float now = Time.realtimeSinceStartup;
+        int removed = freezeRegistrations.RemoveAll(registration =>
+            IsDestroyedUnitySource(registration.Source)
+            || (registration.ExpiresAt > 0f && now >= registration.ExpiresAt));
 
-        if (request.Kind == CameraFreezeKind.Release)
+        if (removed > 0)
         {
-            cameraController.StopFreeze(true);
-            return;
-        }
-
-        cameraController.FreezeInPlace(request.Kind == CameraFreezeKind.Hard);
-        if (request.Duration > 0f)
-        {
-            freezeRoutine = StartCoroutine(ReleaseFreezeAfter(request.Duration));
+            ApplyFreezeAggregate();
         }
     }
 
-    private System.Collections.IEnumerator ReleaseFreezeAfter(float duration)
+    public CameraRequestHandle AcquireFreeze(
+        CameraFreezeKind kind,
+        float duration,
+        object source,
+        CameraRequestLifetime lifetime)
     {
-        yield return new WaitForSecondsRealtime(duration);
-        cameraController?.StopFreeze(true);
-        freezeRoutine = null;
+        if (nextFreezeRequestId == long.MaxValue)
+        {
+            if (freezeRegistrations.Count > 0)
+            {
+                Debug.LogError("[GameCameras] Camera freeze request ID space was exhausted while requests are still active.", this);
+                return default;
+            }
+
+            nextFreezeRequestId = 0L;
+        }
+
+        long id = ++nextFreezeRequestId;
+        freezeRegistrations.Add(new FreezeRegistration
+        {
+            Id = id,
+            Kind = kind,
+            Source = source,
+            Lifetime = lifetime,
+            SourceSceneHandle = ResolveSourceSceneHandle(source),
+            ExpiresAt = duration > 0f ? Time.realtimeSinceStartup + duration : -1f
+        });
+        ApplyFreezeAggregate();
+        return new CameraRequestHandle(this, id);
+    }
+
+    internal void ReleaseFreeze(long requestId)
+    {
+        int removed = freezeRegistrations.RemoveAll(registration => registration.Id == requestId);
+        if (removed > 0)
+        {
+            ApplyFreezeAggregate();
+        }
+    }
+
+    public void RefreshOverlapFor(CameraLockArea area)
+    {
+        if (area != null && trackedPlayerCollider != null && area.Overlaps(trackedPlayerCollider))
+        {
+            cameraController?.EnterLockArea(area);
+        }
+    }
+
+    public void RefreshOverlapFor(CameraBoundsVolume volume)
+    {
+        if (volume != null && trackedPlayerCollider != null && volume.Overlaps(trackedPlayerCollider))
+        {
+            cameraController?.SetBoundsVolume(volume);
+        }
+    }
+
+    public void RefreshSceneOverlaps()
+    {
+        if (trackedPlayerCollider == null)
+        {
+            return;
+        }
+
+        IReadOnlyList<CameraBoundsVolume> volumes = CameraBoundsVolume.ActiveVolumes;
+        for (int i = 0; i < volumes.Count; i++)
+        {
+            RefreshOverlapFor(volumes[i]);
+        }
+
+        IReadOnlyList<CameraLockArea> areas = CameraLockArea.ActiveAreas;
+        for (int i = 0; i < areas.Count; i++)
+        {
+            RefreshOverlapFor(areas[i]);
+        }
+    }
+
+    private void BindTrackedPlayerCollider()
+    {
+        trackedPlayerCollider = null;
+        GameObject hero = GameObject.FindWithTag("Player");
+        if (hero == null)
+        {
+            return;
+        }
+
+        trackedPlayerCollider = hero.GetComponent<Collider2D>();
+        if (trackedPlayerCollider == null)
+        {
+            trackedPlayerCollider = hero.GetComponentInChildren<Collider2D>();
+        }
+    }
+
+    private void ApplyFreezeAggregate()
+    {
+        bool anyFreeze = freezeRegistrations.Count > 0;
+        bool anyHardFreeze = false;
+        for (int i = 0; i < freezeRegistrations.Count; i++)
+        {
+            if (freezeRegistrations[i].Kind == CameraFreezeKind.Hard)
+            {
+                anyHardFreeze = true;
+                break;
+            }
+        }
+
+        cameraController?.ApplyFreezeState(anyFreeze, anyHardFreeze);
+    }
+
+    private void ClearFreezeRegistrations()
+    {
+        freezeRegistrations.Clear();
+        cameraController?.ApplyFreezeState(false, false);
+    }
+
+    private static bool IsDestroyedUnitySource(object source)
+    {
+        return source is Object unityObject && unityObject == null;
+    }
+
+    private static int ResolveSourceSceneHandle(object source)
+    {
+        if (source is Component component)
+        {
+            return component.gameObject.scene.handle;
+        }
+
+        if (source is GameObject gameObject)
+        {
+            return gameObject.scene.handle;
+        }
+
+        return SceneManager.GetActiveScene().handle;
     }
 
 #if UNITY_EDITOR

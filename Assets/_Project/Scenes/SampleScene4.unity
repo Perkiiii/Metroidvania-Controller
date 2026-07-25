@@ -1727,7 +1727,7 @@ GameObject:
   - component: {fileID: 1513711773}
   - component: {fileID: 1513711772}
   - component: {fileID: 1513711771}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: CameraBounds_SampleScene4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2047,7 +2047,7 @@ GameObject:
   - component: {fileID: 1632402035}
   - component: {fileID: 1632402034}
   - component: {fileID: 1632402033}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: ArenaCameraLock
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2070,8 +2070,10 @@ MonoBehaviour:
   lockX: 1
   lockY: 1
   preventLookUp: 0
+  overrideLookYMax: 0
   lookYMax: 0
   preventLookDown: 0
+  overrideLookYMin: 0
   lookYMin: 0
 --- !u!61 &1632402034
 BoxCollider2D:

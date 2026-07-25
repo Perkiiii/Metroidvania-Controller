@@ -52,8 +52,6 @@ public sealed class CameraTarget : MonoBehaviour
     private readonly List<CameraOffsetArea> offsetStack = new List<CameraOffsetArea>();
 
     private Transform heroTransform;
-    private Rect lockRect;
-
     private Vector3 velocityX;
     private Vector3 velocityY;
     private Vector3 previousHeroPosition;
@@ -109,7 +107,6 @@ public sealed class CameraTarget : MonoBehaviour
         velocityHintTimer = 0f;
 
         Mode = TargetMode.FollowHero;
-        lockRect = default;
         dampTimeX = dampTimeNormal;
         dampTimeY = dampTimeNormal;
         xOffset = 0f;
@@ -181,10 +178,9 @@ public sealed class CameraTarget : MonoBehaviour
         stickY = false;
     }
 
-    public void EnterLockZone(Rect rect, float currentJumpDistance)
+    public void EnterLockZone(float currentJumpDistance)
     {
         Mode = TargetMode.LockZone;
-        lockRect = rect;
 
         float largeJumpDistance = config != null ? config.lockLargeJumpDistance : 9f;
         slowTimer = config != null ? config.slowTime : 0.5f;
@@ -197,7 +193,6 @@ public sealed class CameraTarget : MonoBehaviour
     public void ExitLockZone()
     {
         Mode = TargetMode.FollowHero;
-        lockRect = default;
         SetSlowDamp();
     }
 
@@ -449,12 +444,6 @@ public sealed class CameraTarget : MonoBehaviour
 
         float destX = heroX + xOffset + dashOffset + externalMoveOffset;
         float destY = heroY;
-
-        if (Mode == TargetMode.LockZone)
-        {
-            destX = Mathf.Clamp(destX, lockRect.xMin, lockRect.xMax);
-            destY = Mathf.Clamp(destY, lockRect.yMin, lockRect.yMax);
-        }
 
         DesiredPosition = new Vector3(destX, destY, z);
 

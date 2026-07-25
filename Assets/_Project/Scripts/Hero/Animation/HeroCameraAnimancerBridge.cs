@@ -3,6 +3,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class HeroCameraAnimancerBridge : MonoBehaviour
 {
+    private CameraRequestHandle freezeHandle;
+
     public void RequestSmallShake()
     {
         CameraEventService.RequestShake(CameraShakeIntensity.Small, transform.position, 1f, this);
@@ -20,16 +22,24 @@ public sealed class HeroCameraAnimancerBridge : MonoBehaviour
 
     public void RequestHardFreeze(float duration)
     {
-        CameraEventService.RequestFreeze(CameraFreezeKind.Hard, duration, this);
+        freezeHandle.Release();
+        freezeHandle = CameraEventService.AcquireFreeze(CameraFreezeKind.Hard, duration, this);
     }
 
     public void RequestSoftFreeze(float duration)
     {
-        CameraEventService.RequestFreeze(CameraFreezeKind.Soft, duration, this);
+        freezeHandle.Release();
+        freezeHandle = CameraEventService.AcquireFreeze(CameraFreezeKind.Soft, duration, this);
     }
 
     public void ReleaseFreeze()
     {
-        CameraEventService.RequestFreeze(CameraFreezeKind.Release, -1f, this);
+        freezeHandle.Release();
+        freezeHandle = default;
+    }
+
+    private void OnDisable()
+    {
+        ReleaseFreeze();
     }
 }

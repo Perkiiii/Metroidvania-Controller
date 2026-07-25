@@ -65,6 +65,7 @@ public sealed class SceneTransitionManager
         HeroController fallbackLockedHero = null;
         bool fallbackControlLockAdded = false;
         bool completed = false;
+        CameraRequestHandle cameraFreeze = default;
 
         try
         {
@@ -84,7 +85,7 @@ public sealed class SceneTransitionManager
 
             if (GameCameras.Instance != null)
             {
-                GameCameras.Instance.FreezeForSceneTransition();
+                cameraFreeze = GameCameras.Instance.FreezeForSceneTransition(this);
                 Trace(SceneTransitionTraceMarker.CameraFreezeRequested);
                 Trace(SceneTransitionTraceMarker.FadeOutStarted);
                 yield return owner.StartCoroutine(GameCameras.Instance.FadeOut(fadeProfile));
@@ -226,6 +227,8 @@ public sealed class SceneTransitionManager
         }
         finally
         {
+            cameraFreeze.Release();
+
             if (!completed && activeTrace != null && !activeTrace.IsFailed)
                 TraceFailure("Transition coroutine exited before completion.");
 
