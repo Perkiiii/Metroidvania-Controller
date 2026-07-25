@@ -27,9 +27,9 @@ MonoBehaviour:
   phaseTwoDecisionDelay: 0.45
   tooCloseDistance: 1.5
   comboMinimumRange: 1.5
-  comboMaximumRange: 2.5
-  preferredDistanceMinimum: 3
-  preferredDistanceMaximum: 5
+  comboMaximumRange: 2
+  preferredDistanceMinimum: 2.2
+  preferredDistanceMaximum: 3
   glideMinimumDistance: 2
   glideMaximumDistance: 4
   glideSpeed: 2.5

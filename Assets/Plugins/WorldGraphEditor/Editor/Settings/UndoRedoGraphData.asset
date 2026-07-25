@@ -85,7 +85,7 @@ MonoBehaviour:
     SceneAsset: {fileID: 102900000, guid: 4acd3bc1641a7c94bbb4e8b31640b0fb, type: 3}
     SceneAssetGuid: 4acd3bc1641a7c94bbb4e8b31640b0fb
     ScenePath: Assets/_Project/Scenes/SampleScene4
-    BuildIndex: -1
+    BuildIndex: 4
     Guid: 2b371e4a-810f-4d81-8081-ddd0fcbb4724
     Position: {x: 1212.7999, y: 297.6}
     PortsData:
