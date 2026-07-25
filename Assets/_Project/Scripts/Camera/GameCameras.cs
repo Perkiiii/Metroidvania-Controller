@@ -365,6 +365,35 @@ public sealed class GameCameras : MonoBehaviour
         }
     }
 
+    public IReadOnlyList<CameraFreezeSnapshot> GetFreezeSnapshots()
+    {
+        List<CameraFreezeSnapshot> snapshots = new List<CameraFreezeSnapshot>(freezeRegistrations.Count);
+        float now = Time.realtimeSinceStartup;
+        for (int i = 0; i < freezeRegistrations.Count; i++)
+        {
+            FreezeRegistration registration = freezeRegistrations[i];
+            float remaining = registration.ExpiresAt > 0f ? Mathf.Max(0f, registration.ExpiresAt - now) : -1f;
+            snapshots.Add(new CameraFreezeSnapshot(registration.Kind, DescribeSource(registration.Source), remaining));
+        }
+
+        return snapshots;
+    }
+
+    private static string DescribeSource(object source)
+    {
+        if (source == null)
+        {
+            return "(none)";
+        }
+
+        if (source is Object unityObject)
+        {
+            return unityObject == null ? "(destroyed)" : unityObject.name;
+        }
+
+        return source.ToString();
+    }
+
     public void RefreshOverlapFor(CameraLockArea area)
     {
         if (area != null && trackedPlayerCollider != null && area.Overlaps(trackedPlayerCollider))
