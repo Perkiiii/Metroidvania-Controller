@@ -1,3 +1,9 @@
+> **Status:** External research and architecture review.
+>
+> This document is advisory, not project ground truth. The current codebase is authoritative for
+> implementation status. Recommendations must be verified against the current working tree before
+> implementation.
+
 # **1\. Executive verdict**
 
 | Area | Verdict | Assessment |

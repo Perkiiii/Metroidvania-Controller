@@ -103,6 +103,25 @@ Freeze acquisition returns a `CameraRequestHandle`. Each registration has a uniq
 
 ---
 
+## Lock Transitions (Camera Phase 2)
+
+`CameraController` owns a small data-driven transition layer on top of the existing damped-follow smoothing. It does not replace `Vector3.SmoothDamp`-based movement with a tween/duration system; a transition only selects which damp-time values `LateUpdate` blends toward and for how long.
+
+`CameraTransitionCause` is one of `SceneStart`, `FollowToLock`, `LockToLock`, `LockToFollow`, or `OverrideReleased`. `CameraTransitionSettings` (`dampTimeX`, `dampTimeY`, `blendDuration`, `resetVelocity`, `applyImmediate`) is a small serializable struct. `CameraConfig` owns one shared default per cause (`sceneStartTransition`, `followToLockTransition`, `lockToLockTransition`, `lockToFollowTransition`, `overrideReleasedTransition`); `CameraController` keeps matching serialized fallback fields so older prefabs without a `CameraConfig` reference still behave sensibly.
+
+- **Scene start / hidden rebind** applies immediately: `SceneInit`, `SnapToTarget`, and `PositionToHero` bypass the live blend entirely, reset `SmoothDamp` velocity, and clear any in-progress transition. Nothing replays behind a fade-in.
+- **Follow → lock** (no lock selected, then one becomes selected), **lock → lock** (the selected lock changes to a different one), and **lock → follow** (the selected lock becomes none) each select their configured settings and blend `currentDampX`/`currentDampY` from the transition's starting damp values toward the normal state-driven target over `blendDuration`. The move always resolves from the camera's current rendered position — nothing is snapped or replayed.
+- **Override release**: when the final active freeze (`CameraController.ApplyFreezeState`) or free mode (`EndFreeMode`) ends, the controller begins an `OverrideReleased` transition toward whatever lock is currently selected (which may have changed while frozen — lock/bounds registration keeps updating underneath an override; only the live blend is suppressed). It never restores a stale pre-freeze snapshot.
+- Live transitions are only started when `startTimer <= 0` and no freeze/free/positioning override is active; lock registration itself (`EnterLockArea`/`ExitLockArea`/`ClearSceneRegistrations`) always runs regardless, so underlying framing stays correct even while a transition is suppressed.
+- Duplicate lock entry, and removing a non-active lock, never touch transition state (both are no-ops before `RefreshActiveLock` is reached, exactly as in Phase 1). Removing the active lock and resolving a fallback (or none) begins the matching transition.
+- A `CameraLockArea` may set `useTransitionOverride` with its own `entryTransitionOverride`/`exitTransitionOverride` in place of the shared `CameraConfig` defaults. Missing/disabled overrides fall back to the shared defaults; no area is required to reference a profile asset.
+
+**Diagnostics** (read-only, no new ownership): `CameraController.CurrentTransitionCause`, `IsTransitioning`, `TransitionSourceLockArea`/`TransitionDestinationLockArea`, `TransitionElapsed`/`TransitionDuration`/`TransitionProgress`, `LastApplicationWasImmediate`, `CurrentDampTimeX`/`Y`, `CurrentDestination`, `RenderedPosition`, `GetRegisteredLockAreasSorted()` (locks in current selection order), and `GetLegalRegion()` (the resolved room/lock legal-centre interval per axis, or unconstrained). `GameCameras.GetFreezeSnapshots()` exposes freeze kind/source/remaining-duration per active registration for the same purpose. None of this is a second source of truth — lock selection remains owned by the Phase 1 registration model and freeze ownership remains handle-based.
+
+`CameraControllerEditor` (custom Inspector) appends a read-only Play Mode diagnostics block below the default Inspector using the values above. `CameraLockArea`/`CameraBoundsVolume` gained Scene-view gizmos: an always-on outline (orange for locks, cyan/green for bounds, brighter when currently selected in Play Mode) and a selected-only detail view showing the framed region, the resolved camera-centre region after viewport inset (collapsing to a line/point when smaller than the viewport, matching runtime), and a label with priority/axes/override/warning state. Gizmos use `CameraGizmoUtility`, which prefers the live `CameraInfoCache` frustum in Play Mode and otherwise approximates from any `CameraConfig` asset found in the project (or hardcoded FOV 24 / Z -38.1 defaults), clearly marked "(approx. viewport)" when not live.
+
+---
+
 ## Fades And Shake
 
 `CameraFade` drives a `CanvasGroup` with unscaled time so fades continue while the game is paused or during transition time-scale changes. Standard `FadeOut(float)` / `FadeIn(float)` calls still use serialized fallback durations and built-in curves. Scene transitions resolve an optional `FadeProfile` through `SceneTransitionManager`: explicit request override first, transition-kind default second, then `CameraFade` defaults. Normal gates do not expose fade fields.
@@ -122,7 +141,7 @@ Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `
 - Add `HeroCameraAnimancerBridge` to the hero only if animation events need camera requests.
 - Lock, offset, and bounds volumes need `BoxCollider2D` triggers and must overlap the `Player` tagged hero.
 - Camera lock/bounds trigger objects must use a layer excluded from `HeroConfig.terrainLayers`; current `SampleScene4` authoring uses `Ignore Raycast`.
-- `Tools/Project/Validate Camera Phase 1` checks the persistent prefab, trigger/axis/layer contracts, framed-region validity, explicit look overrides/order, and viewport-inset room/lock intersection across enabled Build Settings scenes. It reports smaller-than-reference-viewport regions without changing geometry.
+- `Tools/Project/Validate Camera Phase 1` checks the persistent prefab, trigger/axis/layer contracts, framed-region validity, explicit look overrides/order, and viewport-inset room/lock intersection across enabled Build Settings scenes. It reports smaller-than-reference-viewport regions without changing geometry. Camera Phase 2 extended it (same menu item, kept historical name) to also validate: the shared `CameraConfig` transition settings referenced by the persistent prefab's `CameraController` are finite and non-negative, and any per-`CameraLockArea` `entryTransitionOverride`/`exitTransitionOverride` (when `useTransitionOverride` is enabled) are finite and non-negative. It does not validate boss-lock references or lock-activity defaults — those remain `BossEncounterValidator`'s responsibility.
 
 ---
 
@@ -136,8 +155,8 @@ Camera shake is routed through `CameraEventService` and `ICameraShakeService`. `
 
 ## TODOs
 
-- Phase 2: transition profiles for room→lock, lock→lock, and lock→follow; Scene centre-region gizmos; and a read-only runtime lock/request diagnostic.
-- Later only when content proves the need: typed focus/pan requests, Timeline adapters, automatic zoom, or dynamic multi-target framing.
+- Camera Phase 2 (transition profiles, Scene gizmos, runtime diagnostics Inspector, extended validator) is implemented; see "Lock Transitions (Camera Phase 2)" above. Outstanding from this phase: human manual review/approval of the transition feel (arena-entry abruptness, lock-boundary naturalness, freeze-release smoothness — automated tests only cover cause selection, lifecycle, and legal-region correctness, not subjective feel) and a decision on whether `SampleScene4`'s `ArenaCameraLock` smaller-than-viewport framing is the desired fixed-centre boss camera or should be retuned.
+- Phase 3 (deferred): temporary focus/pan handles, boss-intro/phase-transition/reward camera focus, a Timeline adapter, automatic zoom, dynamic hero/boss or multi-target framing, and Cinemachine. None of these are implemented.
 - Add authored slide/super-move camera signals when those hero states exist.
 - Add world-position distance filtering for camera shake requests if offscreen impact effects become noisy.
 - Add render hooks or capture-to-texture only when a specific vertical-slice presentation feature needs them.

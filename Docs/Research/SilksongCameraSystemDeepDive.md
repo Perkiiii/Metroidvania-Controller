@@ -1,5 +1,11 @@
 # **Silksong Camera Lock, Framing, and Boss-Arena Camera Systems Deep Dive**
 
+> **Status:** External research and architecture review.
+>
+> This document is advisory, not project ground truth. The current codebase is authoritative for
+> implementation status. Recommendations must be verified against the current working tree before
+> implementation.
+
 ## **Executive verdict**
 
 Silksong’s camera is a layered, production-tested system built around three persistent runtime authorities:
