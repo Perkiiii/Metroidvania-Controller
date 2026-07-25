@@ -59,6 +59,15 @@ These must happen before any milestone work begins. Both are preconditions for t
 
 - [x] Implement `CameraController`, `CameraTarget`, `CameraBoundsVolume`, and `CameraLockArea` — smooth follow, room bounds, and lock zones. (Done)
 - [x] Create `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`. (Done)
+- [x] Camera Phase 1 — deterministic highest-priority/newest-entry lock registration, correct
+  per-axis room/lock legal-region intersection, explicit world-zero look overrides, layered
+  underlying framing, source-owned timed freeze handles, immediate already-inside refresh,
+  scene-lifetime cleanup, focused validation, and discoverable EditMode/PlayMode coverage.
+  (Done 2026-07-25.)
+- [ ] Camera Phase 2 — authored transition/easing profiles, Scene centre-region gizmos, runtime
+  lock/request diagnostics, and human camera-feel approval.
+- [ ] Later camera presentation — temporary focus/pan, boss presentation requests, Timeline
+  adapter, automatic zoom, and dynamic multi-target framing only when real content proves need.
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
 - [x] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Includes auto-trigger (edge gates) and door variant (`DoorTransitionInteractable`, `requireInteract` toggle). Uses explicit `GateSide` enum; direction is never inferred from GameObject name. WGE now supplies graph-backed scene / port GUID data, while Underbrew still owns runtime scene loading, hero placement, and respawn flow. Per-gate entry tuning lives on the destination `TransitionPoint` (not `HeroConfig`). `HeroSceneEntry` owns all per-gate scripted motion (Left/Right run-in, Top gravity-driven drop, Bottom diagonal throw, Door stand). Door and auto-trigger activation share `TransitionPoint` validation, and scene-entry placement routes through `HeroMotor` (`TeleportTo` / collider-aware feet placement) rather than direct transform writes. Missing destination gates log an error and place the hero at a deterministic fallback (`RespawnMarker`, then authored position). Editor validation exists at `Tools/Project/Validate Transition Gate Links` for WGE passage GUIDs and Build Settings scene links. **Design decision:** `TransitionPoint` does NOT call `GameManager.SetActiveRespawnMarker` — death after a gate crossing returns the player to the last activated checkpoint. `linkedRespawnMarker` is serialized and auto-populated from a child `RespawnMarker` but is reserved for a future policy pass. See `Docs/Integrations/WorldGraphEditorIntegration.md`.
 - [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)

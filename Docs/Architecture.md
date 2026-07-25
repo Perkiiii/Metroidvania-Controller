@@ -453,6 +453,10 @@ See `Docs/FeatureSpecs/Camera.md` for the full spec.
 
 `GameCameras` is a persistent singleton prefab containing the perspective main camera, HUD camera, fade canvas, `CameraTarget`, `CameraController`, and `CameraShakeCueService`. `CameraController` and `CameraTarget` read the hero's `Transform` only - no hero component references. Hero-specific camera intent is sent one-way by `HeroCameraSignalBridge`. Room bounds are defined by `CameraBoundsVolume`, temporary hard locks by `CameraLockArea`, and soft framing offsets by `CameraOffsetArea`.
 
+`CameraTarget` produces hero-framing intent. `CameraController` is the sole final-motion authority and resolves one viewport-aware legal camera-centre region by intersecting the room region with the selected lock on each lock-owned axis. Lock selection is explicit and deterministic: highest numeric priority, then newest first-entry sequence; duplicate entry is idempotent.
+
+Underlying follow/room/lock/offset framing remains live beneath temporary free and freeze overrides. Freeze requests are source-owned handles with independent duration and scene lifetime; one requester cannot release another. Scene-local lock, bounds, and freeze state cannot survive its source scene, while a transition-owned persistent freeze may cross the load boundary until `SceneTransitionManager` releases it. Persistent camera code retains no hero or concrete-boss subsystem references.
+
 All tuning lives in `CameraConfig` SO at `Assets/_Project/ScriptableObjects/World/CameraConfig.asset`.
 
 ---

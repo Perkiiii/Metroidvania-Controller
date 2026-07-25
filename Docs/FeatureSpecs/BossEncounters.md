@@ -161,7 +161,13 @@ keep the full-reconstruction path available.
 
 ## Camera and HUD
 
-Enabling a `CameraLockArea` around a hero already inside is supported by explicitly raising `CameraEventService.RaiseLockEntered`; cleanup raises the matching exit and disables the area. Camera code receives no hero-internal references.
+The encounter remains only a source for a normal scene-authored `CameraLockArea`; concrete boss
+behaviours have no camera dependency. Enabling the inactive arena lock performs an immediate
+ordinary overlap refresh, and the encounter's explicit `CameraEventService.RaiseLockEntered`
+remains safe because duplicate entry is idempotent and does not refresh entry order. Cleanup
+releases only that area registration and disables the area; unrelated locks, bounds, free mode,
+and freeze handles remain untouched. Failed preparation never enables/acquires the lock, and quiet
+completed-room restoration keeps it inactive.
 
 `BossHudEventService` is a stateless request dispatcher. It retains no active request, health roster, participants, or scene objects. The always-enabled `BossHealthDisplay` under `_GameCameras` owns the active source token, filters hide requests by reference identity, subscribes to the explicit `EnemyHealthComponent` roster, performs an initial property read, aggregates current/maximum health, and clears all scene references on matching hide or disable. It never polls or searches scenes. `PersistentHudRoot` is unchanged.
 

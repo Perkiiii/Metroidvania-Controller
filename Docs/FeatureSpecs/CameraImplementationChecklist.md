@@ -1,5 +1,9 @@
 # Camera Implementation Checklist
 
+> **Historical / superseded:** This checklist records the pre–Camera Phase 1 implementation.
+> `Docs/FeatureSpecs/Camera.md` is the current contract. In particular, target-side lock clamping
+> and the global freeze operation described below were superseded on 2026-07-25.
+
 ## Guide Mapping
 
 - `CameraTarget` remains the intent/brain layer: hero tracking, look-ahead, vertical anticipation, offset volumes, and lock-zone target clamping.
