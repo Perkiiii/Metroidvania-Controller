@@ -9,6 +9,8 @@ public sealed class BossArenaBarrier : MonoBehaviour
 
     public bool IsOpen { get; private set; } = true;
     public Collider2D[] BlockerColliders => blockerColliders;
+    public GameObject OpenPresentationRoot => openPresentationRoot;
+    public GameObject ClosedPresentationRoot => closedPresentationRoot;
 
     public void SetOpen(bool open, bool immediate)
     {

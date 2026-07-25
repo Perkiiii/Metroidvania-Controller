@@ -21,6 +21,8 @@ public static class BossEncounterValidator
         List<BossEncounterDefinition> definitions = LoadAllDefinitions();
         int issues = ValidateDefinitions(definitions);
         HashSet<string> definitionIds = new HashSet<string>();
+        Dictionary<string, List<EncounterPlacement>> placements =
+            new Dictionary<string, List<EncounterPlacement>>();
         for (int i = 0; i < definitions.Count; i++)
         {
             if (definitions[i] != null && !string.IsNullOrWhiteSpace(definitions[i].EncounterId))
@@ -41,8 +43,10 @@ public static class BossEncounterValidator
                 }
 
                 Scene scene = EditorSceneManager.OpenScene(buildScene.path, OpenSceneMode.Single);
-                issues += ValidateScene(scene, definitionIds);
+                issues += ValidateScene(scene, definitionIds, placements);
             }
+
+            issues += ValidateEncounterPlacements(placements);
         }
         finally
         {
@@ -170,6 +174,16 @@ public static class BossEncounterValidator
                 {
                     issues += Error(barrier, "is listed more than once by the same encounter.");
                 }
+                else
+                {
+                    issues += ValidateBarrier(
+                        barrier,
+                        controller.RequiresBarriers,
+                        controller.Trigger != null ? controller.Trigger.GetComponent<Collider2D>() : null,
+                        controller.CameraLockArea != null
+                            ? controller.CameraLockArea.GetComponent<Collider2D>()
+                            : null);
+                }
             }
         }
 
@@ -250,7 +264,72 @@ public static class BossEncounterValidator
         return issues;
     }
 
-    private static int ValidateScene(Scene scene, HashSet<string> definitionIds)
+    internal static int ValidateBarrier(
+        BossArenaBarrier barrier,
+        bool requireValidBlocker,
+        Collider2D encounterTriggerCollider = null,
+        Collider2D cameraLockCollider = null)
+    {
+        if (barrier == null)
+        {
+            return 0;
+        }
+
+        int issues = 0;
+        int validBlockers = 0;
+        Collider2D[] blockers = barrier.BlockerColliders;
+        for (int i = 0; blockers != null && i < blockers.Length; i++)
+        {
+            Collider2D blocker = blockers[i];
+            if (blocker == null)
+            {
+                issues += Error(barrier, $"has a null blocker collider at index {i}.");
+                continue;
+            }
+
+            bool valid = true;
+            if (blocker.isTrigger)
+            {
+                issues += Error(blocker, "blocker collider must be non-trigger so it can block the arena when enabled.");
+                valid = false;
+            }
+
+            if (ReferenceEquals(blocker, encounterTriggerCollider))
+            {
+                issues += Error(blocker, "must not reuse the encounter trigger collider as a barrier blocker.");
+                valid = false;
+            }
+
+            if (ReferenceEquals(blocker, cameraLockCollider))
+            {
+                issues += Error(blocker, "must not reuse the camera-lock trigger collider as a barrier blocker.");
+                valid = false;
+            }
+
+            if (valid)
+            {
+                validBlockers++;
+            }
+        }
+
+        if (requireValidBlocker && validBlockers == 0)
+        {
+            issues += Error(barrier, "requires at least one non-trigger blocker collider suitable for solid blocking when enabled.");
+        }
+
+        if (barrier.OpenPresentationRoot != null
+            && ReferenceEquals(barrier.OpenPresentationRoot, barrier.ClosedPresentationRoot))
+        {
+            issues += Error(barrier, "open and closed presentation roots must not reference the same GameObject.");
+        }
+
+        return issues;
+    }
+
+    private static int ValidateScene(
+        Scene scene,
+        HashSet<string> definitionIds,
+        Dictionary<string, List<EncounterPlacement>> placements)
     {
         int issues = 0;
 
@@ -271,8 +350,73 @@ public static class BossEncounterValidator
             foreach (BossEncounterController controller in root.GetComponentsInChildren<BossEncounterController>(true))
             {
                 issues += ValidateController(controller);
-                string id = controller.Definition != null ? controller.Definition.EncounterId : "";
             }
+        }
+
+        CollectEncounterPlacements(scene, placements);
+
+        return issues;
+    }
+
+    internal static void CollectEncounterPlacements(
+        Scene scene,
+        Dictionary<string, List<EncounterPlacement>> placements)
+    {
+        if (!scene.IsValid() || placements == null)
+        {
+            return;
+        }
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            foreach (BossEncounterController controller in root.GetComponentsInChildren<BossEncounterController>(true))
+            {
+                string id = controller.Definition != null ? controller.Definition.EncounterId : "";
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                if (!placements.TryGetValue(id, out List<EncounterPlacement> byId))
+                {
+                    byId = new List<EncounterPlacement>();
+                    placements.Add(id, byId);
+                }
+
+                byId.Add(new EncounterPlacement(scene.path, GetPath(controller.transform), controller));
+            }
+        }
+    }
+
+    internal static int ValidateEncounterPlacements(
+        IReadOnlyDictionary<string, List<EncounterPlacement>> placements)
+    {
+        if (placements == null)
+        {
+            return 0;
+        }
+
+        int issues = 0;
+        foreach (KeyValuePair<string, List<EncounterPlacement>> pair in placements)
+        {
+            List<EncounterPlacement> byId = pair.Value;
+            if (byId == null || byId.Count < 2)
+            {
+                continue;
+            }
+
+            List<string> locations = new List<string>(byId.Count);
+            for (int i = 0; i < byId.Count; i++)
+            {
+                locations.Add($"'{byId[i].ScenePath}::{byId[i].HierarchyPath}'");
+            }
+
+            Debug.LogError(
+                $"[BossEncounterValidator] Encounter ID '{pair.Key}' is used by multiple BossEncounterController placements: "
+                + string.Join(", ", locations)
+                + ". Each permanent world encounter ID may have only one enabled-build-scene placement.",
+                byId[byId.Count - 1].Controller);
+            issues++;
         }
 
         return issues;
@@ -334,5 +478,19 @@ public static class BossEncounterValidator
         }
 
         return path;
+    }
+
+    internal readonly struct EncounterPlacement
+    {
+        public EncounterPlacement(string scenePath, string hierarchyPath, BossEncounterController controller)
+        {
+            ScenePath = scenePath;
+            HierarchyPath = hierarchyPath;
+            Controller = controller;
+        }
+
+        public string ScenePath { get; }
+        public string HierarchyPath { get; }
+        public BossEncounterController Controller { get; }
     }
 }
