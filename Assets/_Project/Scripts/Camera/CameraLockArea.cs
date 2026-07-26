@@ -129,9 +129,7 @@ public sealed class CameraLockArea : MonoBehaviour
 
     private static bool IsPlayer(Collider2D other)
     {
-        return other != null
-            && (other.CompareTag("Player")
-                || (other.transform.root != null && other.transform.root.CompareTag("Player")));
+        return GameCameras.IsCanonicalPlayerCollider(other);
     }
 
 #if UNITY_EDITOR

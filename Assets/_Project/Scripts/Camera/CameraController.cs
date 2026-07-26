@@ -56,6 +56,25 @@ public sealed class CameraController : MonoBehaviour
     [SerializeField] private CameraTransitionSettings lockToFollowTransition = CameraTransitionSettings.Live(0.15f, 0.35f, false);
     [SerializeField] private CameraTransitionSettings overrideReleasedTransition = CameraTransitionSettings.Live(0.15f, 0.35f, true);
 
+    [Header("Presentation Fallbacks (Camera Phase 3)")]
+    [SerializeField] private CameraTransitionSettings presentationEnterTransition = CameraTransitionSettings.Live(0.22f, 0.45f, false);
+    [SerializeField] private CameraTransitionSettings presentationChangeTransition = CameraTransitionSettings.Live(0.22f, 0.45f, false);
+    [SerializeField] private CameraTransitionSettings presentationReleaseTransition = CameraTransitionSettings.Live(0.2f, 0.45f, true);
+    [SerializeField] private float presentationPaddingX = 3f;
+    [SerializeField] private float presentationPaddingY = 2f;
+    [SerializeField] private float minZoom = 0.85f;
+    [SerializeField] private float maxZoom = 1.6f;
+    [SerializeField] private float zoomOutDampTime = 0.25f;
+    [SerializeField] private float zoomInDampTime = 0.55f;
+    [SerializeField] private float maxZoomSpeed = 1.2f;
+    [SerializeField] private float zoomHysteresis = 0.02f;
+    [SerializeField] private float zoomContractHysteresis = 0.06f;
+    [SerializeField] private float presentationCentreDampTime = 0.25f;
+
+    [Header("Presentation Gizmos")]
+    [Tooltip("Draw the resolved presentation framing region, padding, desired centre, and viewport while selected in Play Mode.")]
+    [SerializeField] private bool drawPresentationGizmos = true;
+
     public static bool IsPositioningCamera { get; private set; }
 
     public event Action PositionedAtHero;
@@ -105,6 +124,25 @@ public sealed class CameraController : MonoBehaviour
     public float CurrentDampTimeX => currentDampX;
     public float CurrentDampTimeY => currentDampY;
 
+    // --- Camera Phase 3 presentation diagnostics (read-only) ---
+
+    // True while a presentation request is registered as selected, even if the scene-start timer
+    // is still suppressing its influence.
+    public bool HasPresentationRequest => presentationActive;
+    public long PresentationRequestId => presentationActive ? presentationId : 0L;
+    public int PresentationPriority => presentationPriority;
+    public string PresentationSourceLabel => presentationSourceLabel;
+    public CameraPresentationSettings PresentationSettings => presentationSettings;
+    public CameraPresentationFraming PresentationFraming => presentationFraming;
+
+    // The base hero/room/lock destination the camera resumes when the request is released.
+    public Vector3 UnderlyingDestination => lastUnderlyingDestination;
+
+    // Rendered zoom multiplier of the authored base viewport (1 = CameraConfig framing).
+    public float CurrentZoom => currentZoom;
+    public float TargetZoom => targetZoom;
+    public float BaseViewportHalfHeight => baseHalfHeight;
+
     private readonly List<CameraBoundsVolume> boundsStack = new List<CameraBoundsVolume>();
     private readonly List<LockRegistration> lockRegistrations = new List<LockRegistration>();
 
@@ -133,6 +171,23 @@ public sealed class CameraController : MonoBehaviour
     private float transitionStartDampX;
     private float transitionStartDampY;
     private Vector3 lastComputedDestination;
+    private Vector3 lastUnderlyingDestination;
+
+    private readonly List<Transform> presentationTargets = new List<Transform>();
+    private bool presentationActive;
+    private long presentationId;
+    private int presentationPriority;
+    private string presentationSourceLabel = "";
+    private CameraPresentationSettings presentationSettings;
+    private CameraPresentationFraming presentationFraming;
+    private bool presentationFramingResolved;
+    private Vector3 presentationCentre;
+    private float presentationDesiredZoom = 1f;
+
+    private float baseHalfHeight;
+    private float currentZoom = 1f;
+    private float targetZoom = 1f;
+    private float zoomVelocity;
 
     private void Awake()
     {
@@ -161,6 +216,18 @@ public sealed class CameraController : MonoBehaviour
         positioningOverride = false;
         IsPositioningCamera = false;
         freeOverride = false;
+
+        // Presentation payload is scene-scoped state on the controller; GameCameras owns the
+        // registrations and re-pushes any deliberately persistent request after entry.
+        presentationActive = false;
+        presentationId = 0L;
+        presentationPriority = 0;
+        presentationSourceLabel = "";
+        presentationTargets.Clear();
+        presentationFramingResolved = false;
+        presentationFraming = default;
+        presentationDesiredZoom = 1f;
+
         ApplyConfig();
         EnforceProjection();
         boundsStack.Clear();
@@ -260,6 +327,86 @@ public sealed class CameraController : MonoBehaviour
         {
             RefreshActiveLock(previous);
         }
+    }
+
+    // Called by GameCameras with the request it selected. The controller never chooses between
+    // requests; it only resolves the selected one into framing, zoom, and a legal destination.
+    public void ApplyPresentation(
+        long requestId,
+        int priority,
+        in CameraPresentationSettings settings,
+        Transform[] targets,
+        string sourceLabel,
+        CameraTransitionCause cause)
+    {
+        bool wasActive = presentationActive;
+        presentationActive = true;
+        presentationId = requestId;
+        presentationPriority = priority;
+        presentationSettings = settings;
+        presentationSourceLabel = string.IsNullOrEmpty(sourceLabel) ? "(none)" : sourceLabel;
+
+        presentationTargets.Clear();
+        for (int i = 0; targets != null && i < targets.Length; i++)
+        {
+            if (targets[i] != null)
+            {
+                presentationTargets.Add(targets[i]);
+            }
+        }
+
+        if (cause == CameraTransitionCause.None)
+        {
+            return;
+        }
+
+        // A newly selected request behaves exactly like a lock change: registration always
+        // applies, but the live blend is suppressed while an override or the scene-start snap owns
+        // the rendered camera.
+        if (!AreLiveTransitionsAllowed())
+        {
+            return;
+        }
+
+        CameraTransitionCause resolved = wasActive
+            ? CameraTransitionCause.PresentationChanged
+            : cause;
+        BeginTransition(
+            resolved,
+            ResolvePresentationTransitionSettings(resolved, settings),
+            CurrentLockArea,
+            CurrentLockArea);
+    }
+
+    public void ClearPresentation()
+    {
+        if (!presentationActive)
+        {
+            return;
+        }
+
+        CameraPresentationSettings released = presentationSettings;
+        presentationActive = false;
+        presentationId = 0L;
+        presentationPriority = 0;
+        presentationSourceLabel = "";
+        presentationTargets.Clear();
+        presentationFramingResolved = false;
+        presentationFraming = default;
+        presentationDesiredZoom = 1f;
+
+        if (!AreLiveTransitionsAllowed())
+        {
+            return;
+        }
+
+        // Resolve toward whatever the underlying framing is *now* -- never a snapshot captured
+        // when the request began.
+        BeginTransition(
+            CameraTransitionCause.PresentationReleased,
+            ResolvePresentationTransitionSettings(CameraTransitionCause.PresentationReleased, released),
+            CurrentLockArea,
+            CurrentLockArea);
     }
 
     public void SetLookInput(float verticalInput)
@@ -370,12 +517,25 @@ public sealed class CameraController : MonoBehaviour
             return;
         }
 
+        SnapZoom();
         transform.position = ComputeDestination();
         velocityX = Vector3.zero;
         velocityY = Vector3.zero;
         CameraInfoCache.UpdateCache(cam, true);
         EndTransition();
         lastApplicationWasImmediate = true;
+    }
+
+    // Immediate applications must land on the final projection too, otherwise the rendered frame
+    // would still be blending zoom after a "snap".
+    private void SnapZoom()
+    {
+        targetZoom = PresentationInfluencesFraming
+            ? Mathf.LerpUnclamped(1f, presentationDesiredZoom, presentationSettings.ResolvedWeight)
+            : 1f;
+        currentZoom = targetZoom;
+        zoomVelocity = 0f;
+        ApplyZoomToProjection();
     }
 
     public bool ApplySceneEntryImmediate(out string failureDetail)
@@ -434,9 +594,11 @@ public sealed class CameraController : MonoBehaviour
         currentDampX = dampTimeNormal;
         currentDampY = GetGroundedDampTimeY();
         startTimer = 0f;
+        ResetZoom();
         EndTransition();
         lastApplicationWasImmediate = true;
         lastComputedDestination = fallback;
+        lastUnderlyingDestination = fallback;
         CameraInfoCache.UpdateCache(cam, true);
         return true;
     }
@@ -465,8 +627,13 @@ public sealed class CameraController : MonoBehaviour
 
         cameraTarget.Tick();
 
+        // Resolved every frame so read-only diagnostics stay live even while an override owns the
+        // rendered camera. Nothing here writes the transform or projection.
+        ResolvePresentationFraming();
+
         if (Mode == CameraMode.Frozen || Mode == CameraMode.Free || Time.timeScale <= Mathf.Epsilon)
         {
+            // A hard freeze must also freeze zoom: the rendered frame stops changing entirely.
             CameraInfoCache.UpdateCache(cam, true);
             return;
         }
@@ -483,6 +650,11 @@ public sealed class CameraController : MonoBehaviour
 
         UpdateDampTimes();
         UpdateLookOffset();
+
+        // Zoom is applied before the destination is clamped so the legal-region inset always uses
+        // the half-extents the camera actually renders with this frame. Clamping against a
+        // not-yet-reached target zoom could reveal space outside the room mid-blend.
+        UpdateZoom();
 
         Vector3 destination = ComputeDestination();
         float z = transform.position.z;
@@ -550,13 +722,20 @@ public sealed class CameraController : MonoBehaviour
     private void UpdateDampTimes()
     {
         float minDamp = config != null ? config.cameraDampTimeYMin : 0.03f;
-        float targetDampY = Mathf.Max(minDamp, ResolveStateDampY());
+
+        // While a presentation owns framing, hero-motion-derived Y damping is meaningless: the
+        // destination is a focus point or multi-target region, not the hero.
+        bool presentationOwnsMotion = PresentationInfluencesFraming;
+        float targetDampX = presentationOwnsMotion ? Mathf.Max(0f, presentationCentreDampTime) : dampTimeNormal;
+        float targetDampY = presentationOwnsMotion
+            ? Mathf.Max(minDamp, presentationCentreDampTime)
+            : Mathf.Max(minDamp, ResolveStateDampY());
 
         if (transitionActive)
         {
             transitionElapsed += Time.deltaTime;
             float t = transitionBlendDuration > 0f ? Mathf.Clamp01(transitionElapsed / transitionBlendDuration) : 1f;
-            currentDampX = Mathf.Lerp(transitionStartDampX, dampTimeNormal, t);
+            currentDampX = Mathf.Lerp(transitionStartDampX, targetDampX, t);
             currentDampY = Mathf.Lerp(transitionStartDampY, targetDampY, t);
 
             if (t >= 1f)
@@ -567,7 +746,7 @@ public sealed class CameraController : MonoBehaviour
             return;
         }
 
-        currentDampX = Mathf.MoveTowards(currentDampX, dampTimeNormal, 0.007f);
+        currentDampX = Mathf.MoveTowards(currentDampX, targetDampX, 0.007f);
         currentDampY = Mathf.MoveTowards(currentDampY, targetDampY, Time.deltaTime);
     }
 
@@ -600,14 +779,265 @@ public sealed class CameraController : MonoBehaviour
     private Vector3 ComputeDestination()
     {
         float z = transform.position.z;
-        Vector3 dest = new Vector3(
+        Vector3 underlying = new Vector3(
             cameraTarget.transform.position.x,
             cameraTarget.transform.position.y + cameraTarget.CurrentVerticalOffset + lookOffset,
             z);
 
+        Vector3 clampedUnderlying = underlying;
+        ClampToLegalRegion(ref clampedUnderlying);
+        lastUnderlyingDestination = clampedUnderlying;
+
+        Vector3 dest = underlying;
+        if (PresentationInfluencesFraming)
+        {
+            // Timeline clip weight (and any authored partial weight) blends between the underlying
+            // framing and the presentation framing rather than swapping handles.
+            float weight = presentationSettings.ResolvedWeight;
+            dest = Vector3.Lerp(underlying, new Vector3(presentationCentre.x, presentationCentre.y, z), weight);
+        }
+
+        Vector3 beforeClamp = dest;
         ClampToLegalRegion(ref dest);
+
+        if (PresentationInfluencesFraming)
+        {
+            presentationFraming = new CameraPresentationFraming(
+                true,
+                presentationId,
+                presentationSettings.mode,
+                presentationFraming.ValidTargetCount,
+                presentationFraming.FramedBounds,
+                presentationFraming.Padding,
+                new Vector3(beforeClamp.x, beforeClamp.y, z),
+                presentationFraming.DesiredZoom,
+                presentationFraming.ClampedZoom,
+                presentationFraming.MinZoom,
+                presentationFraming.MaxZoom,
+                presentationFraming.ZoomClamped,
+                (beforeClamp - dest).sqrMagnitude > 0.000001f,
+                presentationSettings.ResolvedWeight);
+        }
+
         lastComputedDestination = dest;
         return dest;
+    }
+
+    // A selected request only influences framing once the hidden scene-start snap window is over,
+    // so scene-entry positioning is never fought by a deliberately persistent request.
+    private bool PresentationInfluencesFraming => presentationActive && presentationFramingResolved && startTimer <= 0f;
+
+    private void ResolvePresentationFraming()
+    {
+        RefreshBaseHalfHeight();
+
+        if (!presentationActive)
+        {
+            presentationFramingResolved = false;
+            presentationFraming = default;
+            presentationDesiredZoom = 1f;
+            return;
+        }
+
+        presentationTargets.RemoveAll(target => target == null);
+
+        if (presentationSettings.RequiresTargets && presentationTargets.Count == 0)
+        {
+            // GameCameras prunes unresolvable requests on its next Update; until then this frame
+            // falls back to ordinary underlying framing rather than a stale focus point.
+            presentationFramingResolved = false;
+            presentationFraming = default;
+            presentationDesiredZoom = 1f;
+            return;
+        }
+
+        Bounds bounds = ResolveFramedBounds();
+        ResolveZoomLimits(out float limitMin, out float limitMax);
+
+        float paddingX = Mathf.Max(0f, presentationPaddingX + Mathf.Max(0f, presentationSettings.paddingX));
+        float paddingY = Mathf.Max(0f, presentationPaddingY + Mathf.Max(0f, presentationSettings.paddingY));
+
+        float desiredZoom = presentationSettings.autoZoom
+            ? ComputeAutoZoom(bounds, paddingX, paddingY)
+            : SanitizeZoom(presentationSettings.authoredZoom);
+
+        float clampedZoom = Mathf.Clamp(desiredZoom, limitMin, limitMax);
+
+        presentationCentre = bounds.center;
+        presentationDesiredZoom = clampedZoom;
+        presentationFramingResolved = true;
+        presentationFraming = new CameraPresentationFraming(
+            true,
+            presentationId,
+            presentationSettings.mode,
+            presentationTargets.Count,
+            bounds,
+            new Vector2(paddingX, paddingY),
+            presentationCentre,
+            desiredZoom,
+            clampedZoom,
+            limitMin,
+            limitMax,
+            !Mathf.Approximately(desiredZoom, clampedZoom),
+            presentationFraming.CentreClamped,
+            presentationSettings.ResolvedWeight);
+    }
+
+    private Bounds ResolveFramedBounds()
+    {
+        Vector3 offset = new Vector3(presentationSettings.framingOffset.x, presentationSettings.framingOffset.y, 0f);
+
+        if (presentationSettings.mode == CameraPresentationMode.FocusWorldPoint)
+        {
+            Vector3 point = new Vector3(presentationSettings.worldPoint.x, presentationSettings.worldPoint.y, 0f) + offset;
+            return new Bounds(point, Vector3.zero);
+        }
+
+        if (presentationSettings.mode == CameraPresentationMode.FocusTarget)
+        {
+            Vector3 point = FlattenToPlane(presentationTargets[0].position) + offset;
+            return new Bounds(point, Vector3.zero);
+        }
+
+        Bounds bounds = new Bounds(FlattenToPlane(presentationTargets[0].position), Vector3.zero);
+        for (int i = 1; i < presentationTargets.Count; i++)
+        {
+            bounds.Encapsulate(FlattenToPlane(presentationTargets[i].position));
+        }
+
+        bounds.center += offset;
+        return bounds;
+    }
+
+    private float ComputeAutoZoom(Bounds bounds, float paddingX, float paddingY)
+    {
+        if (baseHalfHeight <= Mathf.Epsilon)
+        {
+            return 1f;
+        }
+
+        float aspect = cam != null && cam.aspect > Mathf.Epsilon ? cam.aspect : 16f / 9f;
+        float requiredHalfHeight = bounds.extents.y + paddingY;
+        float requiredHalfWidth = bounds.extents.x + paddingX;
+
+        float zoomForHeight = requiredHalfHeight / baseHalfHeight;
+        float zoomForWidth = requiredHalfWidth / (baseHalfHeight * aspect);
+        return SanitizeZoom(Mathf.Max(zoomForHeight, zoomForWidth));
+    }
+
+    private void ResolveZoomLimits(out float limitMin, out float limitMax)
+    {
+        limitMin = SanitizeZoom(minZoom);
+        limitMax = SanitizeZoom(maxZoom);
+
+        if (presentationSettings.overrideZoomLimits)
+        {
+            limitMin = SanitizeZoom(presentationSettings.minZoom);
+            limitMax = SanitizeZoom(presentationSettings.maxZoom);
+        }
+
+        // Room bounds stay authoritative over zoom: the legal-centre region only constrains where
+        // the camera may sit, so without this cap a zoom-out could widen the viewport past the
+        // authored room and reveal space outside it. The cap never drops below 1, so a room that
+        // is already smaller than the authored viewport keeps its existing framing rather than
+        // being silently zoomed in.
+        limitMax = Mathf.Min(limitMax, ComputeRoomZoomCap());
+
+        if (limitMin > limitMax)
+        {
+            // Invalid authoring (or a room tighter than the authored minimum) collapses to a
+            // single legal zoom rather than producing an empty range; the validator reports the
+            // authoring ordering error separately.
+            limitMin = limitMax;
+        }
+    }
+
+    private float ComputeRoomZoomCap()
+    {
+        CameraBoundsVolume volume = GetActiveBoundsVolume();
+        if (volume == null || baseHalfHeight <= Mathf.Epsilon)
+        {
+            return float.PositiveInfinity;
+        }
+
+        float aspect = cam != null && cam.aspect > Mathf.Epsilon ? cam.aspect : 16f / 9f;
+        Bounds room = volume.GetBounds();
+        float capHeight = room.extents.y / baseHalfHeight;
+        float capWidth = room.extents.x / (baseHalfHeight * aspect);
+        return Mathf.Max(1f, Mathf.Min(capHeight, capWidth));
+    }
+
+    private void UpdateZoom()
+    {
+        float desired = 1f;
+        if (PresentationInfluencesFraming)
+        {
+            desired = Mathf.LerpUnclamped(1f, presentationDesiredZoom, presentationSettings.ResolvedWeight);
+        }
+
+        bool useHysteresis = PresentationInfluencesFraming && presentationSettings.autoZoom;
+        if (!useHysteresis)
+        {
+            targetZoom = desired;
+        }
+        else
+        {
+            // Contracting needs a larger change to commit, so a region that shrinks slightly does
+            // not pull the camera in and straight back out.
+            float band = desired < targetZoom
+                ? Mathf.Max(0f, zoomHysteresis + zoomContractHysteresis)
+                : Mathf.Max(0f, zoomHysteresis);
+            if (Mathf.Abs(desired - targetZoom) > band)
+            {
+                targetZoom = desired;
+            }
+        }
+
+        float damp = targetZoom > currentZoom ? zoomOutDampTime : zoomInDampTime;
+        float speedLimit = maxZoomSpeed > 0f ? maxZoomSpeed : Mathf.Infinity;
+        currentZoom = Mathf.SmoothDamp(
+            currentZoom,
+            targetZoom,
+            ref zoomVelocity,
+            Mathf.Max(0f, damp),
+            speedLimit,
+            Time.deltaTime);
+
+        ApplyZoomToProjection();
+    }
+
+    private void ApplyZoomToProjection()
+    {
+        if (cam == null)
+        {
+            return;
+        }
+
+        currentZoom = SanitizeZoom(currentZoom);
+
+        // Zoom is a pure projection change. Dollying along Z would alter 2.5D layer parallax and
+        // fight the enforced cameraZ / frustum-half-extent contract.
+        float baseHalfAngle = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
+        float zoomedHalfAngle = baseHalfAngle * currentZoom;
+        cam.fieldOfView = Mathf.Clamp(2f * Mathf.Atan(zoomedHalfAngle) * Mathf.Rad2Deg, 0.1f, 179f);
+    }
+
+    private void ResetZoom()
+    {
+        currentZoom = 1f;
+        targetZoom = 1f;
+        zoomVelocity = 0f;
+        ApplyZoomToProjection();
+    }
+
+    private static float SanitizeZoom(float value)
+    {
+        return float.IsFinite(value) && value > 0.0001f ? value : 1f;
+    }
+
+    private static Vector3 FlattenToPlane(Vector3 worldPosition)
+    {
+        return new Vector3(worldPosition.x, worldPosition.y, 0f);
     }
 
     public IReadOnlyList<CameraLockArea> GetRegisteredLockAreasSorted()
@@ -649,8 +1079,7 @@ public sealed class CameraController : MonoBehaviour
         RefreshResolvedMode();
         RefreshTargetMode();
 
-        bool liveTransitionsAllowed = startTimer <= 0f && !positioningOverride && !freezeOverride && !freeOverride;
-        if (liveTransitionsAllowed)
+        if (AreLiveTransitionsAllowed())
         {
             CameraTransitionCause cause;
             CameraLockArea overrideProvider;
@@ -684,6 +1113,30 @@ public sealed class CameraController : MonoBehaviour
         if (startTimer > 0f)
         {
             SnapToTarget();
+        }
+    }
+
+    private bool AreLiveTransitionsAllowed()
+    {
+        return startTimer <= 0f && !positioningOverride && !freezeOverride && !freeOverride;
+    }
+
+    private CameraTransitionSettings ResolvePresentationTransitionSettings(
+        CameraTransitionCause cause,
+        in CameraPresentationSettings settings)
+    {
+        if (settings.overrideBlend)
+        {
+            return cause == CameraTransitionCause.PresentationReleased
+                ? settings.blendOut
+                : settings.blendIn;
+        }
+
+        switch (cause)
+        {
+            case CameraTransitionCause.PresentationReleased: return presentationReleaseTransition;
+            case CameraTransitionCause.PresentationChanged: return presentationChangeTransition;
+            default: return presentationEnterTransition;
         }
     }
 
@@ -775,6 +1228,17 @@ public sealed class CameraController : MonoBehaviour
         Vector3 p = transform.localPosition;
         p.z = cameraZ;
         transform.localPosition = p;
+
+        RefreshBaseHalfHeight();
+        ResetZoom();
+    }
+
+    // World half-height of the authored (zoom = 1) viewport at the gameplay plane. Derived from
+    // the same distance GetFrustumHalfExtents/CameraInfoCache use, so zoom stays consistent with
+    // the legal-region inset math.
+    private void RefreshBaseHalfHeight()
+    {
+        baseHalfHeight = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad) * Mathf.Abs(transform.position.z);
     }
 
     private static bool IsFinite(Vector3 value)
@@ -1035,6 +1499,19 @@ public sealed class CameraController : MonoBehaviour
         lockToLockTransition = config.lockToLockTransition;
         lockToFollowTransition = config.lockToFollowTransition;
         overrideReleasedTransition = config.overrideReleasedTransition;
+        presentationEnterTransition = config.presentationEnterTransition;
+        presentationChangeTransition = config.presentationChangeTransition;
+        presentationReleaseTransition = config.presentationReleaseTransition;
+        presentationPaddingX = config.presentationPaddingX;
+        presentationPaddingY = config.presentationPaddingY;
+        minZoom = config.minZoom;
+        maxZoom = config.maxZoom;
+        zoomOutDampTime = config.zoomOutDampTime;
+        zoomInDampTime = config.zoomInDampTime;
+        maxZoomSpeed = config.maxZoomSpeed;
+        zoomHysteresis = config.zoomHysteresis;
+        zoomContractHysteresis = config.zoomContractHysteresis;
+        presentationCentreDampTime = config.presentationCentreDampTime;
     }
 
     public void SetMode(CameraMode mode)
@@ -1054,4 +1531,110 @@ public sealed class CameraController : MonoBehaviour
         float y = Mathf.Clamp(position.y, rect.yMin, rect.yMax);
         return Vector2.Distance(position, new Vector2(x, y));
     }
+
+#if UNITY_EDITOR
+    // Selected-only so the Scene view is not permanently cluttered. Everything drawn here is
+    // read from already-resolved runtime state; nothing is recomputed or mutated.
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawPresentationGizmos || !Application.isPlaying || !presentationFraming.IsActive)
+        {
+            return;
+        }
+
+        const float z = 0f;
+        Bounds framed = presentationFraming.FramedBounds;
+        Vector2 padding = presentationFraming.Padding;
+
+        Gizmos.color = new Color(1f, 0.35f, 0.85f, 0.95f);
+        DrawWireRect(
+            new Rect(framed.min.x, framed.min.y, Mathf.Max(0f, framed.size.x), Mathf.Max(0f, framed.size.y)),
+            z);
+
+        Gizmos.color = new Color(1f, 0.35f, 0.85f, 0.4f);
+        DrawWireRect(
+            new Rect(
+                framed.min.x - padding.x,
+                framed.min.y - padding.y,
+                Mathf.Max(0f, framed.size.x) + padding.x * 2f,
+                Mathf.Max(0f, framed.size.y) + padding.y * 2f),
+            z);
+
+        Vector3 desiredCentre = new Vector3(presentationFraming.DesiredCentre.x, presentationFraming.DesiredCentre.y, z);
+        Gizmos.color = new Color(1f, 0.85f, 0.2f, 1f);
+        Gizmos.DrawWireSphere(desiredCentre, 0.35f);
+
+        CameraLegalRegion region = GetLegalRegion();
+        if (region.XConstrained && region.YConstrained)
+        {
+            Gizmos.color = new Color(0.2f, 0.9f, 1f, 0.95f);
+            DrawWireRect(
+                new Rect(region.MinX, region.MinY, region.MaxX - region.MinX, region.MaxY - region.MinY),
+                z);
+        }
+
+        // Requested viewport (at the clamped desired zoom) versus the rendered one, so an
+        // authored request that is being limited by min/max zoom is visible at a glance.
+        float requestedHalfH = baseHalfHeight * presentationFraming.ClampedZoom;
+        float aspect = cam != null && cam.aspect > Mathf.Epsilon ? cam.aspect : 16f / 9f;
+        Gizmos.color = new Color(0.4f, 1f, 0.5f, 0.8f);
+        DrawWireRect(CentredRect(desiredCentre, requestedHalfH * aspect, requestedHalfH), z);
+
+        GetFrustumHalfExtents(out float renderedHalfW, out float renderedHalfH);
+        Vector3 rendered = transform.position;
+        Gizmos.color = new Color(1f, 1f, 1f, 0.7f);
+        DrawWireRect(CentredRect(rendered, renderedHalfW, renderedHalfH), z);
+
+        string targets = presentationFraming.ValidTargetCount > 0
+            ? BuildTargetLabel()
+            : "(no valid targets)";
+        UnityEditor.Handles.Label(
+            desiredCentre + Vector3.up * (framed.extents.y + padding.y + 0.6f),
+            $"Presentation #{presentationFraming.RequestId} {presentationFraming.Mode} P{presentationPriority}"
+            + $"\nsource '{presentationSourceLabel}' | weight {presentationFraming.Weight:0.##}"
+            + $"\nzoom desired {presentationFraming.DesiredZoom:0.###} -> clamped {presentationFraming.ClampedZoom:0.###}"
+            + $" (limits {presentationFraming.MinZoom:0.##}..{presentationFraming.MaxZoom:0.##}"
+            + $"{(presentationFraming.ZoomClamped ? ", CLAMPED" : "")}) | current {currentZoom:0.###}"
+            + $"\ncentre{(presentationFraming.CentreClamped ? " CLAMPED by legal region" : "")}"
+            + $"\ntargets: {targets}");
+    }
+
+    private string BuildTargetLabel()
+    {
+        System.Text.StringBuilder builder = new System.Text.StringBuilder();
+        for (int i = 0; i < presentationTargets.Count; i++)
+        {
+            if (presentationTargets[i] == null)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(presentationTargets[i].name);
+        }
+
+        return builder.Length > 0 ? builder.ToString() : "(none)";
+    }
+
+    private static Rect CentredRect(Vector3 centre, float halfWidth, float halfHeight)
+    {
+        return new Rect(centre.x - halfWidth, centre.y - halfHeight, halfWidth * 2f, halfHeight * 2f);
+    }
+
+    private static void DrawWireRect(Rect rect, float z)
+    {
+        Vector3 bl = new Vector3(rect.xMin, rect.yMin, z);
+        Vector3 br = new Vector3(rect.xMax, rect.yMin, z);
+        Vector3 tr = new Vector3(rect.xMax, rect.yMax, z);
+        Vector3 tl = new Vector3(rect.xMin, rect.yMax, z);
+        Gizmos.DrawLine(bl, br);
+        Gizmos.DrawLine(br, tr);
+        Gizmos.DrawLine(tr, tl);
+        Gizmos.DrawLine(tl, bl);
+    }
+#endif
 }

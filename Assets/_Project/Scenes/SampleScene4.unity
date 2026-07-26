@@ -627,6 +627,74 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!1 &375472133
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 375472136}
+  - component: {fileID: 375472135}
+  - component: {fileID: 375472134}
+  m_Layer: 0
+  m_Name: CameraPresentation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!320 &375472134
+PlayableDirector:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375472133}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_PlayableAsset: {fileID: 11400000, guid: c13b0c77dfe49224e8694dab9fe0a269, type: 2}
+  m_InitialState: 0
+  m_WrapMode: 2
+  m_DirectorUpdateMode: 1
+  m_InitialTime: 0
+  m_SceneBindings:
+  - key: {fileID: -6982500616890946064, guid: c13b0c77dfe49224e8694dab9fe0a269, type: 2}
+    value: {fileID: 375472135}
+  m_ExposedReferences:
+    m_References:
+    - UndeadExecutionerIntroCamera_BossFocus: {fileID: 1704661821}
+--- !u!114 &375472135
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375472133}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4ec6f23d9952f14b89635295d39136a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraPresentationReceiver
+  lifetime: 0
+  basePriority: 0
+  director: {fileID: 375472134}
+--- !u!4 &375472136
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375472133}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 438741113}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -764,6 +832,7 @@ GameObject:
   m_Component:
   - component: {fileID: 438741113}
   - component: {fileID: 438741112}
+  - component: {fileID: 438741114}
   m_Layer: 0
   m_Name: UndeadExecutionerEncounter
   m_TagString: Untagged
@@ -817,8 +886,164 @@ Transform:
   - {fileID: 1632402035}
   - {fileID: 801052316}
   - {fileID: 1704661820}
+  - {fileID: 375472136}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &438741114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438741111}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 576d987ba71365544b0242a7973f48af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BossEncounterCameraPresenter
+  encounter: {fileID: 438741112}
+  phaseSource: {fileID: 1704661822}
+  bossFocus: {fileID: 1704661821}
+  rewardFocus: {fileID: 801052316}
+  requireBossFocus: 1
+  requireRewardFocus: 1
+  introDirector: {fileID: 375472134}
+  introPriority: 30
+  introSettings:
+    mode: 0
+    worldPoint: {x: 0, y: 0}
+    framingOffset: {x: 0, y: 1}
+    paddingX: 0
+    paddingY: 0
+    autoZoom: 0
+    authoredZoom: 0.9
+    overrideZoomLimits: 1
+    minZoom: 0.8
+    maxZoom: 1.1
+    overrideBlend: 1
+    blendIn:
+      dampTimeX: 0.25
+      dampTimeY: 0.25
+      blendDuration: 0.5
+      resetVelocity: 0
+      applyImmediate: 0
+    blendOut:
+      dampTimeX: 0.25
+      dampTimeY: 0.25
+      blendDuration: 0.5
+      resetVelocity: 1
+      applyImmediate: 0
+    weight: 1
+  enableCombatFraming: 1
+  combatPriority: 10
+  combatSettings:
+    mode: 2
+    worldPoint: {x: 0, y: 0}
+    framingOffset: {x: 0, y: 0.75}
+    paddingX: 0
+    paddingY: 0.5
+    autoZoom: 1
+    authoredZoom: 1
+    overrideZoomLimits: 1
+    minZoom: 0.85
+    maxZoom: 1.35
+    overrideBlend: 1
+    blendIn:
+      dampTimeX: 0.28
+      dampTimeY: 0.28
+      blendDuration: 0.5
+      resetVelocity: 0
+      applyImmediate: 0
+    blendOut:
+      dampTimeX: 0.28
+      dampTimeY: 0.28
+      blendDuration: 0.5
+      resetVelocity: 1
+      applyImmediate: 0
+    weight: 1
+  enablePhaseFocus: 1
+  phasePriority: 20
+  phaseFocusDuration: 1.4
+  phaseSettings:
+    mode: 0
+    worldPoint: {x: 0, y: 0}
+    framingOffset: {x: 0, y: 1}
+    paddingX: 0
+    paddingY: 0
+    autoZoom: 0
+    authoredZoom: 0.9
+    overrideZoomLimits: 1
+    minZoom: 0.8
+    maxZoom: 1.1
+    overrideBlend: 1
+    blendIn:
+      dampTimeX: 0.22
+      dampTimeY: 0.22
+      blendDuration: 0.4
+      resetVelocity: 0
+      applyImmediate: 0
+    blendOut:
+      dampTimeX: 0.22
+      dampTimeY: 0.22
+      blendDuration: 0.4
+      resetVelocity: 1
+      applyImmediate: 0
+    weight: 1
+  enableDefeatFocus: 1
+  defeatPriority: 40
+  defeatSettings:
+    mode: 0
+    worldPoint: {x: 0, y: 0}
+    framingOffset: {x: 0, y: 0.5}
+    paddingX: 0
+    paddingY: 0
+    autoZoom: 0
+    authoredZoom: 0.88
+    overrideZoomLimits: 1
+    minZoom: 0.8
+    maxZoom: 1.1
+    overrideBlend: 1
+    blendIn:
+      dampTimeX: 0.3
+      dampTimeY: 0.3
+      blendDuration: 0.6
+      resetVelocity: 0
+      applyImmediate: 0
+    blendOut:
+      dampTimeX: 0.3
+      dampTimeY: 0.3
+      blendDuration: 0.6
+      resetVelocity: 1
+      applyImmediate: 0
+    weight: 1
+  enableRewardReveal: 1
+  rewardPriority: 40
+  rewardRevealDuration: 2.5
+  rewardSettings:
+    mode: 0
+    worldPoint: {x: 0, y: 0}
+    framingOffset: {x: 0, y: 0.5}
+    paddingX: 0
+    paddingY: 0
+    autoZoom: 0
+    authoredZoom: 0.95
+    overrideZoomLimits: 1
+    minZoom: 0.85
+    maxZoom: 1.1
+    overrideBlend: 1
+    blendIn:
+      dampTimeX: 0.3
+      dampTimeY: 0.3
+      blendDuration: 0.6
+      resetVelocity: 0
+      applyImmediate: 0
+    blendOut:
+      dampTimeX: 0.3
+      dampTimeY: 0.3
+      blendDuration: 0.6
+      resetVelocity: 1
+      applyImmediate: 0
+    weight: 1
 --- !u!1 &610605666
 GameObject:
   m_ObjectHideFlags: 0
@@ -2075,6 +2300,19 @@ MonoBehaviour:
   preventLookDown: 0
   overrideLookYMin: 0
   lookYMin: 0
+  useTransitionOverride: 0
+  entryTransitionOverride:
+    dampTimeX: 0.15
+    dampTimeY: 0.15
+    blendDuration: 0.35
+    resetVelocity: 0
+    applyImmediate: 0
+  exitTransitionOverride:
+    dampTimeX: 0.15
+    dampTimeY: 0.15
+    blendDuration: 0.35
+    resetVelocity: 0
+    applyImmediate: 0
 --- !u!61 &1632402034
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -2217,6 +2455,22 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4002888290934699782, guid: 44b115e8817f62d44a335a7a99b76d17, type: 3}
   m_PrefabInstance: {fileID: 1704661818}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &1704661821 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 704418072961723806, guid: 44b115e8817f62d44a335a7a99b76d17, type: 3}
+  m_PrefabInstance: {fileID: 1704661818}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1704661822 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3777092751607595277, guid: 44b115e8817f62d44a335a7a99b76d17, type: 3}
+  m_PrefabInstance: {fileID: 1704661818}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da373fd9afcf94f4f9b8df8dd8478731, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UndeadExecutionerBehaviour
 --- !u!1 &1744242348
 GameObject:
   m_ObjectHideFlags: 0

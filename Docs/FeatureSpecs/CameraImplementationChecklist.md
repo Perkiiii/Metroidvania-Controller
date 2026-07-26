@@ -3,6 +3,10 @@
 > **Historical / superseded:** This checklist records the pre–Camera Phase 1 implementation.
 > `Docs/FeatureSpecs/Camera.md` is the current contract. In particular, target-side lock clamping
 > and the global freeze operation described below were superseded on 2026-07-25.
+>
+> Camera Phases 1–3 are all implemented. The deferred TODOs at the bottom of this file that Phase 3
+> resolved (focus/pan requests, automatic zoom, multi-target framing, Timeline) are recorded in the
+> "Presentation Requests (Camera Phase 3)" section of `Camera.md`; do not treat them as open here.
 
 ## Guide Mapping
 

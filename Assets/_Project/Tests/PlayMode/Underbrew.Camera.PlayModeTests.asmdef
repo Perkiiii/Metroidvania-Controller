@@ -1,7 +1,9 @@
 {
   "name": "Underbrew.Camera.PlayModeTests",
   "rootNamespace": "",
-  "references": [],
+  "references": [
+    "Unity.Timeline"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

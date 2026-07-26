@@ -16,7 +16,9 @@ uniqueness, stronger barrier/spirit validation, and Editor-owned defeated-record
 The Phase 2A fight has one coordinated participant, two boss-owned attacks, one local phase
 transition, Animancer presentation, a non-targetable spirit-pressure helper, and retained-root
 death presentation. It uses a neutral visual-only `RewardRoot`; no progression reward has been
-selected. Music overrides, Timeline, final VFX/SFX, and validated feel tuning remain deferred.
+selected. Camera Phase 3 (2026-07-26) added an optional scene-side camera presentation adapter and
+a Timeline-driven intro for this slice — see "Camera presentation adapter" below. Music overrides,
+final VFX/SFX, and validated feel tuning remain deferred.
 
 All numeric boss values are provisional first-pass tuning. Mushroom derivation, `SampleScene3`,
 Double Jump, and any other progression-critical reward are not part of this implementation.
@@ -162,7 +164,50 @@ keep the full-reconstruction path available.
 ## Camera and HUD
 
 The encounter remains only a source for a normal scene-authored `CameraLockArea`; concrete boss
-behaviours have no camera dependency. Enabling the inactive arena lock performs an immediate
+behaviours have no camera dependency.
+
+### Camera presentation adapter (Camera Phase 3)
+
+`BossEncounterCameraPresenter` is an optional scene-side component and the **only** place that knows
+both a specific encounter and the camera. `BossEncounterController` and `UndeadExecutionerBehaviour`
+gained no camera knowledge, and the camera system gained no boss knowledge; they meet through
+neutral events and generic camera presentation requests carrying only `Transform`s and authored data.
+
+Two small neutral seams were added for it:
+
+- `BossEncounterController.EncounterInterrupted` — raised from hero death, failed start, and
+  disable/unload interruption. It is presentation-only and grants no lifecycle, persistence, or
+  retry authority; the retry contract above is unchanged.
+- `IBossPresentationPhaseSource` (`PresentationPhaseChanged`, `CurrentPresentationPhase`),
+  implemented by `UndeadExecutionerBehaviour`. It advances when the *visible* phase beat begins
+  (`BeginPhaseTransition`, i.e. the summon animation), which is deliberately distinct from the
+  gameplay `IsPhaseTwo` flag. Phase thresholds and phase logic are unchanged and remain actor-owned.
+
+Flow, all through scene-local requests that the arena `CameraLockArea` still clamps:
+
+| Encounter event | Presentation |
+|---|---|
+| `EncounterStarting` | Plays the assigned intro `PlayableDirector` if present (Timeline then owns the request), otherwise acquires a boss focus itself |
+| `EncounterActivated` | Releases the intro, acquires dynamic hero + boss `FrameTargets` framing with automatic zoom |
+| `PresentationPhaseChanged` | Acquires a short, self-expiring higher-priority boss focus; on expiry selection falls back to the still-registered combat framing |
+| `BossesDefeated` | Releases the phase focus, acquires a boss defeat focus, releases combat framing |
+| `EncounterCompleted` | Releases everything, then acquires a self-expiring reward focus (explicit `rewardFocus`, else the encounter's reward root) |
+| `EncounterInterrupted` | Stops the intro director and releases every handle |
+| `OnDisable` / `OnDestroy` | Releases every handle |
+
+The presenter never commits persistence, never touches reward ownership or collection, never changes
+barriers, control locks, HUD, or the arena lock, and never blocks participant defeat-completion
+signalling. Scene unload prunes its scene-lifetime requests independently.
+
+`SampleScene4` authoring: `UndeadExecutionerEncounter` carries the presenter (boss focus =
+`ActorRoot`, reward focus = `RewardRoot_NeutralPlaceholder`, phase source = `UndeadExecutionerBehaviour`),
+and its child `CameraPresentation` carries the intro `PlayableDirector`
+(`Assets/_Project/Timelines/UndeadExecutionerIntroCamera.playable`) plus a `CameraPresentationReceiver`
+bound to the timeline's `CameraPresentationTrack`.
+
+`Tools/Project/Validate Camera Phase 3` covers presenter/receiver/Timeline authoring for this slice.
+Camera feel for the intro, combat zoom, phase focus, death focus, and reward reveal has **not** been
+reviewed by a human; see the manual checklist in `Docs/FeatureSpecs/Camera.md`. Enabling the inactive arena lock performs an immediate
 ordinary overlap refresh, and the encounter's explicit `CameraEventService.RaiseLockEntered`
 remains safe because duplicate entry is idempotent and does not refresh entry order. Cleanup
 releases only that area registration and disables the area; unrelated locks, bounds, free mode,
@@ -210,6 +255,8 @@ calls `SaveManager.Save()`.
 - Final boss name/content approval beyond the asset-facing `Undead Executioner` identity.
 - Validated tuning, final art integration, VFX, SFX, and reward content.
 - Hands-on pogo, collision/platforming, attack-readability, and fight-duration validation.
-- Timeline, which may be presentation-only.
+- Hands-on review of the Camera Phase 3 boss presentation (intro, combat zoom, phase focus, death
+  focus, reward reveal). The arena-lock/room sizing decision currently limits it to zoom rather than
+  pans — see `Docs/FeatureSpecs/Camera.md`.
 - Boss-music override and room-music restoration, pending a separate audio-ownership decision.
 - Refights, statues, sequences, tiers, bindings, no-hit records, achievements, and a boss catalogue.

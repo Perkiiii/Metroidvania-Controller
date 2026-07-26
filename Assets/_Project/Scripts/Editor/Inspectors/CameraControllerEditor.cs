@@ -90,6 +90,70 @@ public sealed class CameraControllerEditor : Editor
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Freeze Requests", EditorStyles.miniBoldLabel);
             DrawFreezeState();
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Presentation (Camera Phase 3)", EditorStyles.miniBoldLabel);
+            DrawPresentationState(controller);
+        }
+    }
+
+    private static void DrawPresentationState(CameraController controller)
+    {
+        EditorGUILayout.LabelField("Selected Request", controller.HasPresentationRequest
+            ? $"#{controller.PresentationRequestId} (P{controller.PresentationPriority})"
+            : "(none — underlying framing)");
+
+        if (controller.HasPresentationRequest)
+        {
+            CameraPresentationSettings settings = controller.PresentationSettings;
+            EditorGUILayout.LabelField("Mode", settings.mode.ToString());
+            EditorGUILayout.LabelField("Owning Source", controller.PresentationSourceLabel);
+
+            CameraPresentationFraming framing = controller.PresentationFraming;
+            if (framing.IsActive)
+            {
+                EditorGUILayout.LabelField("Valid Targets", framing.ValidTargetCount.ToString());
+                EditorGUILayout.LabelField("Framed Bounds", $"c {framing.FramedBounds.center:0.##} / s {framing.FramedBounds.size:0.##}");
+                EditorGUILayout.LabelField("Padding X / Y", $"{framing.Padding.x:0.##} / {framing.Padding.y:0.##}");
+                EditorGUILayout.LabelField("Desired Centre", framing.DesiredCentre.ToString("0.##"));
+                EditorGUILayout.LabelField("Centre Clamped", framing.CentreClamped.ToString());
+                EditorGUILayout.LabelField(
+                    "Zoom desired / clamped",
+                    $"{framing.DesiredZoom:0.###} / {framing.ClampedZoom:0.###}{(framing.ZoomClamped ? "  (CLAMPED)" : "")}");
+                EditorGUILayout.LabelField("Zoom Limits", $"{framing.MinZoom:0.##} .. {framing.MaxZoom:0.##}");
+                EditorGUILayout.LabelField("Weight", framing.Weight.ToString("0.##"));
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Framing", "(not influencing — scene-start snap or no valid targets)");
+            }
+        }
+
+        EditorGUILayout.LabelField(
+            "Zoom current / target",
+            $"{controller.CurrentZoom:0.###} / {controller.TargetZoom:0.###} (base half-height {controller.BaseViewportHalfHeight:0.##})");
+        EditorGUILayout.LabelField("Underlying Destination", controller.UnderlyingDestination.ToString("0.##"));
+
+        GameCameras cameras = GameCameras.Instance;
+        if (cameras == null)
+        {
+            EditorGUILayout.LabelField("(no persistent GameCameras instance)");
+            return;
+        }
+
+        IReadOnlyList<CameraPresentationSnapshot> snapshots = cameras.GetPresentationSnapshots();
+        EditorGUILayout.LabelField("Registered Requests", snapshots.Count.ToString());
+        for (int i = 0; i < snapshots.Count; i++)
+        {
+            CameraPresentationSnapshot snapshot = snapshots[i];
+            string duration = snapshot.RemainingSeconds < 0f
+                ? "indefinite"
+                : $"{snapshot.RemainingSeconds:0.##}s left";
+            string marker = snapshot.IsSelected ? " <- selected" : string.Empty;
+            EditorGUILayout.LabelField(
+                $"  #{snapshot.Id} {snapshot.Mode} P{snapshot.Priority} [{snapshot.Lifetime}]{marker}");
+            EditorGUILayout.LabelField(
+                $"      source '{snapshot.SourceLabel}' | {snapshot.ValidTargetCount} target(s): {snapshot.TargetLabel} | {duration} | w {snapshot.Weight:0.##}");
         }
     }
 

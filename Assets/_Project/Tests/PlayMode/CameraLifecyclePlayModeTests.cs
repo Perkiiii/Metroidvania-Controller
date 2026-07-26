@@ -308,6 +308,107 @@ public sealed class CameraLifecyclePlayModeTests
         }
     }
 
+    [UnityTest]
+    public IEnumerator TemporaryHeroChildColliderCycleDoesNotAlterLockOrBoundsRegistration()
+    {
+        Component area = CreateLock("Combat Lock", Vector2.zero, new Vector2(8f, 8f), 1);
+        Component bounds = CreateBounds("Combat Bounds", Vector2.zero, new Vector2(40f, 30f));
+        Physics2D.SyncTransforms();
+        yield return null;
+
+        // Clear the hidden scene-start snap window so lock churn would actually begin a live
+        // transition instead of being masked by the unconditional scene-start snap.
+        SetField(controller, "startTimer", 0f);
+
+        Assert.That(GetProperty(controller, "CurrentLockArea"), Is.SameAs(area));
+        Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1));
+        Assert.That(GetProperty(controller, "CurrentBoundsVolume"), Is.SameAs(bounds));
+        Assert.That(GetProperty(controller, "ActiveBoundsCount"), Is.EqualTo(1));
+
+        // Mirrors the authored SlashSide/SlashUp/SlashDown/clash colliders: an untagged trigger
+        // collider parented under the Player-tagged hero root, disabled until the hit window opens.
+        BoxCollider2D attackCollider = CreateTemporaryHeroChildCollider("Simulated Attack Hitbox");
+
+        attackCollider.enabled = true;
+        Physics2D.SyncTransforms();
+        yield return new WaitForFixedUpdate();
+        yield return null;
+
+        Assert.That(GetProperty(controller, "CurrentLockArea"), Is.SameAs(area),
+            "Enabling a temporary hero-child collider must not change the selected camera lock.");
+        Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1));
+        Assert.That(GetProperty(controller, "CurrentBoundsVolume"), Is.SameAs(bounds));
+        Assert.That(GetProperty(controller, "ActiveBoundsCount"), Is.EqualTo(1));
+        Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False,
+            "Enabling an attack hitbox must not begin a camera transition.");
+
+        attackCollider.enabled = false;
+        Physics2D.SyncTransforms();
+        yield return new WaitForFixedUpdate();
+        yield return null;
+
+        Assert.That(GetProperty(controller, "CurrentLockArea"), Is.SameAs(area),
+            "Disabling a temporary hero-child collider must not drop the selected camera lock.");
+        Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1));
+        Assert.That(GetProperty(controller, "CurrentBoundsVolume"), Is.SameAs(bounds));
+        Assert.That(GetProperty(controller, "ActiveBoundsCount"), Is.EqualTo(1));
+        Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False,
+            "Disabling an attack hitbox must not begin a lock-to-follow camera transition.");
+        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"));
+    }
+
+    [UnityTest]
+    public IEnumerator RepeatedAttackColliderCyclesDoNotAccumulateOrDropRegistrations()
+    {
+        Component area = CreateLock("Repeated Combat Lock", Vector2.zero, new Vector2(8f, 8f), 1);
+        Physics2D.SyncTransforms();
+        yield return null;
+        SetField(controller, "startTimer", 0f);
+        Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1));
+
+        BoxCollider2D damageCollider = CreateTemporaryHeroChildCollider("Simulated Damage Hitbox");
+        BoxCollider2D clashCollider = CreateTemporaryHeroChildCollider("Simulated Clash Hitbox");
+
+        for (int i = 0; i < 3; i++)
+        {
+            damageCollider.enabled = true;
+            clashCollider.enabled = true;
+            Physics2D.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+
+            damageCollider.enabled = false;
+            clashCollider.enabled = false;
+            Physics2D.SyncTransforms();
+            yield return new WaitForFixedUpdate();
+            yield return null;
+
+            Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False,
+                $"Swing {i} must not begin a spurious lock transition when its hitboxes close.");
+            Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1),
+                $"Swing {i} must not leave the lock registry in a transient 0 or 2+ state.");
+        }
+
+        yield return null;
+
+        Assert.That(GetProperty(controller, "CurrentLockArea"), Is.SameAs(area));
+        Assert.That(GetProperty(controller, "ActiveLockCount"), Is.EqualTo(1),
+            "Repeated attack swings must not accumulate duplicate lock registrations, nor drop the real one.");
+        Assert.That((bool)GetProperty(controller, "IsTransitioning"), Is.False);
+        Assert.That(GetProperty(controller, "CurrentTransitionCause").ToString(), Is.EqualTo("None"));
+    }
+
+    private BoxCollider2D CreateTemporaryHeroChildCollider(string name)
+    {
+        GameObject child = new GameObject(name);
+        child.transform.SetParent(hero.transform, false);
+        child.transform.localPosition = Vector3.zero;
+        child.layer = hero.layer;
+        BoxCollider2D collider = child.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.enabled = false;
+        return collider;
+    }
+
     private Component CreateLock(string name, Vector2 position, Vector2 size, int priority)
     {
         GameObject go = new GameObject(name);

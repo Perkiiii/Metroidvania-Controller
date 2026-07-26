@@ -87,9 +87,18 @@ These must happen before any milestone work begins. Both are preconditions for t
   correction; (3) entry motion begins once the fade crosses a small visibility threshold rather than
   under a fully black screen. Verified frame-by-frame through the real Boot path
   (`SampleScene ⇄ SampleScene2`, both directions). (Done 2026-07-25.)
-- [ ] Later camera presentation (Phase 3) — temporary focus/pan, boss presentation requests,
-  Timeline adapter, automatic zoom, and dynamic multi-target framing only when real content
-  proves need.
+- [x] Camera Phase 3 — source-owned presentation requests on `GameCameras` (unique ID, owning
+  source, priority + newest-sequence selection, scene/persistent lifetime, optional duration,
+  idempotent release, destroyed-source/destroyed-target/scene-unload pruning, in-place re-authoring),
+  `FocusTarget`/`FocusWorldPoint`/`FrameTargets` framing, field-of-view automatic zoom with padding,
+  shared and per-request limits, a room-derived zoom cap, asymmetric damping and hysteresis, three
+  new presentation transition causes plus per-request blend overrides and clip-weight blending, a
+  Timeline adapter (`CameraPresentationTrack`/`Clip`/`Behaviour`/`MixerBehaviour`/`Receiver`), the
+  `BossEncounterCameraPresenter` vertical slice in `SampleScene4`, read-only diagnostics, Scene-view
+  gizmos, `Tools/Project/Validate Camera Phase 3`, and EditMode + PlayMode coverage.
+  (Done 2026-07-26. **Human camera-feel review is still outstanding** — see the manual checklist in
+  `Docs/FeatureSpecs/Camera.md`. The `SampleScene4` arena-lock/room sizing decision from Phase 2
+  remains open and currently limits boss presentation to zoom rather than pans.)
 - [ ] Author first test level: platforms, walls, pits, at least two rooms.
 - [x] Implement `TransitionPoint` — wired to `GameManager.BeginSceneTransition`. Includes auto-trigger (edge gates) and door variant (`DoorTransitionInteractable`, `requireInteract` toggle). Uses explicit `GateSide` enum; direction is never inferred from GameObject name. WGE now supplies graph-backed scene / port GUID data, while Underbrew still owns runtime scene loading, hero placement, and respawn flow. Per-gate entry tuning lives on the destination `TransitionPoint` (not `HeroConfig`). `HeroSceneEntry` owns all per-gate scripted motion (Left/Right run-in, Top gravity-driven drop, Bottom diagonal throw, Door stand). Door and auto-trigger activation share `TransitionPoint` validation, and scene-entry placement routes through `HeroMotor` (`TeleportTo` / collider-aware feet placement) rather than direct transform writes. Missing destination gates log an error and place the hero at a deterministic fallback (`RespawnMarker`, then authored position). Editor validation exists at `Tools/Project/Validate Transition Gate Links` for WGE passage GUIDs and Build Settings scene links. **Design decision:** `TransitionPoint` does NOT call `GameManager.SetActiveRespawnMarker` — death after a gate crossing returns the player to the last activated checkpoint. `linkedRespawnMarker` is serialized and auto-populated from a child `RespawnMarker` but is reserved for a future policy pass. See `Docs/Integrations/WorldGraphEditorIntegration.md`.
 - [x] Implement `HazardZone` — supports instant-death and recoverable local hazard recovery modes. (Done)
@@ -227,7 +236,12 @@ validation remain before Phase 2B.
   fight-duration/tuning approval.
 - [ ] Phase 2B polish: tuning, final VFX/SFX/art integration, refined intro/outro, arena
   readability, and reward content after progression approval.
-- [ ] Optional later presentation: Timeline-only presentation hooks and a separately approved music override/restore architecture.
+- [x] Camera presentation hooks (delivered by Camera Phase 3, 2026-07-26): `BossEncounterCameraPresenter`
+  subscribes to the existing lifecycle events plus the new presentation-only
+  `BossEncounterController.EncounterInterrupted` and `IBossPresentationPhaseSource`, and owns the
+  intro/combat/phase/defeat/reward camera requests. No boss attack, tuning, health, persistence, or
+  reward ownership changed.
+- [ ] Music override/restore architecture — still deferred, pending a separate audio-ownership decision.
 
 **Future compatibility note:** Death-drop / shade / resource recovery is not part of this pass. When added, it should capture death scene + death position before `GameManager` loads the checkpoint scene; do not reuse `activeRespawnSceneName` for death-drop location.
 

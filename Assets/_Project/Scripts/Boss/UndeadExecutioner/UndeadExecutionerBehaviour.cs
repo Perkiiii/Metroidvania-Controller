@@ -4,12 +4,13 @@ using UnityEngine;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
-public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour, IBossEncounterBehaviour
+public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour, IBossEncounterBehaviour, IBossPresentationPhaseSource
 {
     private const int ObstructionHitBufferSize = 4;
 
     public event Action IntroCompleted;
     public event Action DefeatPresentationCompleted;
+    public event Action<int> PresentationPhaseChanged;
 
     [Header("Boss Configuration")]
     [SerializeField] private UndeadExecutionerConfig config;
@@ -65,6 +66,10 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
     public UndeadExecutionerState State { get; private set; } = UndeadExecutionerState.Dormant;
     public UndeadExecutionerAttack CurrentAttack { get; private set; }
     public bool IsPhaseTwo => phaseTwo;
+
+    // Presentation-only counter, separate from the gameplay phaseTwo flag: it advances when the
+    // visible phase beat begins, which is the moment worth framing.
+    public int CurrentPresentationPhase { get; private set; } = 1;
     public bool IsPrepared => prepared;
     public float AuthoredHoverY => authoredHoverY;
     public UndeadExecutionerConfig Config => config;
@@ -244,6 +249,7 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
         prepared = foundationInitialized && config != null && motor != null && health != null && animancer != null;
         introSent = false;
         defeatPresentationSent = false;
+        CurrentPresentationPhase = 1;
         phaseTwo = false;
         phaseTransitionPending = false;
         summonEventReceived = false;
@@ -670,6 +676,8 @@ public sealed class UndeadExecutionerBehaviour : MonoBehaviour, IEnemyBehaviour,
         summonEventReceived = false;
         StopHorizontal();
         SetState(UndeadExecutionerState.PhaseTransition);
+        CurrentPresentationPhase = 2;
+        PresentationPhaseChanged?.Invoke(CurrentPresentationPhase);
         PlayOneShot(config.summonClip, CompletePhaseTransition);
     }
 

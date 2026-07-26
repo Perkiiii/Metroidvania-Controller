@@ -459,6 +459,25 @@ Underlying follow/room/lock/offset framing remains live beneath temporary free a
 
 **Camera Phase 2** added a small data-driven transition layer without changing any of the above ownership. Lock/bounds selection remains entirely owned by the Phase 1 registration model; a `CameraTransitionCause` (`SceneStart`/`FollowToLock`/`LockToLock`/`LockToFollow`/`OverrideReleased`) only selects which damp-time values `CameraController.LateUpdate` blends toward and whether `SmoothDamp` velocity resets — it never becomes a second selection or ownership system. `CameraConfig` owns the shared default transition settings per cause; an individual `CameraLockArea` may optionally override its own entry/exit settings. Freeze/free-mode ownership stays handle-based and unchanged — a transition is only ever started or resolved in response to registration/override state that already exists, never the reverse. The read-only diagnostics (`CameraController` transition/legal-region properties, `GameCameras.GetFreezeSnapshots()`, the `CameraControllerEditor` Inspector, and `CameraLockArea`/`CameraBoundsVolume` gizmos) surface existing state for authoring and debugging; none of them mutate scene state, reorder locks, or introduce a second editable source of truth.
 
+**Camera Phase 3** added a source-owned *presentation* layer between underlying framing and the
+temporary free/freeze overrides, again without changing existing ownership. `GameCameras` owns
+presentation registrations using the same registry shape as freeze handles — no new singleton — and
+selects one by highest priority then newest registration sequence. `CameraController` never chooses
+between requests; it resolves the selected one into framing (`FocusTarget`, `FocusWorldPoint`, or
+multi-target `FrameTargets`), zoom, and a legal destination. Locks, bounds, and offset areas keep
+updating beneath an active request, and release resolves toward the current underlying destination,
+never a stale snapshot; scene-entry immediate positioning always wins. Zoom is applied as **field of
+view** (never a Z dolly, which would fight the enforced `cameraZ`/frustum contract and change 2.5D
+parallax) as a multiplier of the authored viewport, clamped by `CameraConfig` limits, optional
+per-request overrides, and a cap derived from the active `CameraBoundsVolume` so a zoom-out can never
+reveal space outside the authored room. A Timeline adapter (`CameraPresentationTrack`/`Clip`/
+`Behaviour`/`MixerBehaviour` plus the scene-side `CameraPresentationReceiver`) requests presentation
+without ever animating the camera transform, owning one handle per track with layered cleanup.
+`BossEncounterCameraPresenter` is the scene-side boss adapter; the camera system stays boss-unaware
+and `BossEncounterController`/`UndeadExecutionerBehaviour` stay camera-unaware, communicating only
+through the existing neutral encounter events plus a new presentation-only
+`BossEncounterController.EncounterInterrupted` and `IBossPresentationPhaseSource`.
+
 For gameplay-room reveal sequencing, `SceneTransitionManager` owns the black/load/reveal order,
 while `GameCameras` owns the narrow readiness result and hidden immediate application. The
 transition freeze may cross the load but cannot defer the scene-start snap or create an

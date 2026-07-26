@@ -80,4 +80,37 @@ public sealed class CameraConfig : ScriptableObject
     public CameraTransitionSettings lockToFollowTransition = CameraTransitionSettings.Live(0.15f, 0.35f, false);
     [Tooltip("The final freeze/free override releases back to the current underlying framing.")]
     public CameraTransitionSettings overrideReleasedTransition = CameraTransitionSettings.Live(0.15f, 0.35f, true);
+
+    [Header("Presentation Transitions (Camera Phase 3)")]
+    [Tooltip("A presentation request becomes the selected one while none was active.")]
+    public CameraTransitionSettings presentationEnterTransition = CameraTransitionSettings.Live(0.22f, 0.45f, false);
+    [Tooltip("The selected presentation request is replaced by a different one.")]
+    public CameraTransitionSettings presentationChangeTransition = CameraTransitionSettings.Live(0.22f, 0.45f, false);
+    [Tooltip("The final presentation request ends and the camera resolves the current underlying framing.")]
+    public CameraTransitionSettings presentationReleaseTransition = CameraTransitionSettings.Live(0.2f, 0.45f, true);
+
+    [Header("Presentation Framing (Camera Phase 3)")]
+    [Tooltip("Default world units kept clear left/right of an automatically framed region.")]
+    public float presentationPaddingX = 3f;
+    [Tooltip("Default world units kept clear above/below an automatically framed region.")]
+    public float presentationPaddingY = 2f;
+
+    [Header("Presentation Zoom (Camera Phase 3)")]
+    [Tooltip("Zoom is a multiplier of the base viewport implied by fieldOfView/cameraZ. 1 = authored framing. "
+        + "Zoom is applied as field of view; the camera is never dollied along Z.")]
+    public float minZoom = 0.85f;
+    [Tooltip("Largest permitted zoom-out multiplier. Must be >= minZoom.")]
+    public float maxZoom = 1.6f;
+    [Tooltip("Damp time used while zooming out (expanding). Kept short so targets stay visible.")]
+    public float zoomOutDampTime = 0.25f;
+    [Tooltip("Damp time used while zooming in (contracting). Kept longer to avoid oscillation.")]
+    public float zoomInDampTime = 0.55f;
+    [Tooltip("Maximum zoom-multiplier change per second. 0 disables the clamp.")]
+    public float maxZoomSpeed = 1.2f;
+    [Tooltip("Desired-zoom changes smaller than this are ignored, preventing pumping when targets jitter.")]
+    public float zoomHysteresis = 0.02f;
+    [Tooltip("Extra dead-band applied only when contracting, so shrinking regions do not chase every frame.")]
+    public float zoomContractHysteresis = 0.06f;
+    [Tooltip("Damp time used for presentation centre movement, blended with the normal transition damp times.")]
+    public float presentationCentreDampTime = 0.25f;
 }

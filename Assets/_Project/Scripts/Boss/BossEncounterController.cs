@@ -9,6 +9,11 @@ public sealed class BossEncounterController : MonoBehaviour
     public event Action BossesDefeated;
     public event Action EncounterCompleted;
 
+    // Raised whenever the encounter leaves the active path without committing completion (hero
+    // death, failed start, disable/unload). Presentation-only subscribers use it to release
+    // encounter-scoped requests; it grants no lifecycle or persistence authority.
+    public event Action EncounterInterrupted;
+
     [Header("Identity and Persistence")]
     [SerializeField] private BossEncounterDefinition definition;
     [SerializeField] private WorldStateRegistry worldStateRegistry;
@@ -399,6 +404,7 @@ public sealed class BossEncounterController : MonoBehaviour
         ReleaseControlLock();
         UnsubscribeHeroDeath();
         UnsubscribeParticipantEvents();
+        EncounterInterrupted?.Invoke();
     }
 
     private void AbortFailedStart()
@@ -416,6 +422,7 @@ public sealed class BossEncounterController : MonoBehaviour
         UnsubscribeHeroDeath();
         State = BossEncounterState.Dormant;
         trigger?.SetAvailable(true);
+        EncounterInterrupted?.Invoke();
     }
 
     private void AcquireControlLock(bool shouldLock)
@@ -504,6 +511,7 @@ public sealed class BossEncounterController : MonoBehaviour
 
         shuttingDown = true;
 
+        bool interrupted = false;
         if (!completionCommitted && State != BossEncounterState.Dormant
             && State != BossEncounterState.Interrupted)
         {
@@ -514,6 +522,7 @@ public sealed class BossEncounterController : MonoBehaviour
             }
 
             SetBarriersOpen(true, true);
+            interrupted = true;
         }
 
         ReleaseControlLock();
@@ -521,5 +530,10 @@ public sealed class BossEncounterController : MonoBehaviour
         BossHudEventService.RequestHide(this);
         UnsubscribeHeroDeath();
         UnsubscribeParticipantEvents();
+
+        if (interrupted)
+        {
+            EncounterInterrupted?.Invoke();
+        }
     }
 }

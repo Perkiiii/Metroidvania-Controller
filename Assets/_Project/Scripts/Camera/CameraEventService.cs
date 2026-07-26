@@ -111,5 +111,18 @@ public static class CameraEventService
             ? GameCameras.Instance.AcquireFreeze(kind, duration, source, lifetime)
             : default;
     }
+    public static CameraPresentationHandle AcquirePresentation(
+        in CameraPresentationSettings settings,
+        Transform[] targets = null,
+        object source = null,
+        CameraRequestLifetime lifetime = CameraRequestLifetime.Scene,
+        int priority = 0,
+        float duration = -1f)
+    {
+        return GameCameras.Instance != null
+            ? GameCameras.Instance.AcquirePresentation(settings, targets, source, lifetime, priority, duration)
+            : default;
+    }
+
     public static void RaiseModeChanged(CameraMode mode) => ModeChanged?.Invoke(mode);
 }

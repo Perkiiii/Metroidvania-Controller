@@ -17,6 +17,19 @@ public sealed class GameCameras : MonoBehaviour
         public bool SuppressFinalReleaseTransition;
     }
 
+    private sealed class PresentationRegistration
+    {
+        public long Id;
+        public object Source;
+        public CameraRequestLifetime Lifetime;
+        public int SourceSceneHandle;
+        public float ExpiresAt;
+        public int Priority;
+        public long Sequence;
+        public CameraPresentationSettings Settings;
+        public Transform[] Targets;
+    }
+
     public static GameCameras Instance { get; private set; }
 
     [SerializeField] private CameraController cameraController;
@@ -35,15 +48,35 @@ public sealed class GameCameras : MonoBehaviour
 
     private Coroutine fadeRoutine;
     private readonly List<FreezeRegistration> freezeRegistrations = new List<FreezeRegistration>();
+    private readonly List<PresentationRegistration> presentationRegistrations = new List<PresentationRegistration>();
     private Collider2D trackedPlayerCollider;
     private long nextFreezeRequestId;
+    private long nextPresentationRequestId;
+    private long nextPresentationSequence;
+    private long selectedPresentationId;
 
     public int ActiveFreezeCount => freezeRegistrations.Count;
+    public int ActivePresentationCount => presentationRegistrations.Count;
+
+    // 0 when no presentation request is currently driving the camera.
+    public long SelectedPresentationId => selectedPresentationId;
     public CameraSceneEntryReadiness LastSceneEntryReadiness { get; private set; }
 
     // Screen-cover alpha of the persistent fade (1 = fully black, 0 = fully clear), or 1 when no
     // fade is assigned so callers gating on visibility default to "still hidden".
     public float FadeAlpha => fade != null ? fade.CurrentAlpha : 1f;
+
+    // The single collider camera volumes recognise as "the player" for overlap purposes. Bound
+    // once per scene entry, not any collider that merely shares the hero's Player tag/hierarchy.
+    public Collider2D TrackedPlayerCollider => trackedPlayerCollider;
+
+    // Camera volumes (lock/bounds/offset areas) must key off this exact collider rather than a
+    // tag/hierarchy check, so a temporary trigger under the hero (e.g. an attack hitbox) enabling
+    // or disabling can never itself cause the volume to register or drop registration.
+    public static bool IsCanonicalPlayerCollider(Collider2D collider)
+    {
+        return collider != null && Instance != null && collider == Instance.trackedPlayerCollider;
+    }
 
     private void Awake()
     {
@@ -91,6 +124,7 @@ public sealed class GameCameras : MonoBehaviour
         SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneUnloaded -= OnSceneUnloaded;
         ClearFreezeRegistrations();
+        ClearPresentationRegistrations();
     }
 
     private void Start()
@@ -112,6 +146,7 @@ public sealed class GameCameras : MonoBehaviour
     private void OnDestroy()
     {
         ClearFreezeRegistrations();
+        ClearPresentationRegistrations();
 
         if (Instance == this)
             Instance = null;
@@ -123,6 +158,7 @@ public sealed class GameCameras : MonoBehaviour
     private void OnSceneInit(Scene scene)
     {
         DisableExternalAudioListeners();
+        ResetPresentationForSceneEntry();
         cameraTarget?.SceneInit();
         cameraController?.SceneInit();
         BindTrackedPlayerCollider();
@@ -132,6 +168,7 @@ public sealed class GameCameras : MonoBehaviour
 
     public void RebindForSceneEntry()
     {
+        ResetPresentationForSceneEntry();
         cameraTarget?.SceneInit();
         cameraController?.SceneInit();
         BindTrackedPlayerCollider();
@@ -139,6 +176,16 @@ public sealed class GameCameras : MonoBehaviour
         ApplyFreezeAggregate();
         cameraTarget?.SnapToHero();
         cameraController?.SnapToTarget();
+    }
+
+    // Scene entry always frames the underlying hero/room/lock destination while the screen is
+    // black. A deliberately persistent presentation request stays registered but is deselected, so
+    // it re-enters through the ordinary PresentationEntered blend after the reveal instead of
+    // silently overriding the hidden immediate positioning.
+    private void ResetPresentationForSceneEntry()
+    {
+        selectedPresentationId = 0L;
+        cameraController?.ClearPresentation();
     }
 
     public IEnumerator RebindAndPositionForSceneEntry(
@@ -279,6 +326,14 @@ public sealed class GameCameras : MonoBehaviour
             registration.Lifetime == CameraRequestLifetime.Scene
             && registration.SourceSceneHandle == scene.handle);
         ApplyFreezeAggregate();
+
+        int removedPresentations = presentationRegistrations.RemoveAll(registration =>
+            registration.Lifetime == CameraRequestLifetime.Scene
+            && registration.SourceSceneHandle == scene.handle);
+        if (removedPresentations > 0)
+        {
+            ApplyPresentationAggregate();
+        }
     }
 
     private void DisableExternalAudioListeners()
@@ -377,20 +432,346 @@ public sealed class GameCameras : MonoBehaviour
 
     private void Update()
     {
-        if (freezeRegistrations.Count == 0)
+        float now = Time.realtimeSinceStartup;
+
+        if (freezeRegistrations.Count > 0)
+        {
+            int removed = freezeRegistrations.RemoveAll(registration =>
+                IsDestroyedUnitySource(registration.Source)
+                || (registration.ExpiresAt > 0f && now >= registration.ExpiresAt));
+
+            if (removed > 0)
+            {
+                ApplyFreezeAggregate();
+            }
+        }
+
+        if (presentationRegistrations.Count > 0)
+        {
+            // Requests are pruned rather than left unresolvable: a destroyed source, an expired
+            // duration, or the loss of every valid target must hand the camera back to the next
+            // best request (or the current underlying framing), never to a stale focus point.
+            int removed = presentationRegistrations.RemoveAll(registration =>
+                IsDestroyedUnitySource(registration.Source)
+                || (registration.ExpiresAt > 0f && now >= registration.ExpiresAt)
+                || !IsResolvable(registration));
+
+            if (removed > 0)
+            {
+                ApplyPresentationAggregate();
+            }
+        }
+
+        // Target transforms move every frame, so the selected request is always re-pushed.
+        RefreshSelectedPresentation();
+    }
+
+    public CameraPresentationHandle AcquirePresentation(
+        in CameraPresentationSettings settings,
+        Transform[] targets,
+        object source,
+        CameraRequestLifetime lifetime = CameraRequestLifetime.Scene,
+        int priority = 0,
+        float duration = -1f)
+    {
+        // A request that cannot resolve a focus is never registered, so it can neither win
+        // selection nor sit in the registry until the next prune.
+        if (settings.RequiresTargets && CountValidTargets(targets) == 0)
+        {
+            return default;
+        }
+
+        if (nextPresentationRequestId == long.MaxValue)
+        {
+            if (presentationRegistrations.Count > 0)
+            {
+                Debug.LogError("[GameCameras] Camera presentation request ID space was exhausted while requests are still active.", this);
+                return default;
+            }
+
+            nextPresentationRequestId = 0L;
+        }
+
+        EnsurePresentationSequenceCapacity();
+
+        long id = ++nextPresentationRequestId;
+        presentationRegistrations.Add(new PresentationRegistration
+        {
+            Id = id,
+            Source = source,
+            Lifetime = lifetime,
+            SourceSceneHandle = ResolveSourceSceneHandle(source),
+            ExpiresAt = duration > 0f ? Time.realtimeSinceStartup + duration : -1f,
+            Priority = priority,
+            Sequence = ++nextPresentationSequence,
+            Settings = settings,
+            Targets = CopyTargets(targets)
+        });
+
+        ApplyPresentationAggregate();
+        return new CameraPresentationHandle(this, id);
+    }
+
+    internal bool UpdatePresentation(
+        long requestId,
+        in CameraPresentationSettings settings,
+        Transform[] targets,
+        bool replaceTargets,
+        int priority,
+        bool applyPriority)
+    {
+        PresentationRegistration registration = FindPresentation(requestId);
+        if (registration == null)
+        {
+            return false;
+        }
+
+        registration.Settings = settings;
+        if (replaceTargets)
+        {
+            registration.Targets = CopyTargets(targets);
+        }
+
+        bool priorityChanged = applyPriority && registration.Priority != priority;
+        if (priorityChanged)
+        {
+            registration.Priority = priority;
+        }
+
+        // Re-authoring never changes registration order, so an in-place update cannot steal or
+        // lose selection against an equal-priority request registered later.
+        if (!IsResolvable(registration))
+        {
+            presentationRegistrations.Remove(registration);
+            ApplyPresentationAggregate();
+            return false;
+        }
+
+        if (priorityChanged)
+        {
+            // Priority participates in selection, so a changed priority has to re-resolve.
+            ApplyPresentationAggregate();
+            return true;
+        }
+
+        if (registration.Id == selectedPresentationId)
+        {
+            PushSelectedPresentation(registration, CameraTransitionCause.None);
+        }
+
+        return true;
+    }
+
+    internal void ReleasePresentation(long requestId)
+    {
+        int removed = presentationRegistrations.RemoveAll(registration => registration.Id == requestId);
+        if (removed > 0)
+        {
+            ApplyPresentationAggregate();
+        }
+    }
+
+    internal bool IsPresentationRegistered(long requestId)
+    {
+        return FindPresentation(requestId) != null;
+    }
+
+    public IReadOnlyList<CameraPresentationSnapshot> GetPresentationSnapshots()
+    {
+        List<CameraPresentationSnapshot> snapshots =
+            new List<CameraPresentationSnapshot>(presentationRegistrations.Count);
+        float now = Time.realtimeSinceStartup;
+
+        for (int i = 0; i < presentationRegistrations.Count; i++)
+        {
+            PresentationRegistration registration = presentationRegistrations[i];
+            float remaining = registration.ExpiresAt > 0f
+                ? Mathf.Max(0f, registration.ExpiresAt - now)
+                : -1f;
+
+            snapshots.Add(new CameraPresentationSnapshot(
+                registration.Id,
+                registration.Priority,
+                registration.Settings.mode,
+                DescribeSource(registration.Source),
+                registration.Lifetime,
+                remaining,
+                CountValidTargets(registration.Targets),
+                DescribeTargets(registration.Targets),
+                registration.Id == selectedPresentationId,
+                registration.Settings.ResolvedWeight));
+        }
+
+        return snapshots;
+    }
+
+    private PresentationRegistration FindPresentation(long requestId)
+    {
+        for (int i = 0; i < presentationRegistrations.Count; i++)
+        {
+            if (presentationRegistrations[i].Id == requestId)
+            {
+                return presentationRegistrations[i];
+            }
+        }
+
+        return null;
+    }
+
+    private PresentationRegistration GetSelectedPresentation()
+    {
+        PresentationRegistration best = null;
+        for (int i = 0; i < presentationRegistrations.Count; i++)
+        {
+            PresentationRegistration candidate = presentationRegistrations[i];
+            if (best == null
+                || candidate.Priority > best.Priority
+                || (candidate.Priority == best.Priority && candidate.Sequence > best.Sequence))
+            {
+                best = candidate;
+            }
+        }
+
+        return best;
+    }
+
+    private void ApplyPresentationAggregate()
+    {
+        PresentationRegistration selected = GetSelectedPresentation();
+        long previousId = selectedPresentationId;
+
+        if (selected == null)
+        {
+            selectedPresentationId = 0L;
+            if (previousId != 0L)
+            {
+                cameraController?.ClearPresentation();
+            }
+
+            return;
+        }
+
+        selectedPresentationId = selected.Id;
+        CameraTransitionCause cause = previousId == 0L
+            ? CameraTransitionCause.PresentationEntered
+            : previousId == selected.Id
+                ? CameraTransitionCause.None
+                : CameraTransitionCause.PresentationChanged;
+
+        PushSelectedPresentation(selected, cause);
+    }
+
+    private void RefreshSelectedPresentation()
+    {
+        if (selectedPresentationId == 0L)
         {
             return;
         }
 
-        float now = Time.realtimeSinceStartup;
-        int removed = freezeRegistrations.RemoveAll(registration =>
-            IsDestroyedUnitySource(registration.Source)
-            || (registration.ExpiresAt > 0f && now >= registration.ExpiresAt));
-
-        if (removed > 0)
+        PresentationRegistration selected = FindPresentation(selectedPresentationId);
+        if (selected == null)
         {
-            ApplyFreezeAggregate();
+            ApplyPresentationAggregate();
+            return;
         }
+
+        PushSelectedPresentation(selected, CameraTransitionCause.None);
+    }
+
+    private void PushSelectedPresentation(PresentationRegistration registration, CameraTransitionCause cause)
+    {
+        cameraController?.ApplyPresentation(
+            registration.Id,
+            registration.Priority,
+            registration.Settings,
+            registration.Targets,
+            DescribeSource(registration.Source),
+            cause);
+    }
+
+    private void ClearPresentationRegistrations()
+    {
+        presentationRegistrations.Clear();
+        selectedPresentationId = 0L;
+        cameraController?.ClearPresentation();
+    }
+
+    private void EnsurePresentationSequenceCapacity()
+    {
+        if (nextPresentationSequence < long.MaxValue)
+        {
+            return;
+        }
+
+        presentationRegistrations.Sort((a, b) => a.Sequence.CompareTo(b.Sequence));
+        for (int i = 0; i < presentationRegistrations.Count; i++)
+        {
+            presentationRegistrations[i].Sequence = i + 1L;
+        }
+
+        nextPresentationSequence = presentationRegistrations.Count;
+    }
+
+    private static Transform[] CopyTargets(Transform[] targets)
+    {
+        if (targets == null || targets.Length == 0)
+        {
+            return System.Array.Empty<Transform>();
+        }
+
+        Transform[] copy = new Transform[targets.Length];
+        System.Array.Copy(targets, copy, targets.Length);
+        return copy;
+    }
+
+    private static bool IsResolvable(PresentationRegistration registration)
+    {
+        return !registration.Settings.RequiresTargets || CountValidTargets(registration.Targets) > 0;
+    }
+
+    private static int CountValidTargets(Transform[] targets)
+    {
+        if (targets == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        for (int i = 0; i < targets.Length; i++)
+        {
+            if (targets[i] != null)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static string DescribeTargets(Transform[] targets)
+    {
+        if (targets == null || targets.Length == 0)
+        {
+            return "(none)";
+        }
+
+        System.Text.StringBuilder builder = new System.Text.StringBuilder();
+        for (int i = 0; i < targets.Length; i++)
+        {
+            if (targets[i] == null)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(targets[i].name);
+        }
+
+        return builder.Length > 0 ? builder.ToString() : "(all destroyed)";
     }
 
     public CameraRequestHandle AcquireFreeze(
@@ -519,6 +900,12 @@ public sealed class GameCameras : MonoBehaviour
         }
     }
 
+    // The canonical player collider is the Collider2D attached directly to the Player-tagged hero
+    // root GameObject -- never a child hurtbox (Herobox) or a temporary child hitbox (attack
+    // modules) -- so identity is a single deterministic lookup rather than a hierarchy traversal
+    // that could resolve to whichever child collider GetComponentInChildren happens to visit
+    // first. A hero root without its own collider has no canonical identity; camera volumes stay
+    // unregistered until one is authored there rather than guessing a child collider.
     private void BindTrackedPlayerCollider()
     {
         trackedPlayerCollider = null;
@@ -531,7 +918,9 @@ public sealed class GameCameras : MonoBehaviour
         trackedPlayerCollider = hero.GetComponent<Collider2D>();
         if (trackedPlayerCollider == null)
         {
-            trackedPlayerCollider = hero.GetComponentInChildren<Collider2D>();
+            Debug.LogWarning(
+                $"[GameCameras] Player-tagged hero '{hero.name}' has no Collider2D on its root GameObject. Camera volumes will not recognise this hero until one is added there.",
+                this);
         }
     }
 
@@ -595,6 +984,7 @@ public sealed class GameCameras : MonoBehaviour
         // Synchronising here lets the existing idempotent overlap registries resolve bounds and
         // ordinary locks in the same hidden frame, so no arbitrary FixedUpdate delay is needed.
         Physics2D.SyncTransforms();
+        ResetPresentationForSceneEntry();
         cameraTarget.SceneInit(false);
         cameraController.SceneInit();
         BindTrackedPlayerCollider();
