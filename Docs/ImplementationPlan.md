@@ -23,7 +23,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | HUD presentation foundation implemented; menus not started |
+| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) implemented and automated-tested; interactive manual validation pending; Package A2/B not started |
 | Audio system | Partial |
 
 ---
@@ -40,9 +40,12 @@ contracts now live in:
 - `Docs/FeatureSpecs/HUD.md`
 - `Docs/FeatureSpecs/Abilities.md`
 
-No Package A or Package B menu implementation described below has been performed or validated.
-The implemented persistent HUD foundation is retained as an existing dependency, not counted as new
-menu work.
+Package A1 (root Pause menu, persistent MenuRoot/input foundation, Sandbox) has been implemented and
+covered by automated EditMode tests plus a passing `UIFoundationValidator` pass — see the Package A1
+entry below for exact scope and what remains unvalidated (PlayMode automated confirmation and all
+interactive manual checks). Package A2 and Package B have not been performed or validated. The
+implemented persistent HUD foundation is retained as an existing dependency, not counted as new menu
+work.
 
 ### Documentation/design contract
 
@@ -89,20 +92,48 @@ this documentation update.
 
 #### Package A1 — UI foundation
 
-**Status: Planned.**
+**Status: Implemented and automated-tested; interactive manual validation not yet performed.**
 
-- [ ] Development-only UI Sandbox and shared reusable UI prefabs.
-- [ ] Persistent `MenuRoot` composition.
-- [ ] One project-owned `EventSystem` and `InputSystemUIInputModule`.
-- [ ] Approved dedicated Pause and Gameplay Menu actions and root-input ownership.
-- [ ] Full transition blocking plus an initial 1.0-second unscaled post-transition lockout.
-- [ ] Immediate rejection of blocked requests; no queued or pending root opens.
-- [ ] Independent Pause/Gameplay Menu release rearming.
-- [ ] Hero command-input suspension through `HeroController`.
-- [ ] `HeroInputReader` sampling/fallback gating, buffer clearing, held-command tracking, and
-  fresh-press resume behavior; continuous movement remains exempt from release gating.
-- [ ] Root Pause menu: Continue, Options route, and confirmed Quit-to-Main-Menu confirmation modal.
-- [ ] Focus, navigation, lifecycle, transition, time-scale, leakage, and validation coverage.
+- [x] Development-only UI Sandbox (`Assets/_Project/Scenes/Development/UISandbox.unity`, excluded
+  from Build Settings) and shared reusable UI prefabs (`Assets/_Project/Prefabs/UI/PauseMenuScreen.prefab`,
+  `ConfirmationModal.prefab`, reusing the existing `HealthSlotView.prefab`). Sandbox uses isolated
+  runtime `PlayerHealthState`/`PlayerResourceState` instances and fixture `EnemyHealthComponent`
+  sources for boss HUD preview; no production save/manager access.
+- [x] Persistent `MenuRoot` composition under `_GameCameras.prefab` (`EventSystem` +
+  `InputSystemUIInputModule`, `RootInterfaceLayer`, `ModalLayer`, `UIFlowController`).
+- [x] One project-owned `EventSystem` and `InputSystemUIInputModule`, wired to the existing `UI`
+  action map.
+- [x] Approved dedicated `System` action map (`Pause`, `GameplayMenu`) added to
+  `InputSystem_Actions.inputactions`; `UIFlowController` is its sole owner/enabler.
+- [x] Full transition blocking plus an initial 1.0-second unscaled post-transition lockout
+  (`UIFlowController.UpdateTransitionLockout`, observing the falling edge of
+  `GameManager.IsSceneTransitioning` while `State == Playing`).
+- [x] Immediate rejection of blocked requests; no queued or pending root opens (edge-triggered
+  `WasPressedThisFrame` polling — a request is either accepted this frame or discarded).
+- [x] Independent Pause/Gameplay Menu release rearming (structural: each action's press-edge is
+  independent of the other; verified by input-leakage tests).
+- [x] Hero command-input suspension through `HeroController` (`SuspendGameplayInput`,
+  `ClearTransientGameplayInput`, `BeginGameplayInputResume` forwarding facade).
+- [x] `HeroInputReader` sampling suspension, buffer clearing, per-command held-state tracking, and
+  fresh-press resume behavior for Jump/Attack/Dash/Sprint/Interact/Bind; continuous movement
+  (`MoveVector`) exempt from release gating and resumes live.
+- [x] Root Pause menu: functional Continue, authored-but-gated Options (non-interactable in
+  production; Sandbox can preview it enabled), and Quit-to-Main-Menu confirmation modal with a
+  development-gated typed request seam (`PauseMenuScreen.QuitToMainMenuRequested`) — no save, no
+  scene load, no frontend.
+- [x] Automated coverage: `UIFlowControllerTests` (EditMode, 14/14 passing) for root
+  exclusivity/pause-exactly-once/modal-back-order/first-selection/transition-lockout/rejection
+  cases; `HeroInputSuspensionPlayModeTests` (PlayMode) for the full input-leakage matrix — written
+  and compiling, but automated execution could not be confirmed via Unity MCP's TestRunnerApi in
+  this session (PlayMode/domain-reload/test-mode-filter interaction issues — see completion
+  report); recommend running via the Editor's Test Runner window (PlayMode tab) to confirm.
+  `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed: single persistent
+  EventSystem, no competing gameplay-scene EventSystem, Sandbox build exclusion and
+  production-asset isolation, semantic Canvas sorting (HUD < Root < Modal), hidden-panel raycast
+  safety.
+- [ ] Interactive manual validation (keyboard/controller/mouse Pause+Gameplay Menu open/close,
+  held-input-through-transition, real room-transition timing, Sandbox visual/aspect-ratio review)
+  not performed this session — no interactive Play Mode input control was available via Unity MCP.
 
 ### Package A2 — Gameplay Menu and Gear
 

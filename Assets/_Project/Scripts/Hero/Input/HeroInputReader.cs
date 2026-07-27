@@ -19,6 +19,20 @@ public sealed class HeroInputReader : MonoBehaviour
     private float attackBufferTimer;
     private bool jumpReleaseQueued;
 
+    // Package A1 gameplay-input suspension. Suspending freezes Tick() sampling entirely (so
+    // buffers created at Time.timeScale == 0 cannot linger — see Docs/ImplementationPlan.md
+    // "Known Technical Debt"). Resuming rearms fresh-press-only commands independently: a
+    // command still physically held at the moment of resume stays disarmed until it is released,
+    // then accepts a later fresh press. Continuous movement is exempt and always reflects live
+    // input immediately.
+    private bool suspended;
+    private bool jumpDisarmed;
+    private bool attackDisarmed;
+    private bool dashDisarmed;
+    private bool sprintDisarmed;
+    private bool interactDisarmed;
+    private bool bindDisarmed;
+
     public Vector2 MoveVector { get; private set; }
     public bool JumpPressedThisFrame { get; private set; }
     public bool JumpHeld { get; private set; }
@@ -33,6 +47,7 @@ public sealed class HeroInputReader : MonoBehaviour
     public bool BindReleasedThisFrame { get; private set; }
     public bool HasBufferedJump => jumpBufferTimer > 0f;
     public bool HasBufferedAttack => attackBufferTimer > 0f;
+    public bool IsSuspended => suspended;
 
     public void Initialize(HeroConfig heroConfig)
     {
@@ -64,21 +79,53 @@ public sealed class HeroInputReader : MonoBehaviour
 
     public void Tick()
     {
-        JumpPressedThisFrame = ReadPressedThisFrame(GetAction(jumpAction, "Jump"));
-        if (ReadReleasedThisFrame(GetAction(jumpAction, "Jump")))
+        if (suspended)
         {
-            jumpReleaseQueued = true;
+            // Fully frozen while a pausing UI root owns input. ClearTransientInput() already
+            // zeroed every output; do not resample or let buffers decay/accumulate here — this
+            // is what prevents a buffer created at Time.timeScale == 0 from lingering forever.
+            return;
         }
 
-        JumpHeld = ReadHeld(GetAction(jumpAction, "Jump"));
-        AttackPressedThisFrame = ReadPressedThisFrame(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackPressed();
-        AttackHeld = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
-        DashPressedThisFrame = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
-        SprintHeld = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
-        InteractPressedThisFrame = ReadPressedThisFrame(GetAction(interactAction, "Interact"), false);
-        BindPressedThisFrame = ReadPressedThisFrame(GetAction(bindAction, "Bind"), false);
-        BindHeld = ReadHeld(GetAction(bindAction, "Bind"), false);
+        bool jumpPressedRaw = ReadPressedThisFrame(GetAction(jumpAction, "Jump"));
+        bool jumpReleasedRaw = ReadReleasedThisFrame(GetAction(jumpAction, "Jump"));
+        bool jumpHeldRaw = ReadHeld(GetAction(jumpAction, "Jump"));
+        if (jumpDisarmed && !jumpHeldRaw) jumpDisarmed = false;
+        JumpPressedThisFrame = !jumpDisarmed && jumpPressedRaw;
+        if (jumpReleasedRaw) jumpReleaseQueued = true;
+        JumpHeld = jumpHeldRaw;
+
+        bool attackPressedRaw = ReadPressedThisFrame(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackPressed();
+        bool attackHeldRaw = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
+        if (attackDisarmed && !attackHeldRaw) attackDisarmed = false;
+        AttackPressedThisFrame = !attackDisarmed && attackPressedRaw;
+        AttackHeld = attackHeldRaw;
+
+        bool dashPressedRaw = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
+        bool dashHeldRaw = ReadHeld(GetAction(dashAction, "Dash"), false);
+        if (dashDisarmed && !dashHeldRaw) dashDisarmed = false;
+        DashPressedThisFrame = !dashDisarmed && dashPressedRaw;
+
+        bool sprintHeldRaw = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
+        if (sprintDisarmed && !sprintHeldRaw) sprintDisarmed = false;
+        // Sprint has no discrete "start" signal — SprintHeld is its only gameplay entry point —
+        // so unlike Jump/Attack/Dash it must itself be suppressed while disarmed.
+        SprintHeld = !sprintDisarmed && sprintHeldRaw;
+
+        bool interactPressedRaw = ReadPressedThisFrame(GetAction(interactAction, "Interact"), false);
+        bool interactHeldRaw = ReadHeld(GetAction(interactAction, "Interact"), false);
+        if (interactDisarmed && !interactHeldRaw) interactDisarmed = false;
+        InteractPressedThisFrame = !interactDisarmed && interactPressedRaw;
+
+        bool bindPressedRaw = ReadPressedThisFrame(GetAction(bindAction, "Bind"), false);
+        bool bindHeldRaw = ReadHeld(GetAction(bindAction, "Bind"), false);
+        if (bindDisarmed && !bindHeldRaw) bindDisarmed = false;
+        BindPressedThisFrame = !bindDisarmed && bindPressedRaw;
+        BindHeld = bindHeldRaw;
         BindReleasedThisFrame = ReadReleasedThisFrame(GetAction(bindAction, "Bind"), false);
+
+        // Continuous movement is exempt from disarm/rearm gating — it may resume immediately
+        // without requiring the stick/keys to pass through neutral.
         MoveVector = ReadMove();
 
         if (JumpPressedThisFrame)
@@ -115,6 +162,60 @@ public sealed class HeroInputReader : MonoBehaviour
     public void ConsumeJumpRelease()
     {
         jumpReleaseQueued = false;
+    }
+
+    /// <summary>
+    /// Disables Player-map sampling and clears every transient snapshot/buffer. Called only by
+    /// the persistent UI-flow coordinator through the thin <see cref="HeroController"/> facade —
+    /// never directly by gameplay code.
+    /// </summary>
+    public void SuspendGameplayInput()
+    {
+        if (suspended) return;
+        suspended = true;
+        SetActionsEnabled(false);
+        ClearTransientInput();
+    }
+
+    /// <summary>
+    /// Zeroes every buffered/transient/pressed-this-frame signal. Safe to call independently of
+    /// suspension (e.g. during teardown) — does not touch the suspended flag or action enablement.
+    /// </summary>
+    public void ClearTransientInput()
+    {
+        jumpBufferTimer = 0f;
+        attackBufferTimer = 0f;
+        jumpReleaseQueued = false;
+        MoveVector = Vector2.zero;
+        JumpPressedThisFrame = false;
+        JumpHeld = false;
+        AttackPressedThisFrame = false;
+        AttackHeld = false;
+        DashPressedThisFrame = false;
+        SprintHeld = false;
+        InteractPressedThisFrame = false;
+        BindPressedThisFrame = false;
+        BindHeld = false;
+        BindReleasedThisFrame = false;
+    }
+
+    /// <summary>
+    /// Re-enables Player-map sampling and snapshots which one-shot commands are still physically
+    /// held right now — those remain disarmed (ignored) until released, then accept a later fresh
+    /// press. Continuous movement is exempt and resumes live on the next <see cref="Tick"/>.
+    /// </summary>
+    public void BeginResumeGameplayInput()
+    {
+        SetActionsEnabled(true);
+
+        jumpDisarmed = ReadHeld(GetAction(jumpAction, "Jump"));
+        attackDisarmed = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
+        dashDisarmed = ReadHeld(GetAction(dashAction, "Dash"), false);
+        sprintDisarmed = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
+        interactDisarmed = ReadHeld(GetAction(interactAction, "Interact"), false);
+        bindDisarmed = ReadHeld(GetAction(bindAction, "Bind"), false);
+
+        suspended = false;
     }
 
     private Vector2 ReadMove()

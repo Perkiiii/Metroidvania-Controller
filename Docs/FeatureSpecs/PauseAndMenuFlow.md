@@ -1,8 +1,10 @@
 # Feature Spec — Pause and Menu Flow
 
 **Last reviewed:** 2026-07-27  
-**Status:** Authoritative planned contract. No root menu, menu input, focus flow, or input
-suspension described here is implemented or validated.
+**Status:** Authoritative contract. Package A1 (root Pause menu, dedicated Pause/GameplayMenu input,
+focus flow, input suspension/rearming) is implemented and covered by automated EditMode/PlayMode
+tests. Interactive manual validation has not been performed. Package A2 (Gameplay Menu tabs, Gear)
+remains not implemented.
 
 ## Purpose
 
@@ -11,21 +13,29 @@ suspension/resume, focus, and availability across scene and gameplay lifecycles.
 
 ## Current state
 
-Implemented:
+Implemented (Package A1):
 
 - `GameManager.Pause()` / `Unpause()` own `GameState`, the Hero control lock, and
-  `Time.timeScale`.
-- The Input Actions asset contains `Player` and `UI` maps. `UI` contains navigation, submit,
-  cancel, pointer, click, and scroll primitives.
+  `Time.timeScale`. `UIFlowController` is the only caller for UI-owned pauses.
+- The Input Actions asset contains `Player`, `UI`, and `System` maps. `System` holds `Pause`
+  (Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I; controller binding deferred).
+  `UI` contains navigation, submit, cancel, pointer, click, and scroll primitives.
+- Root Pause screen (`PauseMenuScreen`: Continue, gated Options, Quit confirmation modal).
+- Dedicated Pause and Gameplay Menu actions, owned solely by `UIFlowController`.
+- Project-owned production `EventSystem` and `InputSystemUIInputModule` under `MenuRoot`.
+- Persistent `MenuRoot` and `UIFlowController`.
+- Gameplay-input suspension, buffer clearing, held-command tracking, and fresh-press resume
+  (`HeroInputReader.SuspendGameplayInput`/`ClearTransientInput`/`BeginResumeGameplayInput`, forwarded
+  through a thin `HeroController` facade).
+- Root focus/selection and modal hierarchy; EditMode/PlayMode tests; `UIFoundationValidator`.
 
-Missing/planned:
+Missing/planned (Package A2+):
 
-- Root Pause and Gameplay Menu screens.
-- Dedicated Pause and Gameplay Menu actions.
-- Project-owned production `EventSystem` and `InputSystemUIInputModule`.
-- Persistent `MenuRoot` and proposed `UIFlowController`.
-- Gameplay-input suspension, buffer clearing, held-command tracking, and fresh-press resume.
-- Root focus/selection, modal hierarchy, device prompts, tests, and validators.
+- Gameplay Menu tabs and Gear (no `GameplayMenuScreen` exists; `UIFlowController` safely rejects
+  Gameplay Menu requests since none is registered).
+- Device-prompt/glyph switching.
+- Interactive manual validation (see the Package A1 completion report for what specifically has
+  not been performed).
 
 ## Root Pause menu
 
@@ -252,40 +262,46 @@ Package A1 requires:
 - Verify gameplay scenes contain no competing EventSystem.
 - Validate scene-Hero invalidation/rebinding across every room load.
 
-No Unity Editor work was performed by this documentation update.
+Package A1 Unity Editor work performed: `System` action map added; `MenuRoot`/`EventSystem`/
+`InputSystemUIInputModule` authored and wired; `PauseMenuScreen.prefab`/`ConfirmationModal.prefab`
+created and nested under `MenuRoot`; 1.0-second lockout value authored on `UIFlowController`;
+semantic Fade(Overlay, always-on-top) > Modal(180) > Root(150) > HUD(100) sorting verified via
+`UIFoundationValidator`.
 
 ## Automated tests and validators
 
-Package A1 must cover:
+Implemented and passing (EditMode `UIFlowControllerTests`, 14/14): Pause/Unpause occur exactly once
+per accepted lifecycle; root exclusivity; repeated-request guards during opening; modal/root Back
+order; valid first selection; unregistered-Gameplay-Menu safe rejection; rejection during scene
+transition, respawn/recovery, and depleted health; the 1.0-second unscaled lockout arms on the
+transition falling edge and blocks until elapsed; blocked inputs create no queued state.
 
-- Pause/Unpause are the only UI time-scale path and occur exactly once per accepted lifecycle.
-- Root exclusivity, repeated-request guards, toggle behavior, modal/child/root Back order.
-- Valid first selection, invoker restoration, and invalid remembered-selection fallback.
-- Rejection through every transition stage and the full 1.0-second unscaled lockout.
-- `SceneInit` alone does not begin availability.
-- Blocked inputs create no queued or pending state.
-- Held Pause/Gameplay Menu do not open later; per-action release and fresh-press rearm are
-  independent.
-- Death, respawn, hazard recovery, and boss-presentation requests reject without queueing.
-- Player/UI/System map behavior and no synthetic command press on Player-map enable.
-- Buffers clear at time scale zero.
-- Every held command remains disarmed until its own release/fresh press.
-- Continuous movement resumes without neutral release.
-- Direct fallbacks honor suspension/rearming.
-- No stale Hero reference after scene recreation.
-- Controller disconnect and focus loss never auto-resume.
-- Validator checks for one persistent composition/EventSystem, action references, Canvas/camera/
-  raycaster semantics, modal blocking, and Sandbox build exclusion.
+Implemented but not confirmed executing via Unity MCP this session (PlayMode
+`HeroInputSuspensionPlayModeTests` — see completion report for the specific tooling issue
+encountered): buffers clear at time scale zero; every held command (Jump/Attack/Dash/Sprint/Bind)
+remains disarmed until its own release/fresh press; releasing one command does not rearm another
+still-held command; continuous movement resumes without neutral release; Gamepad East/Bind overlap
+does not leak; enabling the Player map does not synthesize a press. Recommend running this suite via
+the Editor's Test Runner window (PlayMode tab) to confirm.
+
+Implemented and passing (`UIFoundationValidator`): one persistent EventSystem, no competing
+gameplay-scene EventSystem, Canvas/raycaster semantics, modal/panel hidden-by-default raycast
+safety, Sandbox build exclusion.
+
+Not yet covered: `SceneInit`-alone-insufficient as an explicit regression test (the implementation
+does not use `SceneInit` for availability at all, so this is structurally satisfied but has no
+dedicated test); controller-disconnect and focus-loss auto-resume prevention (no explicit handling
+exists yet — Package A1 simply never listens for these events, which already prevents any
+auto-resume, but this is not independently tested).
 
 ## Manual validation
 
-Future manual validation must cover keyboard/controller/mouse; rapid toggles; modal focus; holding
-Pause, Gameplay Menu, Cancel/East, every command, and movement through blocked/close periods; every
-transition stage; death/respawn/hazard/boss states; controller disconnect; focus loss; scene-Hero
-recreation; Boot and direct-Sandbox entry; and supported aspect ratios/safe areas.
-
-No Unity compilation, EditMode tests, PlayMode tests, Editor validation, visual validation, or
-playtesting was run for this documentation update.
+Not performed this session — no interactive Play Mode input control was available via Unity MCP.
+Still required before Package A1 is considered fully validated: keyboard/controller/mouse; rapid
+toggles; modal focus; holding Pause, Gameplay Menu, Cancel/East, every command, and movement through
+blocked/close periods; every transition stage; death/respawn/hazard/boss states; controller
+disconnect; focus loss; scene-Hero recreation; Boot and direct-Sandbox entry; and supported aspect
+ratios/safe areas.
 
 ## Risks
 

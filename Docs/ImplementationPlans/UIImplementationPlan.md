@@ -3,9 +3,22 @@
 **Status:** Proposal for review. This document is not authoritative architecture and does not
 change the contracts in `Docs/Architecture.md`, `Docs/ImplementationPlan.md`, or any FeatureSpec.
 
-**Repository audit date:** 2026-07-27  
-**Unity version inspected:** 6000.3.10f1  
+**Repository audit date:** 2026-07-27
+**Unity version inspected:** 6000.3.10f1
 **Implementation status:** No UI implementation described here has been performed or validated.
+
+## Authoritative-decision note
+
+The authoritative FeatureSpecs supersede unresolved product questions retained from earlier
+proposal drafting.
+
+In particular, a true new game begins with all eight permanent abilities locked. Dash and Wall
+Cling are progression unlocks and are not starting Gear. Any earlier proposal wording that treats
+their starting ownership as unresolved is superseded by:
+
+- `Docs/FeatureSpecs/Abilities.md`
+- `Docs/FeatureSpecs/Gear.md`
+- `Docs/ImplementationPlan.md`
 
 ## Confirmed product direction
 
@@ -1310,7 +1323,9 @@ queues and keeps all root restrictions.
    successful `IsSceneTransitioning` falling edge while state is Playing is the narrowest current
    candidate.
 4. Whether the initial 1.0-second value changes after Underbrew playtesting.
-5. Whether starting Dash/WallCling appear as physical Gear possessions.
+5. Final physical Gear identities and presentation for Dash and Wall Cling after acquisition.
+   Their starting ownership is resolved: both begin locked and neither appears before its
+   progression unlock.
 6. Final Gear presentation: dynamic authored groups, authored collection, or list fallback.
 7. Underbrew names, artwork, categories, and flavor text, especially Double Jump’s physical item.
 8. Exact Pause, Gameplay Menu (provisionally I on keyboard), previous-tab, and next-tab bindings;

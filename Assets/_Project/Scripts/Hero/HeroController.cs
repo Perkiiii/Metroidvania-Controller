@@ -145,6 +145,22 @@ public class HeroController : MonoBehaviour
     public bool IsRecoiling => blackboard != null && blackboard.recoiling;
     public bool IsControlLocked => blackboard != null && (blackboard.controlLocked || blackboard.inputBlocked);
 
+    // Thin forwarding facade for the persistent UI-flow coordinator (see
+    // Docs/FeatureSpecs/PauseAndMenuFlow.md). HeroController does not implement input-reset
+    // logic itself — HeroInputReader owns sampling, buffer clearing, fallback gating,
+    // held-command tracking, and fresh-press rearming. UI never reaches into HeroInputReader
+    // directly.
+    public void SuspendGameplayInput() => inputReader?.SuspendGameplayInput();
+
+    public void ClearTransientGameplayInput()
+    {
+        inputReader?.ClearTransientInput();
+        actions?.CancelAttack();
+        actions?.CancelBind();
+    }
+
+    public void BeginGameplayInputResume() => inputReader?.BeginResumeGameplayInput();
+
     public void ResetAfterRespawn()
     {
         health.RestoreAfterDeath();

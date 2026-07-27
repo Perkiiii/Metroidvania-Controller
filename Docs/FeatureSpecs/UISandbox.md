@@ -1,8 +1,11 @@
 # Feature Spec — UI Sandbox
 
 **Last reviewed:** 2026-07-27  
-**Status:** Authoritative planned development workflow. The Sandbox scene, controller, fixtures,
-and validators are not implemented.
+**Status:** Implemented (Package A1). `Assets/_Project/Scenes/Development/UISandbox.unity`,
+`UISandboxController`, HUD/Pause/modal fixtures, and `UIFoundationValidator`'s Sandbox checks exist
+and pass. Deferred-system fixtures (Gear, Map, notifications, etc.) remain out of scope per the
+exclusions below. Interactive manual review (aspect ratios, safe-area guides, device navigation) has
+not been performed.
 
 ## Purpose
 
@@ -189,31 +192,35 @@ Gear slice after the new-game-ability-default prerequisite is corrected for vali
 - Add aspect-ratio and safe-area preview controls.
 - Add clear visual labeling for fixture-only/non-functional content.
 
-No Unity Editor work was performed by this documentation update.
+Package A1 Unity Editor work performed: created `UISandbox.unity` (camera, local `EventSystem`/
+`InputSystemUIInputModule`, HUD preview using `HealthDisplay`/`ResourceDisplay`/`BossHealthDisplay`
+with isolated state, nested `PauseMenuScreen.prefab`/`ConfirmationModal.prefab` instances, fixture
+control panel, aspect-frame/safe-area guide RectTransforms); created two Sandbox-only
+`BossEncounterDefinition` fixture assets under `Assets/_Project/ScriptableObjects/Sandbox/`; left
+the scene out of Build Settings.
 
 ## Automated validation
 
-Planned checks:
+Implemented and passing (`UIFoundationValidator`, `Tools/Project/Validate UI Foundation`):
 
 - Sandbox scene is excluded from Build Settings.
-- No fixture references production `PlayerHealthState`, `PlayerResourceState`, or
-  `PlayerAbilityState` assets.
-- No production manager or save-file access is present.
-- No second production `PersistentHudRoot` is instantiated.
-- Fixture-only tabs cannot be enabled in production configuration.
-- Shared prefabs remain the same assets used by production composition where intended.
-- True-new-game fixture explicitly locks all eight abilities and yields zero Gear entries.
-- Missing-definition fixture reports the intended development diagnostic.
+- No `HealthDisplay`/`ResourceDisplay` component in the Sandbox scene references a production
+  `PlayerHealthState`/`PlayerResourceState` asset path.
+- No second production `PersistentHudRoot` is instantiated in the Sandbox scene.
+- `UISandboxController` is present.
+
+Not yet covered by the validator (Package A2+ scope, since Gear/Map/notification fixtures do not
+exist yet): fixture-only-tab production-enable prevention, true-new-game Gear fixture lock/empty
+check, missing-definition diagnostic.
 
 ## Manual validation
 
-Future manual review covers every named fixture; keyboard/controller/mouse; switching devices;
-focus retention; modal raycast blocking; Gear empty-to-first-item behavior; shared-prefab changes;
-safe-area guides; 16:9, 16:10, 21:9, and 4:3; direct scene entry; domain reload; and confirmation
-that production state/save files are unchanged.
-
-No Unity compilation, EditMode tests, PlayMode tests, Editor validation, visual validation, or
-playtesting was run for this documentation update.
+Not performed this session — no interactive Play Mode/Editor Play control was available via Unity
+MCP. Still required: exercising every fixture button (health/resource/boss presets, Pause/modal
+open-close, Options/Quit-seam toggles, aspect-ratio buttons); keyboard/controller/mouse navigation;
+focus retention; modal raycast blocking; safe-area guide visual check across 16:9, 16:10, 21:9, and
+4:3; direct scene entry without Boot; and confirmation that production save files/state assets are
+unchanged after a Sandbox session.
 
 ## Risks
 

@@ -1,8 +1,12 @@
 # Feature Spec — UI Architecture
 
 **Last reviewed:** 2026-07-27  
-**Status:** Authoritative planned architecture. Existing HUD/fade elements are identified
-separately; no Package A menu implementation has been performed or validated.
+**Status:** Authoritative architecture. Package A1 (persistent `MenuRoot`, `UIFlowController`, root
+Pause menu, Sandbox) is implemented and covered by automated EditMode tests plus a passing
+`UIFoundationValidator` pass. Package A2 (Gameplay Menu, Gear) and Package B (functional Options)
+have not been performed or validated. Interactive manual validation (keyboard/controller/mouse,
+real room transitions, held-input timing) has not been performed — see
+`Docs/ImplementationPlan.md` Package A1 entry for exact scope.
 
 ## Purpose
 
@@ -53,17 +57,20 @@ presentation boundaries. Specialized behavior belongs in:
 | HUD camera | Implemented | Dedicated URP Overlay `HUDCamera` |
 | Transition fade | Implemented | `FadeCanvas`, transition-owned |
 | Pause authority | Implemented seam | `GameManager.Pause()` / `Unpause()` |
-| UI navigation actions | Partially implemented | Existing `UI` Input Action map |
-| Root Pause menu | Missing/planned | Package A1 |
+| UI navigation actions | Implemented | Existing `UI` Input Action map, wired to `InputSystemUIInputModule` |
+| Root Pause menu | Implemented (Package A1) | `PauseMenuScreen` + `ConfirmationModal` under `MenuRoot`; Options authored but production-gated non-functional; Quit is a development-gated typed request seam only |
 | Gameplay Menu / Gear | Missing/planned | Package A2 |
-| Persistent MenuRoot/EventSystem | Missing/planned | Package A1 |
+| Persistent MenuRoot/EventSystem | Implemented (Package A1) | `_GameCameras.prefab` → `MenuRoot` (`EventSystem`, `InputSystemUIInputModule`, `UIFlowController`, `RootInterfaceLayer`, `ModalLayer`) |
 | Notifications | Deferred | Future `NotificationRoot` or equivalent |
 | Quick Map / Full Map | Deferred | Future Map system plus menu integration |
 | Frontend | Missing/deferred | Future scene-local frontend |
 
-The current Input Actions asset has `Player` and `UI` maps but no dedicated Pause, Gameplay Menu, or
-Map actions. No project-owned production menu `EventSystem`, `InputSystemUIInputModule`,
-`UIFlowController`, `MenuRoot`, Gear view, or UI Sandbox currently exists.
+The Input Actions asset now has `Player`, `UI`, and `System` maps. `System` contains `Pause`
+(Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I; controller binding deferred).
+`UIFlowController` is the System map's sole persistent owner; the scene Hero never enables/disables
+it. A project-owned production menu `EventSystem`/`InputSystemUIInputModule`/`UIFlowController`/
+`MenuRoot` and a UI Sandbox now exist (Package A1). Gear/Gameplay Menu views do not exist yet
+(Package A2).
 
 ## Planned persistent composition
 
@@ -84,9 +91,11 @@ without changing those subscriptions.
 
 ### MenuRoot
 
-`MenuRoot` is planned as a persistent sibling, not a child of `HUDRoot`. Proposed contents include a
-focused `UIFlowController`, one project-owned EventSystem/input module, root-screen presentation,
-and a modal layer. Exact component and prefab names remain proposed until implementation.
+`MenuRoot` is implemented (Package A1) as a persistent sibling under `_GameCameras.prefab`, not a
+child of `HUDRoot`. It contains `UIFlowController`, one project-owned `EventSystem`/
+`InputSystemUIInputModule`, a `RootInterfaceLayer` (nested `PauseMenuScreen` prefab instance), and a
+`ModalLayer` (nested `ConfirmationModal` prefab instance). `GameplayMenuScreen` does not exist yet;
+`UIFlowController.gameplayMenuRootBehaviour` is intentionally left unassigned until Package A2.
 
 ### ModalLayer
 
@@ -309,24 +318,31 @@ navigation, modal raycast blocking, 1.0-second lockout tuning, and cross-scene H
 validation. Package A2 adds Gear catalogue/definition references, layout, details, empty state, and
 tab registrations.
 
-No Unity Editor work was performed by this documentation update.
+Package A1 Unity Editor authoring performed: `System` map added to `InputSystem_Actions.inputactions`;
+`MenuRoot`/`EventSystem`/`InputSystemUIInputModule`/`UIFlowController` authored under
+`_GameCameras.prefab`; shared `PauseMenuScreen.prefab`/`ConfirmationModal.prefab` created and nested;
+`UISandbox.unity` authored and confirmed excluded from Build Settings.
 
 ## Automated validation
 
-Planned coverage includes duplicate-root/EventSystem detection; root exclusivity; pause acquisition
-and release exactly once; Back hierarchy; focus fallback; transition and lockout rejection; no
-queued requests; independent root-action rearming; buffer clearing and per-command fresh-press
-resume; continuous movement exception; stale-Hero prevention; tab filtering; Gear visibility and
-selection; Canvas/camera/raycaster semantics; Sandbox isolation/build exclusion; and future stable-ID
-Map validation.
+Implemented (Package A1): `UIFlowControllerTests` (EditMode, 14/14 passing) covering root
+exclusivity, pause acquisition/release exactly once, repeated-callback guards, modal/root Back
+order, first selection, unregistered-Gameplay-Menu safe rejection, transition/lockout rejection, and
+no queued requests. `HeroInputSuspensionPlayModeTests` (PlayMode) covering the full input-leakage
+matrix — written and compiling, but not confirmed executing via Unity MCP's TestRunnerApi in this
+session (see the Package A1 completion report); run via the Editor Test Runner's PlayMode tab to
+confirm. `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed: single persistent
+EventSystem, no competing gameplay-scene EventSystem, Sandbox build exclusion and production-asset
+isolation, Canvas/raycaster semantics, hidden-panel raycast safety. Tab filtering, Gear
+visibility/selection, and future stable-ID Map validation remain Package A2+ work.
 
 ## Manual validation
 
-Planned validation covers keyboard/controller/mouse, device switching, rapid and held root inputs,
-held command inputs through close, movement through resume, every transition stage, death/respawn/
-hazard/boss restrictions, modal selection restoration, scene-Hero recreation, Boot-driven entry,
-common aspect ratios, and safe areas. No Unity compilation, automated tests, Editor validation,
-visual validation, or playtesting was run for this documentation update.
+Not performed this session — no interactive Play Mode input control was available via Unity MCP.
+Planned validation still covers keyboard/controller/mouse, device switching, rapid and held root
+inputs, held command inputs through close, movement through resume, every transition stage,
+death/respawn/hazard/boss restrictions, modal selection restoration, scene-Hero recreation,
+Boot-driven entry, common aspect ratios, and safe areas.
 
 ## Risks
 
