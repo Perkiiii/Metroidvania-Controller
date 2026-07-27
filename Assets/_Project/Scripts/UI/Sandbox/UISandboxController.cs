@@ -23,6 +23,7 @@ public sealed class UISandboxController : MonoBehaviour
     [Header("Menu presentation")]
     [SerializeField] private PauseMenuScreen pauseMenuScreen;
     [SerializeField] private EventSystem sandboxEventSystem;
+    [SerializeField] private SandboxOptionsPreviewPanel optionsPreviewPanel;
 
     [Header("Aspect / safe-area preview")]
     [SerializeField] private RectTransform aspectFrame;
@@ -53,6 +54,7 @@ public sealed class UISandboxController : MonoBehaviour
     private PlayerHealthState sandboxHealthState;
     private PlayerResourceState sandboxResourceState;
     private readonly List<GameObject> bossFixtureSources = new List<GameObject>();
+    private readonly List<EnemyConfig> bossFixtureConfigs = new List<EnemyConfig>();
 
     private void Awake()
     {
@@ -85,6 +87,9 @@ public sealed class UISandboxController : MonoBehaviour
         if (optionsPreviewToggle != null) optionsPreviewToggle.onValueChanged.AddListener(SetOptionsPreviewEnabled);
         if (quitSeamToggle != null) quitSeamToggle.onValueChanged.AddListener(SetQuitRequestSeamEnabled);
 
+        if (pauseMenuScreen != null) pauseMenuScreen.OptionsRequested += HandleOptionsRequested;
+        if (optionsPreviewPanel != null) optionsPreviewPanel.CloseRequested += HandleOptionsPreviewClosed;
+
         ApplyHealthFixture_Full();
         ApplyResourceFixture_Partial();
     }
@@ -99,6 +104,19 @@ public sealed class UISandboxController : MonoBehaviour
         HideBossFixture();
         if (sandboxHealthState != null) Destroy(sandboxHealthState);
         if (sandboxResourceState != null) Destroy(sandboxResourceState);
+
+        if (pauseMenuScreen != null) pauseMenuScreen.OptionsRequested -= HandleOptionsRequested;
+        if (optionsPreviewPanel != null) optionsPreviewPanel.CloseRequested -= HandleOptionsPreviewClosed;
+    }
+
+    private void HandleOptionsRequested()
+    {
+        optionsPreviewPanel?.Open();
+    }
+
+    private void HandleOptionsPreviewClosed()
+    {
+        pauseMenuScreen?.RestoreOptionsSelection();
     }
 
     // -------------------------------------------------------------------------
@@ -121,6 +139,7 @@ public sealed class UISandboxController : MonoBehaviour
     public void ApplyHealthFixture_Bonus()
     {
         sandboxHealthState.SetMaximumHealth(5, restoreToFull: true);
+        sandboxHealthState.ClearBonusHealth();
         sandboxHealthState.GrantBonusHealth(2);
     }
 
@@ -156,6 +175,7 @@ public sealed class UISandboxController : MonoBehaviour
     public void ApplyResourceFixture_Full()
     {
         sandboxResourceState.SetMaximumParts(10);
+        sandboxResourceState.Clear();
         sandboxResourceState.Gain(10);
     }
 
@@ -196,6 +216,14 @@ public sealed class UISandboxController : MonoBehaviour
             if (bossFixtureSources[i] != null) Destroy(bossFixtureSources[i]);
         }
         bossFixtureSources.Clear();
+
+        // Runtime-created EnemyConfig ScriptableObjects are Sandbox-only fixture data, never a
+        // production asset — they must not leak past the fixture that created them.
+        for (int i = 0; i < bossFixtureConfigs.Count; i++)
+        {
+            if (bossFixtureConfigs[i] != null) Destroy(bossFixtureConfigs[i]);
+        }
+        bossFixtureConfigs.Clear();
     }
 
     private EnemyHealthComponent CreateBossFixtureSource(int currentHealth, int maxHealth)
@@ -219,6 +247,7 @@ public sealed class UISandboxController : MonoBehaviour
         }
 
         bossFixtureSources.Add(go);
+        bossFixtureConfigs.Add(config);
         return health;
     }
 

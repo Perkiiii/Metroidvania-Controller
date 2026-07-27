@@ -25,6 +25,7 @@ public sealed class HeroInputSuspensionPlayModeTests
 
     private Keyboard keyboard;
     private Gamepad gamepad;
+    private Mouse mouse;
     private ScriptableObject config;
     private GameObject readerObject;
     private Component reader;
@@ -66,6 +67,7 @@ public sealed class HeroInputSuspensionPlayModeTests
     {
         keyboard = InputSystem.AddDevice<Keyboard>();
         gamepad = InputSystem.AddDevice<Gamepad>();
+        mouse = InputSystem.AddDevice<Mouse>();
 
         Type configType = GameType("HeroConfig");
         config = ScriptableObject.CreateInstance(configType);
@@ -85,6 +87,7 @@ public sealed class HeroInputSuspensionPlayModeTests
         UnityEngine.Object.Destroy(config);
         if (keyboard != null) InputSystem.RemoveDevice(keyboard);
         if (gamepad != null) InputSystem.RemoveDevice(gamepad);
+        if (mouse != null) InputSystem.RemoveDevice(mouse);
         yield return null;
     }
 
@@ -103,6 +106,18 @@ public sealed class HeroInputSuspensionPlayModeTests
     private static IEnumerator ReleaseAllKeys(Keyboard kb)
     {
         InputSystem.QueueStateEvent(kb, new KeyboardState());
+        yield return null;
+    }
+
+    private static IEnumerator PressMouseLeft(Mouse m)
+    {
+        InputSystem.QueueStateEvent(m, new MouseState().WithButton(MouseButton.Left));
+        yield return null;
+    }
+
+    private static IEnumerator ReleaseMouse(Mouse m)
+    {
+        InputSystem.QueueStateEvent(m, new MouseState());
         yield return null;
     }
 
@@ -308,5 +323,122 @@ public sealed class HeroInputSuspensionPlayModeTests
         Assert.That(B("HasBufferedJump"), Is.False, "Re-enabling the Player map must not itself create a buffer.");
 
         yield return ReleaseAllKeys(keyboard);
+    }
+
+    [UnityTest]
+    public IEnumerator RightControlDashFallbackHeldThroughResumeIsDisarmedUntilReleasedThenFreshPressWorks()
+    {
+        // Right Control is a direct-fallback-only physical control (not bound in the Dash Input
+        // Action itself, unlike Left Control/X) — this is exactly the leak Finding #7 fixed:
+        // dashDisarmed must consult the fallback held-state too, not only the action's own state.
+        yield return PressKey(keyboard, Key.RightCtrl);
+        Invoke(reader, "Tick");
+        Invoke(reader, "SuspendGameplayInput");
+        Invoke(reader, "BeginResumeGameplayInput");
+
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.False, "Right Control held through resume must not synthesize a fresh Dash.");
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.False, "Releasing Right Control alone must not itself trigger a Dash.");
+
+        yield return PressKey(keyboard, Key.RightCtrl);
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.True, "A later fresh Right Control press must Dash normally.");
+
+        yield return ReleaseAllKeys(keyboard);
+    }
+
+    [UnityTest]
+    public IEnumerator XKeyDashHeldThroughResumeIsDisarmedWithNoDoubleTriggerFromActionAndFallback()
+    {
+        // X is covered by both the real Dash Input Action binding and the fallback path — confirm
+        // the two paths compose via OR without the disarm/rearm cycle behaving any differently.
+        yield return PressKey(keyboard, Key.X);
+        Invoke(reader, "Tick");
+        Invoke(reader, "SuspendGameplayInput");
+        Invoke(reader, "BeginResumeGameplayInput");
+
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.False, "X held through resume must not synthesize a fresh Dash.");
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.False);
+
+        yield return PressKey(keyboard, Key.X);
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.True, "A later fresh X press must Dash exactly once, not double-trigger.");
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(B("DashPressedThisFrame"), Is.False, "The press-edge must not remain latched into a following tick.");
+    }
+
+    [UnityTest]
+    public IEnumerator InteractHeldThroughResumeIsDisarmedUntilReleasedThenFreshPressWorks()
+    {
+        yield return PressKey(keyboard, Key.E);
+        Invoke(reader, "Tick");
+        Invoke(reader, "SuspendGameplayInput");
+        Invoke(reader, "BeginResumeGameplayInput");
+
+        Invoke(reader, "Tick");
+        Assert.That(B("InteractPressedThisFrame"), Is.False, "Interact held through resume must not synthesize a fresh press.");
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(B("InteractPressedThisFrame"), Is.False);
+
+        yield return PressKey(keyboard, Key.E);
+        Invoke(reader, "Tick");
+        Assert.That(B("InteractPressedThisFrame"), Is.True, "A later fresh Interact press must work normally.");
+
+        yield return ReleaseAllKeys(keyboard);
+    }
+
+    [UnityTest]
+    public IEnumerator AttackJKeyFallbackHeldThroughResumeIsDisarmedUntilReleasedThenFreshPressWorks()
+    {
+        yield return PressKey(keyboard, Key.J);
+        Invoke(reader, "Tick");
+        Invoke(reader, "SuspendGameplayInput");
+        Invoke(reader, "BeginResumeGameplayInput");
+
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.False, "J held through resume must not synthesize a fresh Attack.");
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.False);
+
+        yield return PressKey(keyboard, Key.J);
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.True, "A later fresh J press must Attack normally.");
+
+        yield return ReleaseAllKeys(keyboard);
+    }
+
+    [UnityTest]
+    public IEnumerator AttackMouseLeftFallbackHeldThroughResumeIsDisarmedUntilReleasedThenFreshPressWorks()
+    {
+        yield return PressMouseLeft(mouse);
+        Invoke(reader, "Tick");
+        Invoke(reader, "SuspendGameplayInput");
+        Invoke(reader, "BeginResumeGameplayInput");
+
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.False, "Mouse-left held through resume must not synthesize a fresh Attack.");
+
+        yield return ReleaseMouse(mouse);
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.False);
+
+        yield return PressMouseLeft(mouse);
+        Invoke(reader, "Tick");
+        Assert.That(B("AttackPressedThisFrame"), Is.True, "A later fresh mouse-left press must Attack normally.");
+
+        yield return ReleaseMouse(mouse);
     }
 }

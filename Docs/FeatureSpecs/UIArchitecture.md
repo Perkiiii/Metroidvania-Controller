@@ -2,11 +2,18 @@
 
 **Last reviewed:** 2026-07-27  
 **Status:** Authoritative architecture. Package A1 (persistent `MenuRoot`, `UIFlowController`, root
-Pause menu, Sandbox) is implemented and covered by automated EditMode tests plus a passing
-`UIFoundationValidator` pass. Package A2 (Gameplay Menu, Gear) and Package B (functional Options)
-have not been performed or validated. Interactive manual validation (keyboard/controller/mouse,
-real room transitions, held-input timing) has not been performed — see
-`Docs/ImplementationPlan.md` Package A1 entry for exact scope.
+Pause menu, Sandbox) is implemented and covered by automated EditMode and PlayMode tests, both
+confirmed executing via the real Unity Test Runner, plus a passing `UIFoundationValidator` pass. A
+correction pass fixed production `InputSystemUIInputModule` action wiring (durable `UI`-map
+`InputActionReference` sub-assets, not a transient `InputActionReference.Create()`), modal-first
+Pause-toggle behavior, production Quit/Options gating and dynamic navigation, confirmation-modal
+selection fallback, pause-safe `UIFlowController` teardown, and an input-leakage defect in
+`HeroInputReader`'s resume-disarm logic affecting Jump/Attack/Interact/Bind/Dash/Move. The
+Sandbox-only Options preview and Quit callback status were live-verified in a real Play Mode
+session. Package A2 (Gameplay Menu, Gear) and Package B (functional Options) have not been performed
+or validated. Interactive manual validation of the full production Boot path (keyboard/controller/
+mouse in the real gameplay scene, real room transitions, held-input timing) has not been performed —
+see `Docs/ImplementationPlan.md` Package A1 entry for exact scope.
 
 ## Purpose
 
@@ -150,7 +157,7 @@ current-Hero seam just in time.
 
 ## UIFlowController boundary
 
-`UIFlowController` is a proposed focused coordinator. It may own:
+`UIFlowController` is the implemented persistent focused coordinator. It owns:
 
 - Root open/close requests and one-active-pausing-root enforcement.
 - `Closed`/opening/open/closing guards or equivalent.
@@ -214,8 +221,8 @@ Final glyph assets, localization, binding override support, and cursor policy re
 
 ## Input-map and Hero boundaries
 
-The approved proposal recommends reviewing a small always-enabled `System` map for Pause and
-Gameplay Menu first. That implementation choice remains open. The existing `UI` map supplies
+A small always-enabled `System` map holds Pause and Gameplay Menu, with `UIFlowController` as its
+sole persistent owner/enabler; the scene Hero never touches it. The existing `UI` map supplies
 Navigate, Submit, Cancel, pointer, click, and scroll primitives.
 
 ```text
@@ -325,24 +332,34 @@ Package A1 Unity Editor authoring performed: `System` map added to `InputSystem_
 
 ## Automated validation
 
-Implemented (Package A1): `UIFlowControllerTests` (EditMode, 14/14 passing) covering root
+Implemented and passing (Package A1, EditMode): `UIFlowControllerTests` (18/18) covering root
 exclusivity, pause acquisition/release exactly once, repeated-callback guards, modal/root Back
-order, first selection, unregistered-Gameplay-Menu safe rejection, transition/lockout rejection, and
-no queued requests. `HeroInputSuspensionPlayModeTests` (PlayMode) covering the full input-leakage
-matrix — written and compiling, but not confirmed executing via Unity MCP's TestRunnerApi in this
-session (see the Package A1 completion report); run via the Editor Test Runner's PlayMode tab to
-confirm. `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed: single persistent
-EventSystem, no competing gameplay-scene EventSystem, Sandbox build exclusion and production-asset
-isolation, Canvas/raycaster semantics, hidden-panel raycast safety. Tab filtering, Gear
-visibility/selection, and future stable-ID Map validation remain Package A2+ work.
+order, Pause-while-modal-open closing only the modal, first selection, unregistered-Gameplay-Menu
+safe rejection, transition/lockout rejection, no queued requests, and pause-safe teardown (owned
+pause released exactly once, duplicates never interfere, idempotent when already closed).
+`PauseMenuScreenTests` (14/14) and `ConfirmationModalTests` (4/4) covering production Options/Quit
+gating and dynamic navigation, and confirmation-modal selection fallback. `UISandboxControllerFixtureTests`
+(4/4) covering deterministic Sandbox fixture presets. `HeroInputSuspensionPlayModeTests` (PlayMode,
+14/14) confirmed executing via the real Unity Test Runner, covering the full input-leakage matrix
+including every physical fallback control. `UIFoundationValidator` (`Tools/Project/Validate UI
+Foundation`) passed: single persistent EventSystem with a fully-wired `InputSystemUIInputModule`
+(validated to fail when a reference is missing), no competing gameplay-scene EventSystem, Sandbox
+build exclusion, production-asset isolation, Sandbox-only-component production exclusion, Canvas/
+raycaster semantics, hidden-panel raycast safety. Tab filtering, Gear visibility/selection, and
+future stable-ID Map validation remain Package A2+ work.
 
 ## Manual validation
 
-Not performed this session — no interactive Play Mode input control was available via Unity MCP.
-Planned validation still covers keyboard/controller/mouse, device switching, rapid and held root
-inputs, held command inputs through close, movement through resume, every transition stage,
-death/respawn/hazard/boss restrictions, modal selection restoration, scene-Hero recreation,
-Boot-driven entry, common aspect ratios, and safe areas.
+Live-driven and confirmed in a real Play Mode session on `UISandbox.unity` this pass: the Sandbox
+Options preview and Quit callback flows (open/close, focus restoration, confirm/cancel, callback
+firing) and aspect-ratio presets — see `UISandbox.md` for the exact sequence observed.
+
+Not performed this session — no interactive Play Mode input control was exercised against the
+**production** Boot path. Planned validation still covers keyboard/controller/mouse in the real
+gameplay scene, device switching, rapid and held root inputs, held command inputs through close,
+movement through resume, every transition stage, death/respawn/hazard/boss restrictions, modal
+selection restoration, scene-Hero recreation, Boot-driven entry, common aspect ratios, and safe
+areas in the production HUD/Pause composition.
 
 ## Risks
 

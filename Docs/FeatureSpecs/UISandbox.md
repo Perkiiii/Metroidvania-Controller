@@ -1,10 +1,15 @@
 # Feature Spec — UI Sandbox
 
 **Last reviewed:** 2026-07-27  
-**Status:** Implemented (Package A1). `Assets/_Project/Scenes/Development/UISandbox.unity`,
-`UISandboxController`, HUD/Pause/modal fixtures, and `UIFoundationValidator`'s Sandbox checks exist
-and pass. Deferred-system fixtures (Gear, Map, notifications, etc.) remain out of scope per the
-exclusions below. Interactive manual review (aspect ratios, safe-area guides, device navigation) has
+**Status:** Implemented (Package A1), including a correction pass. `Assets/_Project/Scenes/
+Development/UISandbox.unity`, `UISandboxController`, HUD/Pause/modal fixtures, the Options preview
+placeholder (`SandboxOptionsPreviewPanel`), the Quit callback status label (`SandboxQuitCallbackStatus`),
+and `UIFoundationValidator`'s Sandbox checks exist and pass. Health/resource fixture presets are now
+deterministic across repeated clicks, and runtime boss-fixture `EnemyConfig` instances are tracked
+and destroyed when superseded. A real Play Mode session live-drove the Options preview, Quit
+callback, and aspect-ratio flows this pass — see Manual validation below. Deferred-system fixtures
+(Gear, Map, notifications, etc.) remain out of scope per the exclusions below. Interactive review of
+keyboard/controller device navigation and visual safe-area guides across all four aspect presets has
 not been performed.
 
 ## Purpose
@@ -67,11 +72,23 @@ or trigger acquisition gameplay.
 - Resource: empty, partial, full, and zero-capacity safety.
 - Boss HUD: hidden, one source, aggregate sources, short/long names, zero state.
 
-### Planned menu presentation
+### Menu presentation
 
-- Root Pause menu.
-- Options route placeholder clearly marked non-functional for Package A.
-- Quit confirmation modal.
+Implemented (Package A1):
+
+- Root Pause menu (`OpenPauseMenuPreview`/`ClosePauseMenuPreview`).
+- Options preview: a Sandbox-only toggle enables the production `PauseMenuScreen`'s Options button;
+  clicking it opens `SandboxOptionsPreviewPanel`, a labelled placeholder ("Options Preview / Package B
+  will implement functional settings. / Back") that owns first selection on open, closes via its Back
+  button or `UI/Cancel`, and restores selection to the Options button on close. It creates no
+  settings data, audio mixer, or persistence, and exists only in this scene.
+- Quit confirmation modal: a Sandbox-only toggle enables the typed Quit request seam and lets Quit
+  open the real shared `ConfirmationModal`. `SandboxQuitCallbackStatus` subscribes to
+  `PauseMenuScreen.QuitToMainMenuRequested` and displays a visible fired/not-fired counter proving
+  the callback actually reaches a subscriber, without loading a scene, saving, or running Boot.
+
+Planned (Package A2+):
+
 - Gameplay Menu shell.
 - Gear true-new-game empty state.
 - Gear first-unlock state.
@@ -197,7 +214,12 @@ Package A1 Unity Editor work performed: created `UISandbox.unity` (camera, local
 with isolated state, nested `PauseMenuScreen.prefab`/`ConfirmationModal.prefab` instances, fixture
 control panel, aspect-frame/safe-area guide RectTransforms); created two Sandbox-only
 `BossEncounterDefinition` fixture assets under `Assets/_Project/ScriptableObjects/Sandbox/`; left
-the scene out of Build Settings.
+the scene out of Build Settings. Correction-pass work performed: wired the local
+`InputSystemUIInputModule`'s action references to durable `UI`-map `InputActionReference` sub-assets
+(previously all null); authored the `OptionsPreviewPanel` (dim background, message, Back button)
+under `ModalLayer` with `SandboxOptionsPreviewPanel` wired to the Sandbox EventSystem and the
+persistent `UI/Cancel` action reference; authored the `QuitCallbackStatus` label in the fixture
+control panel with `SandboxQuitCallbackStatus` wired to the shared `PauseMenuScreen`.
 
 ## Automated validation
 
@@ -208,18 +230,43 @@ Implemented and passing (`UIFoundationValidator`, `Tools/Project/Validate UI Fou
   `PlayerHealthState`/`PlayerResourceState` asset path.
 - No second production `PersistentHudRoot` is instantiated in the Sandbox scene.
 - `UISandboxController` is present.
+- The Sandbox-local `InputSystemUIInputModule` has the correct actions asset and all ten required
+  action references resolving to the expected `UI`-map actions.
+- `UISandboxController`, `SandboxOptionsPreviewPanel`, and `SandboxQuitCallbackStatus` are absent
+  from `_GameCameras.prefab`.
+
+Also implemented and passing (EditMode `UISandboxControllerFixtureTests`, 4/4): the Bonus health
+fixture and the Empty/Partial/Full resource fixtures produce the same value across repeated
+applications regardless of prior fixture state.
 
 Not yet covered by the validator (Package A2+ scope, since Gear/Map/notification fixtures do not
 exist yet): fixture-only-tab production-enable prevention, true-new-game Gear fixture lock/empty
-check, missing-definition diagnostic.
+check, missing-definition diagnostic. The boss-fixture `EnemyConfig` tracking/destroy fix has no
+dedicated automated leak-detection test (`Destroy()` outside Play Mode logs an error in this Editor,
+making it impractical to assert in an EditMode test) — verified by code inspection only.
 
 ## Manual validation
 
-Not performed this session — no interactive Play Mode/Editor Play control was available via Unity
-MCP. Still required: exercising every fixture button (health/resource/boss presets, Pause/modal
-open-close, Options/Quit-seam toggles, aspect-ratio buttons); keyboard/controller/mouse navigation;
-focus retention; modal raycast blocking; safe-area guide visual check across 16:9, 16:10, 21:9, and
-4:3; direct scene entry without Boot; and confirmation that production save files/state assets are
+Live-driven and confirmed in a real Play Mode session this pass (`EditorApplication.isPlaying`,
+direct `Button.onClick.Invoke()` calls on the actual running Sandbox scene, no Boot, single scene
+loaded throughout, `GameManager.Instance` confirmed null throughout):
+
+- Enabling the Options preview toggle makes the production Options button interactable; clicking it
+  opens `SandboxOptionsPreviewPanel` and selects its Back button; clicking Back closes the panel and
+  restores selection to the Options button.
+- Enabling the Quit request-seam toggle makes the production Quit button interactable; clicking it
+  opens the real shared `ConfirmationModal` (Cancel selected first); clicking Cancel closes it,
+  restores Quit selection, and leaves the status label at "not fired yet"; reopening and clicking
+  Confirm closes the modal and updates the status label to "Quit callback fired (1)".
+- All four aspect-ratio buttons (16:9, 16:10, 21:9, 4:3) set the expected distinct `AspectFrame`
+  size.
+- No console errors were logged during the sequence; the active scene remained `UISandbox.unity`
+  throughout.
+
+Still required (a genuine visual/input-device review, not exercisable by driving `onClick` directly):
+keyboard/controller/mouse navigation through the fixture panel and Options/Quit flows; focus
+retention across device switches; modal raycast blocking; safe-area guide visual check across 16:9,
+16:10, 21:9, and 4:3; and confirmation that production save files/state assets are
 unchanged after a Sandbox session.
 
 ## Risks

@@ -18,6 +18,7 @@ public sealed class ConfirmationModal : MonoBehaviour
     private Action onConfirm;
     private Action onCancel;
     private Selectable invokerToRestore;
+    private Selectable fallbackToRestore;
 
     public bool IsOpen => visualRoot != null && visualRoot.activeSelf;
     public Selectable FirstSelection => cancelButton != null ? cancelButton : confirmButton;
@@ -34,9 +35,15 @@ public sealed class ConfirmationModal : MonoBehaviour
         if (cancelButton != null) cancelButton.onClick.RemoveListener(HandleCancelClicked);
     }
 
-    public void Show(Selectable invoker, Action confirmCallback, Action cancelCallback)
+    /// <summary>
+    /// Shows the modal. <paramref name="fallback"/> is the parent root's valid fallback selection
+    /// (e.g. the root's first selection) used on close if <paramref name="invoker"/> is no longer
+    /// a valid selection target (hidden/disabled) by then.
+    /// </summary>
+    public void Show(Selectable invoker, Selectable fallback, Action confirmCallback, Action cancelCallback)
     {
         invokerToRestore = invoker;
+        fallbackToRestore = fallback;
         onConfirm = confirmCallback;
         onCancel = cancelCallback;
 
@@ -45,8 +52,10 @@ public sealed class ConfirmationModal : MonoBehaviour
     }
 
     /// <summary>
-    /// Closes the modal. Restores the invoking control's selection unless the root that owns it
-    /// is also closing (<paramref name="restoreInvokerSelection"/> false).
+    /// Closes the modal. Restores the invoking control's selection when still valid, otherwise
+    /// falls back to the parent root's fallback selection, unless the root that owns it is also
+    /// closing (<paramref name="restoreInvokerSelection"/> false), in which case selection is not
+    /// restored at all.
     /// </summary>
     public void Close(bool restoreInvokerSelection)
     {
@@ -54,12 +63,13 @@ public sealed class ConfirmationModal : MonoBehaviour
 
         if (restoreInvokerSelection)
         {
-            UISelectionUtility.Select(eventSystem, invokerToRestore);
+            UISelectionUtility.SelectPreferredOrFallback(eventSystem, invokerToRestore, fallbackToRestore);
         }
 
         onConfirm = null;
         onCancel = null;
         invokerToRestore = null;
+        fallbackToRestore = null;
     }
 
     /// <summary>Back/Cancel input while this modal is open: same as clicking Cancel.</summary>

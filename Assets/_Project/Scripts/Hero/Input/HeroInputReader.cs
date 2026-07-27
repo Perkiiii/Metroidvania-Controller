@@ -102,7 +102,7 @@ public sealed class HeroInputReader : MonoBehaviour
         AttackHeld = attackHeldRaw;
 
         bool dashPressedRaw = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
-        bool dashHeldRaw = ReadHeld(GetAction(dashAction, "Dash"), false);
+        bool dashHeldRaw = ReadHeld(GetAction(dashAction, "Dash"), false) || ReadDashFallbackHeld();
         if (dashDisarmed && !dashHeldRaw) dashDisarmed = false;
         DashPressedThisFrame = !dashDisarmed && dashPressedRaw;
 
@@ -210,7 +210,7 @@ public sealed class HeroInputReader : MonoBehaviour
 
         jumpDisarmed = ReadHeld(GetAction(jumpAction, "Jump"));
         attackDisarmed = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
-        dashDisarmed = ReadHeld(GetAction(dashAction, "Dash"), false);
+        dashDisarmed = ReadHeld(GetAction(dashAction, "Dash"), false) || ReadDashFallbackHeld();
         sprintDisarmed = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
         interactDisarmed = ReadHeld(GetAction(interactAction, "Interact"), false);
         bindDisarmed = ReadHeld(GetAction(bindAction, "Bind"), false);
@@ -223,7 +223,17 @@ public sealed class HeroInputReader : MonoBehaviour
         InputAction action = GetAction(moveAction, "Move");
         if (action != null)
         {
-            return action.ReadValue<Vector2>();
+            Vector2 value = action.ReadValue<Vector2>();
+            if (value != Vector2.zero)
+            {
+                return value;
+            }
+
+            // A composite Value action's cached ReadValue() can still read zero for one frame
+            // immediately after Enable() even while its bound keys remain physically held (same
+            // resync gap as IsPressed() above) — fall back to the raw keyboard read so continuous
+            // movement genuinely resumes live on the very tick input suspension ends, with no
+            // neutral-release requirement. Harmless when input is genuinely absent (both are zero).
         }
 
         Vector2 fallback = Vector2.zero;
@@ -297,11 +307,33 @@ public sealed class HeroInputReader : MonoBehaviour
     {
         if (action != null)
         {
-            return action.IsPressed();
+            return IsPhysicallyActuated(action);
         }
 
         Keyboard keyboard = Keyboard.current;
         return useJumpFallback && keyboard != null && keyboard.spaceKey.isPressed;
+    }
+
+    /// <summary>
+    /// Reads an action's bound controls' raw actuation directly, bypassing
+    /// <see cref="InputAction.IsPressed"/>'s own phase tracking. Disabling then re-enabling an
+    /// action while its control is still physically held — exactly what suspend/resume does —
+    /// does not resynchronize <c>IsPressed()</c> within the same frame; it only reports true again
+    /// after the Input System processes another update, one frame too late for held-through-resume
+    /// disarm gating (and the stale read is exactly what let physically-held commands like Space,
+    /// Enter, E, and Gamepad East leak a synthetic fresh press through immediately on resume).
+    /// </summary>
+    private static bool IsPhysicallyActuated(InputAction action)
+    {
+        foreach (InputControl control in action.controls)
+        {
+            if (control.IsActuated())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ReadSprintFallback()
@@ -333,6 +365,15 @@ public sealed class HeroInputReader : MonoBehaviour
             && (keyboard.leftCtrlKey.wasPressedThisFrame
                 || keyboard.rightCtrlKey.wasPressedThisFrame
                 || keyboard.xKey.wasPressedThisFrame);
+    }
+
+    private static bool ReadDashFallbackHeld()
+    {
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+            && (keyboard.leftCtrlKey.isPressed
+                || keyboard.rightCtrlKey.isPressed
+                || keyboard.xKey.isPressed);
     }
 
     private void SetActionsEnabled(bool enabled)

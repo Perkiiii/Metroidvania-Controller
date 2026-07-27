@@ -3,6 +3,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -15,6 +17,21 @@ public static class UIFoundationValidator
 {
     private const string GameCamerasPrefabPath = "Assets/_Project/Prefabs/Managers/_GameCameras.prefab";
     private const string SandboxScenePath = "Assets/_Project/Scenes/Development/UISandbox.unity";
+    private const string InputActionsAssetPath = "Assets/_Project/Input/InputSystem_Actions.inputactions";
+
+    private static readonly (string field, string expectedActionPath)[] RequiredUiModuleActions =
+    {
+        ("m_PointAction", "UI/Point"),
+        ("m_MoveAction", "UI/Navigate"),
+        ("m_SubmitAction", "UI/Submit"),
+        ("m_CancelAction", "UI/Cancel"),
+        ("m_LeftClickAction", "UI/Click"),
+        ("m_RightClickAction", "UI/RightClick"),
+        ("m_MiddleClickAction", "UI/MiddleClick"),
+        ("m_ScrollWheelAction", "UI/ScrollWheel"),
+        ("m_TrackedDevicePositionAction", "UI/TrackedDevicePosition"),
+        ("m_TrackedDeviceOrientationAction", "UI/TrackedDeviceOrientation"),
+    };
 
     private static readonly string[] ProductionStateAssetPaths =
     {
@@ -103,6 +120,19 @@ public static class UIFoundationValidator
                 Debug.LogError($"[UIFoundationValidator] MenuRoot must contain exactly one persistent EventSystem; found {eventSystems.Length}.");
                 issues++;
             }
+            else
+            {
+                InputSystemUIInputModule productionModule = eventSystems[0].GetComponentInChildren<InputSystemUIInputModule>(true);
+                if (productionModule == null)
+                {
+                    Debug.LogError("[UIFoundationValidator] Production EventSystem has no InputSystemUIInputModule.");
+                    issues++;
+                }
+                else
+                {
+                    issues += ValidateInputModuleWiring(productionModule, "Production");
+                }
+            }
 
             UIFlowController flow = menuRoot.GetComponent<UIFlowController>();
             if (flow == null)
@@ -176,10 +206,36 @@ public static class UIFoundationValidator
                     issues++;
                 }
             }
+
+            issues += RejectSandboxOnlyComponents(root.transform);
         }
         finally
         {
             PrefabUtility.UnloadPrefabContents(root);
+        }
+
+        return issues;
+    }
+
+    private static int RejectSandboxOnlyComponents(Transform root)
+    {
+        int issues = 0;
+        if (root.GetComponentInChildren<UISandboxController>(true) != null)
+        {
+            Debug.LogError("[UIFoundationValidator] _GameCameras.prefab must not contain a UISandboxController; it is Sandbox-only.");
+            issues++;
+        }
+
+        if (root.GetComponentInChildren<SandboxOptionsPreviewPanel>(true) != null)
+        {
+            Debug.LogError("[UIFoundationValidator] _GameCameras.prefab must not contain a SandboxOptionsPreviewPanel; the Options preview placeholder is Sandbox-only.");
+            issues++;
+        }
+
+        if (root.GetComponentInChildren<SandboxQuitCallbackStatus>(true) != null)
+        {
+            Debug.LogError("[UIFoundationValidator] _GameCameras.prefab must not contain a SandboxQuitCallbackStatus; the Quit callback status label is Sandbox-only.");
+            issues++;
         }
 
         return issues;
@@ -302,6 +358,65 @@ public static class UIFoundationValidator
         {
             Debug.LogError("[UIFoundationValidator] UISandbox.unity has no UISandboxController.");
             issues++;
+        }
+
+        InputSystemUIInputModule sandboxModule = null;
+        EventSystem[] sandboxEventSystems = FindAllInScene<EventSystem>(scene);
+        if (sandboxEventSystems.Length != 1)
+        {
+            Debug.LogError($"[UIFoundationValidator] UISandbox.unity must contain exactly one EventSystem; found {sandboxEventSystems.Length}.");
+            issues++;
+        }
+        else
+        {
+            sandboxModule = sandboxEventSystems[0].GetComponentInChildren<InputSystemUIInputModule>(true);
+        }
+
+        if (sandboxModule == null)
+        {
+            Debug.LogError("[UIFoundationValidator] UISandbox.unity EventSystem has no InputSystemUIInputModule.");
+            issues++;
+        }
+        else
+        {
+            issues += ValidateInputModuleWiring(sandboxModule, "Sandbox");
+        }
+
+        return issues;
+    }
+
+    private static int ValidateInputModuleWiring(InputSystemUIInputModule module, string label)
+    {
+        int issues = 0;
+        SerializedObject so = new SerializedObject(module);
+
+        SerializedProperty actionsAssetProp = so.FindProperty("m_ActionsAsset");
+        InputActionAsset actionsAsset = actionsAssetProp != null ? actionsAssetProp.objectReferenceValue as InputActionAsset : null;
+        string actionsAssetPath = actionsAsset != null ? AssetDatabase.GetAssetPath(actionsAsset) : null;
+        if (actionsAssetPath != InputActionsAssetPath)
+        {
+            Debug.LogError($"[UIFoundationValidator] {label} InputSystemUIInputModule.actionsAsset must be '{InputActionsAssetPath}'; found '{actionsAssetPath ?? "null"}'.");
+            issues++;
+        }
+
+        foreach ((string field, string expectedActionPath) in RequiredUiModuleActions)
+        {
+            SerializedProperty prop = so.FindProperty(field);
+            InputActionReference reference = prop != null ? prop.objectReferenceValue as InputActionReference : null;
+            if (reference == null)
+            {
+                Debug.LogError($"[UIFoundationValidator] {label} InputSystemUIInputModule.{field} is not assigned.");
+                issues++;
+                continue;
+            }
+
+            InputAction action = reference.action;
+            string actualActionPath = action != null && action.actionMap != null ? action.actionMap.name + "/" + action.name : null;
+            if (actualActionPath != expectedActionPath)
+            {
+                Debug.LogError($"[UIFoundationValidator] {label} InputSystemUIInputModule.{field} must resolve to '{expectedActionPath}'; found '{actualActionPath ?? "null"}'.");
+                issues++;
+            }
         }
 
         return issues;

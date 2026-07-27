@@ -75,18 +75,31 @@ public sealed class UIFlowControllerTests
         SetField(flow, "healthState", healthState);
         flow.ConfigureRoots(pauseRoot, null);
 
+        // Awake() is never invoked (see class doc — tests drive private handlers directly rather
+        // than depending on real Awake/Update polling), so the static Instance it would normally
+        // assign must be set explicitly for the OnDestroy teardown tests below, which consult it.
+        SetUIFlowControllerInstanceForTest(flow);
+
         ArmLockout(flow);
     }
 
     [TearDown]
     public void TearDown()
     {
-        UnityEngine.Object.DestroyImmediate(flowObject);
+        if (flowObject != null) UnityEngine.Object.DestroyImmediate(flowObject);
         UnityEngine.Object.DestroyImmediate(gameManagerObject);
         UnityEngine.Object.DestroyImmediate(eventSystemObject);
         UnityEngine.Object.DestroyImmediate(selectionObject);
         UnityEngine.Object.DestroyImmediate(healthState);
         ResetStaleGameManagerSingleton();
+        SetUIFlowControllerInstanceForTest(null);
+    }
+
+    private static void SetUIFlowControllerInstanceForTest(UIFlowController value)
+    {
+        FieldInfo backing = typeof(UIFlowController).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(backing, Is.Not.Null, "UIFlowController.Instance backing field not found.");
+        backing.SetValue(null, value);
     }
 
     /// <summary>
@@ -274,6 +287,81 @@ public sealed class UIFlowControllerTests
         Assert.That(flow.IsRootOpen, Is.False);
         Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
         Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+    }
+
+    [Test]
+    public void PausePressedWhileModalOpenClosesOnlyModalKeepsRootOpenAndPausedWithNoDoubleUnpause()
+    {
+        PressPause();
+        pauseRoot.HasOpenModal = true;
+        pauseRoot.HandleBackResult = true;
+
+        PressPause();
+
+        Assert.That(flow.IsRootOpen, Is.True, "Root must remain open; Pause while a modal is open must close only the modal.");
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(0), "The root itself must not be hidden while only the modal closes.");
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Paused));
+        Assert.That(Time.timeScale, Is.EqualTo(0f));
+
+        // A later fresh Pause press at the bare root (modal now closed) closes normally exactly once.
+        pauseRoot.HasOpenModal = false;
+        PressPause();
+
+        Assert.That(flow.IsRootOpen, Is.False);
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void DestroyingActiveControllerWhileOwningPauseReleasesOwnershipExactlyOnce()
+    {
+        PressPause();
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Paused));
+
+        // DestroyImmediate does not synchronously invoke OnDestroy in this Editor's EditMode test
+        // context (confirmed project-specific quirk, same family as AddComponent not firing
+        // Awake — see UIFlowControllerTests' class doc); invoke the teardown method directly,
+        // matching the project's established reflection-based test convention.
+        InvokePrivate(flow, "OnDestroy");
+
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing), "Destroying the active controller while it owns Pause must release ownership.");
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void DestroyingDuplicateControllerDoesNotAffectRealController()
+    {
+        PressPause();
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Paused));
+
+        // A real duplicate's Awake() would call Destroy(gameObject), which Unity only permits in
+        // Play Mode; exercise the exact guard a duplicate's OnDestroy hits instead (Instance
+        // already points at the real controller, so this object was never Instance).
+        GameObject duplicateObject = new GameObject("UIFlowController Duplicate Test");
+        UIFlowController duplicate = duplicateObject.AddComponent<UIFlowController>();
+        InvokePrivate(duplicate, "OnDestroy");
+
+        Assert.That(UIFlowController.Instance, Is.SameAs(flow), "The real singleton must be unaffected.");
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Paused), "Destroying a duplicate must not touch the real controller's owned pause.");
+        Assert.That(Time.timeScale, Is.EqualTo(0f));
+
+        UnityEngine.Object.DestroyImmediate(duplicateObject);
+        Time.timeScale = 1f;
+    }
+
+    [Test]
+    public void TeardownWhileAlreadyClosedDoesNotAlterGameManagerState()
+    {
+        Assert.That(flow.IsRootOpen, Is.False);
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+
+        InvokePrivate(flow, "OnDestroy");
+
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(0), "Teardown while already closed must not hide/close anything.");
     }
 
     [Test]

@@ -77,6 +77,7 @@ public sealed class UIFlowController : MonoBehaviour
     // has elapsed — never a magic "armed at start" assumption.
     private bool wasTransitioning;
     private float lockoutRemaining = float.MaxValue;
+    private bool isApplicationQuitting;
 
     public bool IsRootOpen => state == UIFlowState.Open;
     public UIRootKind? ActiveRootKind => activeKind;
@@ -137,11 +138,26 @@ public sealed class UIFlowController : MonoBehaviour
         SetUiNavigationEnabled(false);
     }
 
+    private void OnApplicationQuit()
+    {
+        isApplicationQuitting = true;
+    }
+
     private void OnDestroy()
     {
         if (Instance != this)
         {
             return;
+        }
+
+        // Only the legitimate active singleton reaches here (duplicates self-destroy in Awake
+        // before ever becoming Instance). Release an owned pause through the same close sequence
+        // used by a normal close so gameplay is never left paused/input-suspended behind a
+        // destroyed controller. Skipped during application shutdown, where GameManager/Hero may
+        // already be tearing down and resuming input would be meaningless.
+        if (!isApplicationQuitting && state == UIFlowState.Open)
+        {
+            RequestCloseActiveRoot();
         }
 
         DisableSystemMap();
@@ -275,6 +291,16 @@ public sealed class UIFlowController : MonoBehaviour
     {
         if (state == UIFlowState.Open && activeKind == UIRootKind.Pause)
         {
+            // A modal (e.g. Quit confirmation) takes Pause first: close only the modal through
+            // the same path Back/Cancel uses, keep the root open, keep gameplay paused, and skip
+            // the Hero input-resume/Unpause sequence entirely. A later Pause press at the bare
+            // root falls through to the normal close below.
+            if (pauseRoot != null && pauseRoot.HasOpenModal)
+            {
+                pauseRoot.HandleBackInternally();
+                return;
+            }
+
             RequestCloseActiveRoot();
             return;
         }

@@ -2,9 +2,16 @@
 
 **Last reviewed:** 2026-07-27  
 **Status:** Authoritative contract. Package A1 (root Pause menu, dedicated Pause/GameplayMenu input,
-focus flow, input suspension/rearming) is implemented and covered by automated EditMode/PlayMode
-tests. Interactive manual validation has not been performed. Package A2 (Gameplay Menu tabs, Gear)
-remains not implemented.
+focus flow, input suspension/rearming) is implemented and covered by automated EditMode and PlayMode
+tests, both confirmed executing via the real Unity Test Runner (see Automated tests and validators
+below). A correction pass fixed production `InputSystemUIInputModule` action wiring, modal-first
+Pause-toggle behavior, production Quit/Options gating and dynamic navigation, confirmation-modal
+selection fallback, pause-safe `UIFlowController` teardown, and a Dash/Jump/Attack/Interact/Bind
+input-leakage defect in `HeroInputReader`'s resume-disarm logic. The Sandbox-only Options preview and
+Quit callback status were live-verified in a real Play Mode session. Interactive manual validation of
+the full production Boot path (real gameplay scene, keyboard/gamepad device input, real room
+transitions) has not been performed — see Manual validation below for the exact remaining checks.
+Package A2 (Gameplay Menu tabs, Gear) remains not implemented.
 
 ## Purpose
 
@@ -48,17 +55,26 @@ The root Pause menu is separate from the tabbed Gameplay Menu. It contains:
 Behavior:
 
 - Continue closes the root and resumes through the approved close/input flow.
-- Options opens as a child flow. Back/close returns to the Pause menu and restores the invoking
-  selection.
-- Quit to Main Menu opens a confirmation modal.
+- Options is authored and present but non-interactable in production (Package B implements
+  functional settings); the Sandbox may enable a preview seam that opens a labelled placeholder
+  child, restoring selection to Options on close. See `UISandbox.md`.
+- Quit to Main Menu is authored and present but non-interactable in production while its typed
+  request seam is disabled — it never opens the confirmation modal in that state. The Sandbox may
+  enable the seam to exercise the real shared confirmation modal end to end.
+- Pressing the dedicated Pause action while the Quit confirmation modal is open closes only the
+  modal (through the same path as Back/Cancel), keeping the root open, gameplay paused, and the Quit
+  button selection restored; it does not run the Hero input-resume sequence or call
+  `GameManager.Unpause()`. A later Pause press at the bare root closes normally.
 - Back at the Pause root performs the same approved resume flow as Continue.
-- Pressing the dedicated Pause action while the Pause root is stably open toggles it closed, subject
-  to close guards and release handling.
+- Pressing the dedicated Pause action while the Pause root is stably open (no modal) toggles it
+  closed, subject to close guards and release handling.
 - Repeated Pause callbacks during opening/closing do nothing.
 - A Gameplay Menu request while Pause or its modal is active is rejected.
+- Runtime navigation (`PauseMenuScreen.RefreshAvailabilityAndNavigation`) always includes Continue
+  and skips Options/Quit while gated, so keyboard/controller focus never lands on a disabled control;
+  disabling a currently-selected gated control moves selection back to Continue.
 
-The Package A Options route may be exercised internally, but functional audio Options belongs to
-Package B. Quit destination and save policy remain deferred because no frontend scene exists.
+Quit destination and save policy remain deferred because no frontend scene exists.
 
 ## Gameplay Menu
 
@@ -92,7 +108,7 @@ the Map tab. It is not a separate pausing root.
 
 - `GameManager.Pause()` and `GameManager.Unpause()` are the only approved pause/time-scale seams.
 - UI never writes `Time.timeScale`.
-- One proposed `UIFlowController` owns at most one UI pausing root and therefore one UI pause
+- The persistent `UIFlowController` owns at most one UI pausing root and therefore one UI pause
   request.
 - It calls Unpause only when it owns that paused root.
 - Package A does not add a generic pause-token framework.
@@ -101,11 +117,11 @@ the Map tab. It is not a separate pausing root.
 
 ## Input ownership
 
-### Recommended action-map direction
+### System action-map direction
 
-The approved proposal recommends reviewing a small always-enabled `System` map containing Pause and
-Gameplay Menu first. It can keep open/close controls independent from the scene Hero and Player/UI
-map switching. The final action-map design remains open until implementation review.
+A small always-enabled `System` map contains Pause and Gameplay Menu, kept independent from the
+scene Hero and Player/UI map switching. `UIFlowController` is its sole persistent owner/enabler; the
+scene Hero never touches it. Controller binding for Gameplay Menu and future Map space remain open.
 
 Responsibilities:
 
@@ -113,9 +129,9 @@ Responsibilities:
 |---|---|
 | Player | Gameplay movement and commands |
 | UI | Navigate, Submit, Cancel, pointer, click, scroll, and planned tab navigation |
-| Proposed System | Persistent root-open actions; future Map space if separately approved |
+| System | Persistent root-open actions (Pause, GameplayMenu); future Map space if separately approved |
 | `HeroInputReader` | Sampling, direct fallback gating/removal, transient buffers, held-command state, rearming |
-| Proposed `UIFlowController` | Root availability and action-map mode; no gameplay input interpretation |
+| `UIFlowController` | Root availability and action-map mode; no gameplay input interpretation |
 
 Provisional bindings:
 
@@ -129,7 +145,10 @@ not reused for menu tabs because their D-pad bindings conflict with ordinary nav
 
 ### EventSystem and focus
 
-Package A1 plans one persistent project-owned EventSystem with `InputSystemUIInputModule`. Each
+Package A1 implements one persistent project-owned EventSystem with `InputSystemUIInputModule`,
+whose Point/Move/Submit/Cancel/click/scroll/tracked-device action references are wired to durable
+`UI`-map `InputActionReference` sub-assets (not a transient `InputActionReference.Create()`, which
+does not survive serialization) — validated by `UIFoundationValidator`. Each
 root, child, tab, modal, and empty state authors a valid first selection. A modal restores its
 invoker where possible. Pointer clicks may move selection, and later keyboard/controller navigation
 continues from a valid selected control.
@@ -158,8 +177,19 @@ immediately; they do not require neutral release.
 
 Buffer clearing removes old intent. Held-command rearming prevents a held physical control from
 creating new intent after the clear. Both are required. UI Cancel/Gamepad East overlap with current
-Bind/Crouch input requires explicit release handling. Direct keyboard/mouse fallbacks must honor
-suspension and rearming or be removed after bindings are verified.
+Bind/Crouch input requires explicit release handling. Direct keyboard/mouse fallbacks honor
+suspension and rearming (Dash's Right Control fallback, previously only checked at the raw-keyboard
+edge, now also gates the disarm snapshot).
+
+`HeroInputReader`'s held-state check reads an action's bound controls' raw actuation directly
+(`IsActuated()`) rather than `InputAction.IsPressed()`. Disabling then re-enabling an action while
+its control is still physically held — exactly what suspend/resume does — does not resynchronize
+`IsPressed()` within the same frame; it only reports true again after the Input System processes
+another update, one frame too late for held-through-resume disarm gating. This was a confirmed,
+previously-undetected leak affecting Jump (Space), Attack (Enter), Interact (E), and Bind (Gamepad
+East), not only the Dash fallback — found and fixed via real PlayMode execution (see Automated tests
+and validators). Continuous movement (`MoveVector`) has the same resync gap for `ReadValue<Vector2>()`
+and falls back to a raw keyboard read only when the action reads exactly zero.
 
 `GameManager` does not own action maps, buffers, held-button detection, resume disarming, UI Cancel
 handling, or EventSystem focus. UI never accesses `HeroInputReader` directly. Persistent menu flow
@@ -270,38 +300,71 @@ semantic Fade(Overlay, always-on-top) > Modal(180) > Root(150) > HUD(100) sortin
 
 ## Automated tests and validators
 
-Implemented and passing (EditMode `UIFlowControllerTests`, 14/14): Pause/Unpause occur exactly once
-per accepted lifecycle; root exclusivity; repeated-request guards during opening; modal/root Back
-order; valid first selection; unregistered-Gameplay-Menu safe rejection; rejection during scene
+Implemented and passing (EditMode `UIFlowControllerTests`, 18/18 — includes the correction pass's
+modal-first-Pause and pause-safe-teardown coverage): Pause/Unpause occur exactly once per accepted
+lifecycle; root exclusivity; repeated-request guards during opening; modal/root Back order; Pause
+pressed while a modal is open closes only the modal and keeps gameplay paused with no double
+Unpause; valid first selection; unregistered-Gameplay-Menu safe rejection; rejection during scene
 transition, respawn/recovery, and depleted health; the 1.0-second unscaled lockout arms on the
-transition falling edge and blocks until elapsed; blocked inputs create no queued state.
+transition falling edge and blocks until elapsed; blocked inputs create no queued state; destroying
+the active controller while it owns Pause releases ownership exactly once; destroying a duplicate
+controller never touches the real one; teardown while already closed is a no-op.
 
-Implemented but not confirmed executing via Unity MCP this session (PlayMode
-`HeroInputSuspensionPlayModeTests` — see completion report for the specific tooling issue
-encountered): buffers clear at time scale zero; every held command (Jump/Attack/Dash/Sprint/Bind)
-remains disarmed until its own release/fresh press; releasing one command does not rearm another
-still-held command; continuous movement resumes without neutral release; Gamepad East/Bind overlap
-does not leak; enabling the Player map does not synthesize a press. Recommend running this suite via
-the Editor's Test Runner window (PlayMode tab) to confirm.
+Also implemented and passing (EditMode): `PauseMenuScreenTests` (14/14) — production
+Options/Quit default to gated, non-interactable, Continue-only navigation; enabling either rebuilds
+navigation to skip the other when still disabled; disabling a currently-selected gated control
+restores selection to Continue; navigation never targets a non-interactable control across all
+gating combinations; Quit/Options click handlers no-op while gated; Pause-while-modal-open (driven
+through the real `PauseMenuScreen`/`ConfirmationModal` pair) closes only the modal and restores Quit
+selection. `ConfirmationModalTests` (4/4) — close restores a valid invoker, falls back to the
+parent's fallback selection when the invoker is disabled or inactive, and a whole-root teardown close
+clears selection instead of restoring it. `UISandboxControllerFixtureTests` (4/4) — Bonus health and
+Resource fixture presets are deterministic across repeated applications.
+
+Confirmed executing and passing via the real PlayMode Test Runner (`HeroInputSuspensionPlayModeTests`,
+14/14 — 9 original plus 5 added this pass for Right-Control Dash fallback, X-key double-path, Interact,
+and Attack J-key/mouse-left fallbacks): buffers clear at time scale zero; every held command
+(Jump/Attack/Dash/Sprint/Interact/Bind, including every physical fallback control) remains disarmed
+until its own release/fresh press; releasing one command does not rearm another still-held command;
+continuous movement resumes without neutral release; Gamepad East/Bind overlap does not leak;
+enabling the Player map does not synthesize a press. The `Underbrew.UI.PlayModeTests.asmdef`
+`includePlatforms` mismatch that previously blocked discovery is fixed (now empty, matching
+`Underbrew.Camera.PlayModeTests.asmdef`'s convention); the full EditMode suite (365/365) does not
+execute these tests, and the focused/full PlayMode suite (29/29, including the unrelated 15 camera
+PlayMode tests) discovers and passes them all.
 
 Implemented and passing (`UIFoundationValidator`): one persistent EventSystem, no competing
 gameplay-scene EventSystem, Canvas/raycaster semantics, modal/panel hidden-by-default raycast
-safety, Sandbox build exclusion.
+safety, Sandbox build exclusion; production and Sandbox `InputSystemUIInputModule` action references
+are all non-null and resolve to the expected `UI`-map actions (confirmed failing when a reference is
+deliberately cleared, then passing again once restored); Sandbox-only components
+(`UISandboxController`, `SandboxOptionsPreviewPanel`, `SandboxQuitCallbackStatus`) are absent from
+`_GameCameras.prefab`.
 
 Not yet covered: `SceneInit`-alone-insufficient as an explicit regression test (the implementation
 does not use `SceneInit` for availability at all, so this is structurally satisfied but has no
 dedicated test); controller-disconnect and focus-loss auto-resume prevention (no explicit handling
 exists yet — Package A1 simply never listens for these events, which already prevents any
-auto-resume, but this is not independently tested).
+auto-resume, but this is not independently tested); the Sandbox boss-fixture `EnemyConfig` cleanup
+fix has no dedicated leak-detection test (verified by code inspection only — `Destroy()` outside Play
+Mode logs an error in this Editor, making it impractical to assert in an EditMode test).
 
 ## Manual validation
 
-Not performed this session — no interactive Play Mode input control was available via Unity MCP.
-Still required before Package A1 is considered fully validated: keyboard/controller/mouse; rapid
-toggles; modal focus; holding Pause, Gameplay Menu, Cancel/East, every command, and movement through
-blocked/close periods; every transition stage; death/respawn/hazard/boss states; controller
-disconnect; focus loss; scene-Hero recreation; Boot and direct-Sandbox entry; and supported aspect
-ratios/safe areas.
+Live-driven and confirmed in a real Play Mode session on `UISandbox.unity` this pass (see
+`UISandbox.md`): the Options preview opens with Back-button focus and restores Options selection on
+close; the Quit confirmation modal opens the real shared prefab, Cancel restores Quit selection
+without firing the callback, and Confirm fires `QuitToMainMenuRequested` exactly once with the status
+label updating live; aspect-ratio buttons produce the correct frame size for 16:9/16:10/21:9/4:3; no
+scene load and no `GameManager` instance existed throughout.
+
+Not performed this session — no interactive Play Mode input control was exercised against the
+**production** Boot path. Still required before Package A1 is considered fully validated on real
+device input: keyboard/controller/mouse Pause+Gameplay Menu open/close via the actual `System` map
+in the real gameplay scene; rapid toggles; modal focus; holding Pause, Gameplay Menu, Cancel/East,
+every command, and movement through blocked/close periods; every transition stage; death/respawn/
+hazard/boss states; controller disconnect; focus loss; scene-Hero recreation; Boot-driven entry; and
+supported aspect ratios/safe areas in the production HUD/Pause composition.
 
 ## Risks
 

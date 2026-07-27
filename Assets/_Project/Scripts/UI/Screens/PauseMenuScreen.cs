@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
@@ -15,6 +17,10 @@ public sealed class PauseMenuScreen : MonoBehaviour, IUIFlowRootScreen
     [SerializeField] private Button optionsButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private ConfirmationModal quitConfirmationModal;
+    [Tooltip("Same EventSystem the persistent MenuRoot (or Sandbox-local) input module drives. " +
+        "Used only to restore a valid selection when a gated control is disabled while selected " +
+        "and to let the Sandbox restore focus after closing its Options preview child.")]
+    [SerializeField] private EventSystem eventSystem;
 
     [Header("Package A1 gating")]
     [Tooltip("Production Options remains non-functional until Package B. The Sandbox may enable " +
@@ -33,6 +39,13 @@ public sealed class PauseMenuScreen : MonoBehaviour, IUIFlowRootScreen
     /// </summary>
     public event Action QuitToMainMenuRequested;
 
+    /// <summary>
+    /// Sandbox-only seam: fired when Options is clicked while <see cref="optionsPreviewEnabled"/>
+    /// is true. Production never subscribes to this; PauseMenuScreen creates no settings data and
+    /// owns no audio/display/accessibility/persistence state.
+    /// </summary>
+    public event Action OptionsRequested;
+
     public Selectable FirstSelection => continueButton;
     public bool HasOpenModal => quitConfirmationModal != null && quitConfirmationModal.IsOpen;
 
@@ -42,7 +55,7 @@ public sealed class PauseMenuScreen : MonoBehaviour, IUIFlowRootScreen
         if (optionsButton != null) optionsButton.onClick.AddListener(HandleOptionsClicked);
         if (quitButton != null) quitButton.onClick.AddListener(HandleQuitClicked);
 
-        ApplyOptionsGate();
+        RefreshAvailabilityAndNavigation();
     }
 
     private void OnDestroy()
@@ -85,20 +98,81 @@ public sealed class PauseMenuScreen : MonoBehaviour, IUIFlowRootScreen
     public void SetOptionsPreviewEnabled(bool enabled)
     {
         optionsPreviewEnabled = enabled;
-        ApplyOptionsGate();
+        RefreshAvailabilityAndNavigation();
     }
 
     /// <summary>Sandbox-only: enable the typed Quit request seam for verification.</summary>
     public void SetQuitRequestSeamEnabled(bool enabled)
     {
         quitRequestSeamEnabled = enabled;
+        RefreshAvailabilityAndNavigation();
     }
 
-    private void ApplyOptionsGate()
+    /// <summary>
+    /// Sandbox-only seam: restores selection to the Options button after the Sandbox-only Options
+    /// preview child closes. Falls back to Continue if Options is not currently interactable.
+    /// </summary>
+    public void RestoreOptionsSelection()
     {
-        if (optionsButton != null)
+        UISelectionUtility.SelectPreferredOrFallback(eventSystem, optionsButton, continueButton);
+    }
+
+    /// <summary>
+    /// Rebuilds Continue/Options/Quit interactability and explicit keyboard/controller navigation
+    /// so disabled controls are skipped entirely rather than merely un-clickable dead ends, and
+    /// moves selection off a control that just became disabled while selected.
+    /// </summary>
+    private void RefreshAvailabilityAndNavigation()
+    {
+        if (optionsButton != null) optionsButton.interactable = optionsPreviewEnabled;
+        if (quitButton != null) quitButton.interactable = quitRequestSeamEnabled;
+
+        List<Button> active = new List<Button>();
+        if (continueButton != null) active.Add(continueButton);
+        if (optionsButton != null && optionsPreviewEnabled) active.Add(optionsButton);
+        if (quitButton != null && quitRequestSeamEnabled) active.Add(quitButton);
+
+        Button[] allButtons = { continueButton, optionsButton, quitButton };
+        foreach (Button button in allButtons)
         {
-            optionsButton.interactable = optionsPreviewEnabled;
+            if (button == null || active.Contains(button))
+            {
+                continue;
+            }
+
+            Navigation none = button.navigation;
+            none.mode = Navigation.Mode.None;
+            button.navigation = none;
+        }
+
+        for (int i = 0; i < active.Count; i++)
+        {
+            Navigation nav = active[i].navigation;
+            nav.mode = Navigation.Mode.Explicit;
+            nav.selectOnUp = i > 0 ? active[i - 1] : null;
+            nav.selectOnDown = i < active.Count - 1 ? active[i + 1] : null;
+            nav.selectOnLeft = null;
+            nav.selectOnRight = null;
+            active[i].navigation = nav;
+        }
+
+        RestoreSelectionIfCurrentBecameInvalid();
+    }
+
+    private void RestoreSelectionIfCurrentBecameInvalid()
+    {
+        if (eventSystem == null)
+        {
+            return;
+        }
+
+        GameObject current = eventSystem.currentSelectedGameObject;
+        bool currentIsNowDisabledOptions = optionsButton != null && current == optionsButton.gameObject && !optionsPreviewEnabled;
+        bool currentIsNowDisabledQuit = quitButton != null && current == quitButton.gameObject && !quitRequestSeamEnabled;
+
+        if (currentIsNowDisabledOptions || currentIsNowDisabledQuit)
+        {
+            UISelectionUtility.Select(eventSystem, continueButton);
         }
     }
 
@@ -109,19 +183,28 @@ public sealed class PauseMenuScreen : MonoBehaviour, IUIFlowRootScreen
 
     private void HandleOptionsClicked()
     {
-        // Package A1: authored button/position only. Functional Options belongs to Package B.
-        // The Sandbox-only preview path (optionsPreviewEnabled) is exercised entirely through
-        // SetOptionsPreviewEnabled; there is no production child screen to open here.
-    }
-
-    private void HandleQuitClicked()
-    {
-        if (quitConfirmationModal == null)
+        // Package A1: production Options remains non-interactable, so this only fires when the
+        // Sandbox has enabled the preview seam. Functional Options belongs to Package B; this
+        // screen creates no settings data and owns no audio/display/accessibility/persistence.
+        if (!optionsPreviewEnabled)
         {
             return;
         }
 
-        quitConfirmationModal.Show(quitButton, HandleQuitConfirmed, HandleQuitCancelled);
+        OptionsRequested?.Invoke();
+    }
+
+    private void HandleQuitClicked()
+    {
+        // Production keeps Quit non-interactable while the seam is disabled, which already blocks
+        // UGUI click events; this guard also stops any direct/programmatic invocation from ever
+        // opening the confirmation modal while Package A1 has no functional Quit endpoint.
+        if (!quitRequestSeamEnabled || quitConfirmationModal == null)
+        {
+            return;
+        }
+
+        quitConfirmationModal.Show(quitButton, continueButton, HandleQuitConfirmed, HandleQuitCancelled);
     }
 
     private void HandleQuitConfirmed()

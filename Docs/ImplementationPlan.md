@@ -23,7 +23,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) implemented and automated-tested; interactive manual validation pending; Package A2/B not started |
+| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) implemented, corrected, and automated-tested with confirmed EditMode+PlayMode execution; Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation pending; Package A2/B not started |
 | Audio system | Partial |
 
 ---
@@ -40,10 +40,12 @@ contracts now live in:
 - `Docs/FeatureSpecs/HUD.md`
 - `Docs/FeatureSpecs/Abilities.md`
 
-Package A1 (root Pause menu, persistent MenuRoot/input foundation, Sandbox) has been implemented and
-covered by automated EditMode tests plus a passing `UIFoundationValidator` pass — see the Package A1
-entry below for exact scope and what remains unvalidated (PlayMode automated confirmation and all
-interactive manual checks). Package A2 and Package B have not been performed or validated. The
+Package A1 (root Pause menu, persistent MenuRoot/input foundation, Sandbox) has been implemented,
+corrected, and covered by automated EditMode and PlayMode tests — both confirmed executing via the
+real Unity Test Runner — plus a passing `UIFoundationValidator` pass. The Sandbox-only Options
+preview and Quit callback flows were live-verified in a real Play Mode session. See the Package A1
+entry below for exact scope and what remains unvalidated (interactive manual checks against the
+production Boot path). Package A2 and Package B have not been performed or validated. The
 implemented persistent HUD foundation is retained as an existing dependency, not counted as new menu
 work.
 
@@ -92,7 +94,9 @@ this documentation update.
 
 #### Package A1 — UI foundation
 
-**Status: Implemented and automated-tested; interactive manual validation not yet performed.**
+**Status: Implemented, corrected, and automated-tested with confirmed EditMode+PlayMode execution;
+Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation not yet
+performed.**
 
 - [x] Development-only UI Sandbox (`Assets/_Project/Scenes/Development/UISandbox.unity`, excluded
   from Build Settings) and shared reusable UI prefabs (`Assets/_Project/Prefabs/UI/PauseMenuScreen.prefab`,
@@ -118,22 +122,40 @@ this documentation update.
   fresh-press resume behavior for Jump/Attack/Dash/Sprint/Interact/Bind; continuous movement
   (`MoveVector`) exempt from release gating and resumes live.
 - [x] Root Pause menu: functional Continue, authored-but-gated Options (non-interactable in
-  production; Sandbox can preview it enabled), and Quit-to-Main-Menu confirmation modal with a
-  development-gated typed request seam (`PauseMenuScreen.QuitToMainMenuRequested`) — no save, no
-  scene load, no frontend.
-- [x] Automated coverage: `UIFlowControllerTests` (EditMode, 14/14 passing) for root
-  exclusivity/pause-exactly-once/modal-back-order/first-selection/transition-lockout/rejection
-  cases; `HeroInputSuspensionPlayModeTests` (PlayMode) for the full input-leakage matrix — written
-  and compiling, but automated execution could not be confirmed via Unity MCP's TestRunnerApi in
-  this session (PlayMode/domain-reload/test-mode-filter interaction issues — see completion
-  report); recommend running via the Editor's Test Runner window (PlayMode tab) to confirm.
-  `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed: single persistent
-  EventSystem, no competing gameplay-scene EventSystem, Sandbox build exclusion and
-  production-asset isolation, semantic Canvas sorting (HUD < Root < Modal), hidden-panel raycast
-  safety.
-- [ ] Interactive manual validation (keyboard/controller/mouse Pause+Gameplay Menu open/close,
-  held-input-through-transition, real room-transition timing, Sandbox visual/aspect-ratio review)
-  not performed this session — no interactive Play Mode input control was available via Unity MCP.
+  production; Sandbox can preview it enabled via a labelled Sandbox-only placeholder child), and
+  Quit-to-Main-Menu confirmation modal, non-interactable in production while its typed request seam
+  is disabled (`PauseMenuScreen.QuitToMainMenuRequested`) — no save, no scene load, no frontend.
+  Pressing Pause while the Quit modal is open closes only the modal (approved modal-first behavior);
+  a later Pause press at the bare root closes normally.
+- [x] Correction pass: production/Sandbox `InputSystemUIInputModule` action references wired via
+  durable `UI`-map `InputActionReference` sub-assets (previously all null despite an assigned
+  actions asset); runtime navigation rebuild so disabled Options/Quit are skipped and never leave
+  focus stuck; `ConfirmationModal` selection fallback to the parent root when the invoker becomes
+  invalid; pause-safe `UIFlowController.OnDestroy` teardown; `HeroInputReader` held-state checks
+  switched from `InputAction.IsPressed()` to raw control actuation (`IsActuated()`), fixing a
+  confirmed input-leakage defect where Jump/Attack/Interact/Bind/Dash could re-fire a synthetic
+  press immediately on resume if held through the close (`InputAction.IsPressed()` does not
+  resynchronize within the same frame after `Enable()` following `Disable()` while a control is
+  still held — only `WasPressedThisFrame()` does, one frame too late for disarm gating).
+- [x] Automated coverage, all confirmed via the real Unity Test Runner this pass: `UIFlowControllerTests`
+  (EditMode, 18/18), `PauseMenuScreenTests` (EditMode, 14/14), `ConfirmationModalTests` (EditMode,
+  4/4), `UISandboxControllerFixtureTests` (EditMode, 4/4) — full EditMode suite 365/365, zero
+  PlayMode tests included. `HeroInputSuspensionPlayModeTests` (PlayMode, 14/14 — 9 original plus 5
+  added this pass) confirmed executing and passing via the real PlayMode Test Runner after fixing
+  `Underbrew.UI.PlayModeTests.asmdef`'s `includePlatforms` (was `["Editor"]`, now `[]` matching the
+  working `Underbrew.Camera.PlayModeTests.asmdef` convention) — full PlayMode suite 29/29 (14 UI +
+  15 unrelated camera tests, confirming the asmdef fix did not affect other discovery).
+  `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed, extended this pass to
+  validate input-module action wiring (confirmed to fail when a reference is deliberately cleared)
+  and Sandbox-only-component production exclusion.
+- [x] Sandbox correction pass: Options preview placeholder (`SandboxOptionsPreviewPanel`) and Quit
+  callback status label (`SandboxQuitCallbackStatus`) implemented and live-verified in a real Play
+  Mode session; Bonus-health and resource fixture presets made deterministic across repeated clicks;
+  runtime boss-fixture `EnemyConfig` instances tracked and destroyed when superseded.
+- [ ] Interactive manual validation against the **production Boot path** (keyboard/controller/mouse
+  Pause+Gameplay Menu open/close in the real gameplay scene, held-input-through-transition, real
+  room-transition timing) not performed this session — the Sandbox-only flows above were live-driven
+  in Play Mode, but the production Boot scene was not loaded.
 
 ### Package A2 — Gameplay Menu and Gear
 
