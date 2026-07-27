@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last audited:** 2026-07-25
+**Last audited:** 2026-07-27
 This is a living document. Update when milestones complete or priorities shift.
 
 ---
@@ -25,6 +25,123 @@ This is a living document. Update when milestones complete or priorities shift.
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
 | UI (HUD, menus) | HUD presentation foundation implemented; menus not started |
 | Audio system | Partial |
+
+---
+
+## Authoritative UI Roadmap
+
+The approved planning record is `Docs/ImplementationPlans/UIImplementationPlan.md`. Authoritative
+contracts now live in:
+
+- `Docs/FeatureSpecs/UIArchitecture.md`
+- `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/Gear.md`
+- `Docs/FeatureSpecs/UISandbox.md`
+- `Docs/FeatureSpecs/HUD.md`
+- `Docs/FeatureSpecs/Abilities.md`
+
+No Package A or Package B menu implementation described below has been performed or validated.
+The implemented persistent HUD foundation is retained as an existing dependency, not counted as new
+menu work.
+
+### Documentation/design contract
+
+**Status: Approved planning direction; authoritative documentation updated.**
+
+- [x] High-level UI product decisions confirmed.
+- [x] UI implementation proposal reviewed.
+- [x] Authoritative UI ownership, pause/menu flow, Gear, and Sandbox specifications created.
+- [ ] No new UI implementation phase has been validated.
+
+### Prerequisite — New-game ability defaults
+
+**Status: Planned gameplay-state correction before Package A2 production validation.**
+
+#### New-game ability defaults mismatch
+
+**Current state:** `PlayerAbilityState` field defaults, `AbilitySaveData`, and
+`PlayerAbilityState.ResetToDefaults()` currently begin with Dash and Wall Cling unlocked. The
+mutable `PlayerAbilityState.asset` also has Double Jump and Bind unlocked. These values are current
+implementation/development state, not the intended product design.
+
+**Confirmed intended state:** a new player starts with no unlocked permanent abilities. Dash, Wall
+Cling, Sprint, Wall Latch, Double Jump, Drift Cloak, Spirit Cast, and Bind are acquired through
+progression. The initial Gear collection may legitimately be empty.
+
+**Required future work:**
+
+- [ ] Update authoritative new-game and reset defaults so all abilities begin locked.
+- [ ] Update `AbilitySaveData` defaults where required.
+- [ ] Update `PlayerAbilityState.ResetToDefaults()` and field initializers where required.
+- [ ] Audit `Bootstrap`, fresh-save creation, migration, and other new-game initialization paths.
+- [ ] Reset or recreate mutable development-state assets without treating them as design defaults.
+- [ ] Review compatibility and migration behavior for existing development saves.
+- [ ] Add tests proving a new save and reset-to-defaults state contain no unlocked abilities.
+- [ ] Add tests proving existing saves preserve their explicitly stored unlock values.
+
+This prerequisite is owned by the ability/save foundation, not Gear UI. It must be completed before
+the Package A2 production Gear vertical slice is considered valid. No correction is performed by
+this documentation update.
+
+### Package A — Internal UI foundation vertical slice
+
+**Status: Planned; not yet shippable.**
+
+#### Package A1 — UI foundation
+
+**Status: Planned.**
+
+- [ ] Development-only UI Sandbox and shared reusable UI prefabs.
+- [ ] Persistent `MenuRoot` composition.
+- [ ] One project-owned `EventSystem` and `InputSystemUIInputModule`.
+- [ ] Approved dedicated Pause and Gameplay Menu actions and root-input ownership.
+- [ ] Full transition blocking plus an initial 1.0-second unscaled post-transition lockout.
+- [ ] Immediate rejection of blocked requests; no queued or pending root opens.
+- [ ] Independent Pause/Gameplay Menu release rearming.
+- [ ] Hero command-input suspension through `HeroController`.
+- [ ] `HeroInputReader` sampling/fallback gating, buffer clearing, held-command tracking, and
+  fresh-press resume behavior; continuous movement remains exempt from release gating.
+- [ ] Root Pause menu: Continue, Options route, and confirmed Quit-to-Main-Menu confirmation modal.
+- [ ] Focus, navigation, lifecycle, transition, time-scale, leakage, and validation coverage.
+
+### Package A2 — Gameplay Menu and Gear
+
+**Status: Planned; blocked for production validation by the new-game-default prerequisite.**
+
+- [ ] Gameplay Menu shell with session-only last-valid-tab memory.
+- [ ] Production tab filtering: Gear only in the first production-backed slice.
+- [ ] Planned Gear display definitions/catalogue backed read-only by `PlayerAbilityState`.
+- [ ] Acquired-only presentation with no silhouettes, unknown totals, or future placeholders.
+- [ ] Intentional, selectable true-new-game empty Gear state.
+- [ ] Details presentation and device-aware control hints.
+- [ ] Production layout selected after Sandbox comparison of authored groups, authored tableau, and
+  list/grid fallback.
+- [ ] Gear visibility, empty-state, selection, save-load, catalogue, and validator coverage.
+
+### Package B — First functional settings integration
+
+**Status: Planned.**
+
+- [ ] Project AudioMixer and Master/Music/SFX routing.
+- [ ] Profile-independent settings persistence and startup application.
+- [ ] Functional audio Options screen.
+- [ ] UI navigation/confirm/cancel audio through `AudioManager`.
+- [ ] Decide whether return-to-main-menu integration is approved or remains deferred.
+
+Package A plus Package B form the first full player-facing Pause/settings milestone, except that
+Quit to Main Menu remains incomplete until a frontend destination and save policy are approved.
+
+### Deferred UI and adjacent systems
+
+- Functional Quit to Main Menu and its save/discard/reload policy.
+- Main menu, New Game/Continue frontend routing, and save slots.
+- Production Tools, Satchel, Recipes, Tasks, Journal, and Map tabs.
+- Dual-access Map: hold the future Map action for a non-pausing Local Quick Map; double-tap the same
+  action for the pausing Gameplay Menu Full Map tab. Tab is provisionally reserved for Map on
+  keyboard. Map remains outside Package A.
+- Notifications and acquisition presentation.
+- HUD final artwork and feedback.
+- Complete accessibility, localization, input rebinding, glyph, display, and safe-area support.
 
 ---
 
@@ -155,7 +272,7 @@ world persistence (timed suppression on scene re-initialization) is implemented 
 **Naming note:** this is unrelated to "World Persistence Phase 3" (doors/switches/breakables/room visitation — see `Docs/ImplementationPlans/WorldPersistence.md` and Milestone 4 below). The two share a number by coincidence only.
 
 - [x] Create `PlayerAbilityState` ScriptableObject. (Done — asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`)
-- [x] Create `AbilityId` enum. (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast)
+- [x] Create `AbilityId` enum. (Done — Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast, Bind)
 - [x] Create `HeroAbilityConfig` ScriptableObject. (Done)
 - [x] Gate dash behind `PlayerAbilityState.dashUnlocked`. (Done)
 - [x] Gate wall-slide and wall-jump behind shared `PlayerAbilityState.wallClingUnlocked`. (Done)
@@ -287,7 +404,48 @@ validation remain before Phase 2B.
 
 ## Known Technical Debt
 
-- **`SampleScene` is the only scene.** A proper first-level scene should replace it once the test level is authored in Milestone 1. `Bootstrap.firstScene` is hardcoded to `"SampleScene"`.
+- **Gameplay scenes remain development/sample content.** Current Build Settings enable `Boot`,
+  `SampleScene`, `SampleScene2`, `SampleScene3`, and `SampleScene4`; the repository is no longer a
+  single-gameplay-scene project. `Bootstrap.firstScene` still falls back to `"SampleScene"`, and a
+  proper frontend/first-level routing policy remains planned.
+
+- **New-game ability defaults contradict the confirmed product design.** Current field/save/reset
+  defaults unlock Dash and Wall Cling, and the mutable development asset also contains Double Jump
+  and Bind unlocked. A true new game must start with all eight abilities locked. Complete the
+  prerequisite above, including development-asset cleanup, existing-save compatibility review, and
+  automated coverage, before Package A2 production validation.
+
+- **Paused gameplay input is not yet suspended.** `HeroInputReader.Tick()` continues sampling while
+  paused. Jump and attack buffers use scaled `Time.deltaTime`, so buffers created at time scale zero
+  do not expire.
+
+- **Legacy input fallbacks bypass action-map-only suppression.** Direct keyboard/mouse fallbacks for
+  attack, dash, and sprint are still sampled. Package A1 must gate or remove them through the
+  input-reader suspension/rearming implementation.
+
+- **Fresh-press resume handling is missing.** Clearing command buffers alone cannot prevent held
+  Jump, Attack, Dash, Bind, Crouch, Interact, Sprint activation, or future one-shot commands from
+  triggering after resume. Held commands require per-command release and a later fresh press;
+  continuous movement is intentionally exempt.
+
+- **UI Cancel overlaps gameplay input.** Gamepad East is currently used by UI Cancel and
+  Bind/Crouch gameplay input. Re-enabling gameplay while it remains held can leak an action unless
+  Package A1 performs overlap release gating and per-command resume disarming.
+
+- **Root-menu transition availability has no implementation.** No transition-completed event exists;
+  the approved plan currently identifies the successful falling edge of
+  `GameManager.IsSceneTransitioning` while `GameManager.State == Playing` as the narrowest existing
+  observation seam. `SceneInit` is too early. The 1.0-second unscaled UI lockout, request rejection
+  without queueing, and independent root-action rearming remain planned.
+
+- **External transition interruption is not safe while UI owns pause.** Current transition flow does
+  not restore a menu-owned paused time scale. Package A rejects external transitions while a
+  pausing root is open; the deferred Quit flow must close presentation, clean input, release pause,
+  and then request scene flow in that order.
+
+- **UI focus and persistent Hero lifecycle are not implemented.** The project has UI navigation
+  actions but no project-owned menu `EventSystem`/`InputSystemUIInputModule`, root focus flow, or
+  persistent menu coordinator. Persistent UI must not retain a destroyed scene-local Hero reference.
 
 - **`HeroController.ResolveDependencies` AssetDatabase fallback.** Lines 126–131 and 138–142 fall back to editor-only `AssetDatabase.LoadAssetAtPath<>` calls for `HeroConfig` and `HeroAnimationLibrary`. This masks missing prefab Inspector assignments. Fix: wire both in the Hero prefab Inspector and remove the fallback blocks. Guard: `#if UNITY_EDITOR` ensures no runtime impact in builds, but the silent fallback makes it easy to ship without the prefab correctly wired.
 

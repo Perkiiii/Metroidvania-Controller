@@ -1,10 +1,13 @@
 # Feature Spec — HUD
 
-**Last audited:** 2026-07-24
+**Last audited:** 2026-07-27
 
 ## Responsibilities
 
-Display player-facing runtime values without owning gameplay state. The persistent HUD displays normal/bonus hero health, current resource, and an encounter-scoped aggregate boss-health bar. Menus and other overlays remain separate concerns.
+Display player-facing runtime values without owning gameplay state. The persistent HUD displays
+normal/bonus hero health, current resource, and an encounter-scoped aggregate boss-health bar.
+`HUDRoot` remains separate from the planned persistent `MenuRoot`, the future sibling
+`NotificationRoot`, and scene-local/non-pausing contextual interfaces.
 
 ## Current State
 
@@ -18,6 +21,9 @@ Implemented and verified under `Assets/_Project/Scripts/UI/`, living under the p
 
 `ResourcePipView` (the pre-bar-refactor discrete pip/orb presentation) has been removed; no orb or pip presentation remains anywhere in the project.
 
+The implemented HUD foundation is not a stub. Final artwork, animation, audio, and additional
+feedback remain planned presentation work.
+
 ## Ownership and lifecycle
 
 The HUD is presentation-only. It reads the persistent ScriptableObject states directly and never routes values through `HeroController`, `HeroHealthComponent`, or `GameManager`. It does not poll in `Update`, search scenes, mutate state, or rebind on `GameManager.SceneInit`.
@@ -27,6 +33,13 @@ Each view subscribes once in `OnEnable`, performs an explicit initial refresh, a
 `BossHudEventService` stores no current request, participant, health component, scene object, or other Unity reference. `BossHealthDisplay` performs no polling or scene search. `PersistentHudRoot` does not wire or retain the boss display.
 
 `GameCameras` remains responsible for camera lifetime and camera initialization only. The HUD hierarchy is a child of its persistent prefab; `PersistentHudRoot` protects against an accidental second instance.
+
+Permanent ability ownership is reviewed through the planned read-only Gear screen, not shown as
+permanent combat-HUD indicators. The confirmed true-new-game state has no unlocked abilities; this
+does not require placeholder, locked, or undiscovered ability indicators on the HUD. Menus may
+visually cover or fade the HUD without changing its subscriptions or persistent state. The future
+Local Quick Map is a separate non-pausing overlay and is outside the health/resource/boss HUD
+contract.
 
 ## Canvas architecture
 
@@ -88,3 +101,80 @@ A matching hide request clears visibility, source identity, roster references, a
 - Gameplay-context events remain separate from neutral state display events.
 - State application never appears as damage, healing, resource gain, or resource spending.
 - Boss HUD artwork and animation remain placeholder presentation; per-ordinary-enemy health bars are not implemented.
+- `HUDRoot` does not own `MenuRoot`, future `NotificationRoot`, Quick Map, or frontend UI.
+- Ability flags and Gear ownership never become combat-HUD state merely to populate presentation.
+
+## Planned additions
+
+The following are planned or deferred and must not be described as implemented:
+
+- Interaction prompts.
+- Area titles.
+- Save indicators.
+- Acquisition notifications.
+- Tutorial prompts.
+- Possible equipped consumable/brew slots.
+- Temporary status indicators.
+- Final health/resource/boss visual, animation, and audio feedback.
+
+`NotificationRoot` is the future sibling presentation composition for acquisition, area-title,
+save, and tutorial notifications. Its queue/event/content ownership requires a separate approved
+implementation; it is not folded into `PersistentHudRoot` or the planned menu coordinator.
+
+## Non-goals
+
+- Owning or mutating health, resource, abilities, boss state, saves, or input.
+- Reintroducing resource pips or deriving presentation grouping from `partsPerPip`.
+- Permanently displaying undiscovered abilities or the Gear collection.
+- Owning menu, modal, Map, notification, or scene-transition flow.
+- Replacing encounter-local boss orchestration.
+
+## Unity Editor work
+
+The implemented hierarchy and references already exist on
+`Assets/_Project/Prefabs/Managers/_GameCameras.prefab`. Future HUD presentation work must:
+
+- Preserve one `PersistentHudRoot`, the dedicated URP Overlay `HUDCamera`, and existing direct state
+  references.
+- Author final art/animation/audio without changing gameplay ownership.
+- Verify menus/future notifications use sibling layering and do not block HUD raycasts while hidden.
+- Validate supported aspect ratios and safe areas once target platforms are approved.
+
+No Unity Editor work was performed by this documentation update.
+
+## Automated and manual regression validation
+
+Future implementation passes must retain automated coverage for initial snapshot refresh,
+neutral save/reset application, duplicate subscription prevention, health/bonus slot changes,
+continuous resource fill including zero capacity, and source-scoped aggregate boss show/hide.
+
+Manual regression should verify one persistent HUD across Boot-driven room transitions; no feedback
+on save/reset application; health damage/heal/bonus/death presentation; resource gain/spend/clear;
+boss initialization, aggregation, lethal zero, interruption, and unload cleanup; menu visual
+coverage without subscription loss; and common input/aspect-ratio combinations. No Unity
+compilation, tests, Editor validation, visual validation, or playtesting was run for this
+documentation update.
+
+## Risks
+
+- Accidentally adding a second HUD or EventSystem in a gameplay scene.
+- Treating save/reset application as gameplay gain, heal, or damage feedback.
+- Letting menu visibility disconnect persistent state subscriptions.
+- Reintroducing obsolete pip grouping or using mutable ability-state assets as display defaults.
+- Coupling Quick Map, Gear, or notifications to combat-HUD ownership.
+
+## Open decisions
+
+- Final health/resource/boss artwork, typography, animation, and audio feedback.
+- Which planned prompts, indicators, temporary statuses, and possible consumable/brew slots are
+  approved for the combat HUD.
+- Final supported aspect-ratio, safe-area, localization, and accessibility requirements.
+- Whether future notifications remain visible beneath a covering pausing root; that policy belongs
+  to the future notification/UI architecture, not persistent HUD state.
+
+## Related specifications
+
+- `Docs/FeatureSpecs/UIArchitecture.md`
+- `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/Gear.md`
+- `Docs/FeatureSpecs/Abilities.md`

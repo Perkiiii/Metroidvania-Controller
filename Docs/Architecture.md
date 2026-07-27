@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-07-23
+**Last audited:** 2026-07-27
 
 ## Overview
 
@@ -56,7 +56,7 @@ Single source of truth for the hero's runtime state. Written by Sensors, Motor, 
 
 ### Persistent HUD
 
-`PersistentHudRoot` is a presentation composition root intended as a child of the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `GameCameras` remains camera-only. `PlayerResourceConfig.partsPerPip` controls visual grouping and is not saved persistent state. See `Docs/FeatureSpecs/HUD.md` for the Editor hierarchy and placeholder-art setup.
+`PersistentHudRoot` is the implemented presentation composition root under the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `ResourceDisplay` renders one continuous, always-visible bar. `PlayerResourceConfig.partsPerPip` is retained inert configuration and does not control current HUD grouping. `GameCameras` remains camera-only. See `Docs/FeatureSpecs/HUD.md`.
 
 ### HeroAnimationLibrary (ScriptableObject)
 Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, attackSide, attackUp, attackDown, bind) to `AnimationClip` references. Swapping a clip does not require code changes.
@@ -161,18 +161,27 @@ AbilityId (enum)
   Dash, WallCling, Sprint, WallLatch, DoubleJump, DriftCloak, SpiritCast, Bind
 
 PlayerAbilityState (SO)
-├── dashUnlocked        bool  (default true — covers ground and air dash; no separate flags)
-├── wallClingUnlocked   bool  (default true — shared gate for wall-slide and wall-jump; no separate flags)
-├── sprintUnlocked      bool  (default false)
-├── wallLatchUnlocked   bool  (default false)
-├── doubleJumpUnlocked  bool  (default false)
-├── driftCloakUnlocked  bool  (default false)
-├── spiritCastUnlocked  bool  (default false)
-├── bindUnlocked        bool  (default false — checked in HeroBindAction.CanStart() only)
+├── dashUnlocked        bool
+├── wallClingUnlocked   bool  (shared gate for wall-slide and wall-jump)
+├── sprintUnlocked      bool
+├── wallLatchUnlocked   bool
+├── doubleJumpUnlocked  bool
+├── driftCloakUnlocked  bool
+├── spiritCastUnlocked  bool
+├── bindUnlocked        bool  (checked in HeroBindAction.CanStart() only)
 └── AbilityChanged event — fired by SetUnlocked only when value changes; scene gates subscribe for runtime changes
 ```
 
 `PlayerAbilityState` is separate from `HeroConfig` (tuning values) and from the save data class (`AbilitySaveData`). It implements `ISaveTarget`: `GatherSaveData` copies the 8 flags into `AbilitySaveData`; `ApplySaveData` calls `SetUnlocked(AbilityId, bool)` for each flag so runtime subscribers receive `AbilityChanged` events when values change. Scene `AbilityGate` objects match already-loaded state because they call `Refresh()` in `OnEnable`. `SaveManager` includes the asset in its serialized, Inspector-ordered save-target collection and calls both methods at the correct points in the save/load lifecycle.
+
+**Confirmed new-game contract:** a new game begins with all eight permanent abilities locked. Dash,
+Wall Cling, Sprint, Wall Latch, Double Jump, Drift Cloak, Spirit Cast, and Bind are acquired only
+through progression. Current code contradicts that product contract: field initializers,
+`AbilitySaveData`, and `PlayerAbilityState.ResetToDefaults()` currently unlock Dash and Wall Cling,
+while the mutable `PlayerAbilityState.asset` also has Double Jump and Bind unlocked. This is known
+implementation debt, not intended starting design. Aligning defaults, reset/new-save initialization,
+mutable development assets, existing-development-save compatibility, and tests is planned before the
+production Gear slice can be validated. It has not been corrected.
 
 `AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) refreshes on enable, then subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
 
@@ -421,7 +430,7 @@ SaveManager (DontDestroyOnLoad)
   ↓  GatherSaveData() / ApplySaveData()
   ↓
 ISaveTarget (interface, implemented by persistent SOs)
-  ├── PlayerAbilityState.asset       7 ability unlock flags   [implemented]
+  ├── PlayerAbilityState.asset       8 ability unlock flags   [implemented; new-game defaults mismatch planned]
   ├── PlayerHealthState.asset        current/max/bonus health [gameplay ownership implemented]
   ├── PlayerResourceState.asset      current/max parts        [gameplay ownership implemented; generation + Bind spend + death-clear wired]
   └── WorldStateRegistry.asset       rooms, pickups, encounters, object states, enemy timers  [implemented — World Persistence Phase 1/2]
@@ -490,30 +499,79 @@ All tuning lives in `CameraConfig` SO at `Assets/_Project/ScriptableObjects/Worl
 
 ## UI / HUD
 
-See `Docs/FeatureSpecs/HUD.md` for the full spec.
+Authoritative detail:
 
-HUD and menus use UGUI. The persistent `_GameCameras` prefab already contains `HUDCamera`; the HUD Canvas is configured in Screen Space - Camera mode and assigned to that camera. This keeps UI layout independent of world camera settings and prevents z-fighting.
+- `Docs/FeatureSpecs/UIArchitecture.md`
+- `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/Gear.md`
+- `Docs/FeatureSpecs/UISandbox.md`
+- `Docs/FeatureSpecs/HUD.md`
+- `Docs/FeatureSpecs/Abilities.md`
 
-**Canvas hierarchy (vertical slice scope):**
+HUD and menus use UGUI. The persistent `_GameCameras` prefab contains the implemented `HUDCamera`,
+`HUDRoot`, and transition-owned `FadeCanvas`. The HUD Canvas is Screen Space - Camera and targets
+the dedicated URP Overlay HUD camera.
 
+**Persistent composition:**
+
+```text
+_GameCameras
+├── MainCamera / HUDCamera
+├── HUDRoot                 implemented
+├── NotificationRoot        future/deferred
+├── MenuRoot                planned
+└── FadeCanvas              implemented
 ```
-_GameCameras (persistent)
-└── HUDRoot (PersistentHudRoot)
-    └── HUD Canvas (HUDCamera)
-        ├── Player HUD
-        │   ├── HealthDisplay   — direct PlayerHealthState.Changed subscriber
-        │   └── ResourceDisplay — direct PlayerResourceState.Changed subscriber
-        └── Boss Health Display — source-scoped explicit EnemyHealthComponent roster
-└── Menus
-    ├── PauseMenu         — shown/hidden by GameManager.Pause() / Unpause()
-    └── [reserved slots]  — main menu, game-over screen; populated in later milestones
-```
 
-Key separation rules:
-- **HUD subscribes to C# events; it never polls component fields.** `HealthDisplay` and `ResourceDisplay` subscribe directly to persistent state assets. `BossHealthDisplay` receives a transient show request, stores the source token and explicit scene-health roster locally, refreshes from `OnHealthChanged`, and clears those references on matching hide/disable. No HUD view searches scenes or rebinds through `GameManager.SceneInit`.
-- **Pause is owned by `GameManager`.** The pause menu calls `GameManager.Pause()` / `Unpause()`; it does not set `Time.timeScale` directly.
-- **Save/load UI goes through `UIFlowController`.** No UI MonoBehaviour calls `SaveManager.Save()` or `LoadSceneAsync` directly.
-- **Presentation remains separate from state.** Health uses dynamic slot views; resource uses a single always-visible horizontal fill bar (no orb/pip presentation). Both are simple UGUI elements; final artwork and optional menu overlays are Editor work and do not change gameplay ownership.
+`HUDRoot` remains presentation-only and independent from menus. `NotificationRoot` is a future
+sibling composition for acquisition, area-title, save, and tutorial presentation; it is not owned
+by HUD or the menu coordinator. `MenuRoot` and its proposed focused `UIFlowController` are planned,
+not implemented. A future frontend remains scene-local. Dialogue, shops, stations, and other
+contextual non-pausing interfaces remain scene-local and use approved control suppression or
+replacement rather than joining the pausing-root hierarchy.
+
+The proposed `UIFlowController` coordinates only pausing-root lifecycle, shallow modal/back
+hierarchy, Gameplay Menu tab memory, focus/selection, approved input-map mode, transition
+availability, and calls to established game-flow seams. It owns at most one active pausing root.
+Modal content blocks and closes before its parent root. It does not own health, resource, ability
+flags, saves, inventory, map discovery, gameplay tuning, scene loading, or audio mix state.
+
+Pause ownership remains with `GameManager.Pause()` / `Unpause()`; UI never writes
+`Time.timeScale`. Input suspension is requested through the thin `HeroController` boundary.
+`HeroInputReader` remains the owner of sampling, fallback gating, buffer clearing, held-command
+tracking, and fresh-press rearming. Buffer clearing and rearming are distinct: held command actions
+must be released and freshly pressed after resume, while continuous movement may resume
+immediately. Persistent UI must invalidate or resolve scene-local Hero access across scene loads and
+must never retain a stale Hero reference.
+
+Pause and Gameplay Menu are separate planned roots with separate open actions. Both are unavailable
+from scene exit through full transition completion and for an initial 1.0 seconds of unscaled
+post-transition UI-flow lockout. `SceneInit` is not transition completion. Blocked requests are
+discarded, never queued, and Pause/Gameplay Menu rearm independently after their own release.
+
+Semantic Canvas ordering is: transition fade above all gameplay UI; modal above and blocking its
+parent root; active root above HUD interaction; future notifications as a sibling presentation
+layer above HUD according to the approved visibility policy; HUD below covering roots. Concrete
+sorting values remain Unity authoring details.
+
+The future Local Quick Map is a hold-driven, non-pausing contextual overlay and is not a
+`UIFlowController` root. It uses an approved limited-input request through `HeroController`; it does
+not manipulate Hero actions, action maps, buffers, or `HeroInputReader`. The future Full Map is the
+same underlying map model/authored visual opened as the pausing Gameplay Menu Map tab. Map discovery
+and content remain outside `UIFlowController`. Map/save identity uses stable authored room IDs
+compatible with `RoomVisitReporter`, `WorldStateRegistry`, and World Graph Editor boundaries, never
+Unity scene names. Map remains functionally deferred.
+
+Views do not load scenes or call `SaveManager` directly. Future frontend and quit flows route through
+established scene-flow APIs after their save/discard policy is approved. Future Options views call
+narrow audio/settings APIs; `AudioManager` and the planned profile-independent settings foundation
+own mixer routing, persistence, and startup application.
+
+Gear is the planned read-only player-facing collection of acquired physical progression
+possessions. Package A initially reads existing `PlayerAbilityState` ownership and presents only
+acquired, approved definitions. A true new game has no unlocked abilities and may show an
+intentionally empty Gear collection; the UI must not use mutable development-asset values as
+product defaults or reveal locked abilities with placeholders.
 
 ---
 
@@ -553,5 +611,6 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 2A + Phase A hardening | Reusable lifecycle, Undead Executioner slice, fail-closed preparation, and production authoring validation implemented; feel/polish review pending |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
-| HUD / Menus | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; menus pending |
+| HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
+| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | Approved and planned; no production menu implementation validated |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |
