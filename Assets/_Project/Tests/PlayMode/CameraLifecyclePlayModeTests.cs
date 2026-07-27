@@ -451,6 +451,22 @@ public sealed class CameraLifecyclePlayModeTests
             Enum.Parse(kindType, "Gate"),
             $"PlayMode {targetScene} transition");
 
+        Invoke(gameManager, "Pause");
+        Assert.That(GetProperty(gameManager, "State").ToString(), Is.EqualTo("Paused"));
+        Assert.That(Time.timeScale, Is.EqualTo(0f));
+        LogAssert.Expect(
+            LogType.Warning,
+            $"[GameManager] Rejecting scene transition to '{targetScene}' while game state is Paused.");
+        bool rejectedWhilePaused = (bool)Invoke(gameManager, "BeginSceneTransition", request);
+        Assert.That(rejectedWhilePaused, Is.False);
+        Assert.That((bool)GetProperty(gameManager, "IsSceneTransitioning"), Is.False);
+        Assert.That(GetProperty(gameManager, "State").ToString(), Is.EqualTo("Paused"));
+        Assert.That(Time.timeScale, Is.EqualTo(0f));
+
+        Invoke(gameManager, "Unpause");
+        Assert.That(GetProperty(gameManager, "State").ToString(), Is.EqualTo("Playing"));
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+
         bool started = (bool)Invoke(gameManager, "BeginSceneTransition", request);
         Assert.That(started, Is.True);
 

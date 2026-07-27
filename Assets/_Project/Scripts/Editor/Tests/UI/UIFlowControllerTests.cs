@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 /// <summary>
@@ -439,5 +440,40 @@ public sealed class UIFlowControllerTests
         // No further press occurs; a blocked request must not open later on its own.
         Assert.That(flow.IsRootOpen, Is.False);
         Assert.That(pauseRoot.ShowCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SceneTransitionRequestWhilePausedIsRejectedWithoutStartingOrChangingPauseState()
+    {
+        gameManager.Pause();
+        LogAssert.Expect(
+            LogType.Warning,
+            "[GameManager] Rejecting scene transition to 'SampleScene' while game state is Paused.");
+
+        bool accepted = gameManager.BeginSceneTransition(new SceneTransitionRequest("SampleScene"));
+
+        Assert.That(accepted, Is.False);
+        Assert.That(gameManager.IsSceneTransitioning, Is.False);
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Paused));
+        Assert.That(Time.timeScale, Is.EqualTo(0f));
+
+        gameManager.Unpause();
+    }
+
+    [Test]
+    public void DuplicateTransitionRequestStillUsesExistingTransitionManagerRejection()
+    {
+        SetSceneTransitioning(gameManager, true);
+        LogAssert.Expect(
+            LogType.Warning,
+            "[SceneTransitionManager] Ignoring transition to 'SampleScene' - a transition is already in progress.");
+
+        bool accepted = gameManager.BeginSceneTransition(new SceneTransitionRequest("SampleScene"));
+
+        Assert.That(accepted, Is.False);
+        Assert.That(gameManager.IsSceneTransitioning, Is.True);
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+
+        SetSceneTransitioning(gameManager, false);
     }
 }

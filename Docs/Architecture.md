@@ -519,20 +519,23 @@ _GameCameras
 ├── MainCamera / HUDCamera
 ├── HUDRoot                 implemented
 ├── NotificationRoot        future/deferred
-├── MenuRoot                planned
+├── MenuRoot                implemented (Package A1)
 └── FadeCanvas              implemented
 ```
 
 `HUDRoot` remains presentation-only and independent from menus. `NotificationRoot` is a future
 sibling composition for acquisition, area-title, save, and tutorial presentation; it is not owned
-by HUD or the menu coordinator. `MenuRoot` and its proposed focused `UIFlowController` are planned,
-not implemented. A future frontend remains scene-local. Dialogue, shops, stations, and other
+by HUD or the menu coordinator. Package A1 implements persistent `MenuRoot`, one production
+`EventSystem`/`InputSystemUIInputModule`, focused `UIFlowController`, the root Pause screen,
+confirmation modal, System Pause/GameplayMenu actions, gameplay-input suspension/rearming,
+transition availability/lockout, the isolated Sandbox, and UI validators. A future frontend remains
+scene-local. Dialogue, shops, stations, and other
 contextual non-pausing interfaces remain scene-local and use approved control suppression or
 replacement rather than joining the pausing-root hierarchy.
 
-The proposed `UIFlowController` coordinates only pausing-root lifecycle, shallow modal/back
-hierarchy, Gameplay Menu tab memory, focus/selection, approved input-map mode, transition
-availability, and calls to established game-flow seams. It owns at most one active pausing root.
+The implemented `UIFlowController` coordinates pausing-root lifecycle, shallow modal/back
+hierarchy, focus/selection, System/UI input-map mode, transition availability, and established
+pause/Hero-input seams. It owns at most one active pausing root.
 Modal content blocks and closes before its parent root. It does not own health, resource, ability
 flags, saves, inventory, map discovery, gameplay tuning, scene loading, or audio mix state.
 
@@ -544,7 +547,8 @@ must be released and freshly pressed after resume, while continuous movement may
 immediately. Persistent UI must invalidate or resolve scene-local Hero access across scene loads and
 must never retain a stale Hero reference.
 
-Pause and Gameplay Menu are separate planned roots with separate open actions. Both are unavailable
+Pause and Gameplay Menu have separate open actions; only the root Pause screen is implemented in
+A1. Both root requests are unavailable
 from scene exit through full transition completion and for an initial 1.0 seconds of unscaled
 post-transition UI-flow lockout. `SceneInit` is not transition completion. Blocked requests are
 discarded, never queued, and Pause/Gameplay Menu rearm independently after their own release.
@@ -612,5 +616,5 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
 | HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
-| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | Approved and planned; no production menu implementation validated |
+| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | A1 MenuRoot/Pause/modal/input/Sandbox implemented; Gameplay Menu, Gear, tab memory, Full Map, functional Options/Quit, frontend, and notifications deferred |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |

@@ -137,6 +137,13 @@ public sealed class GameManager : MonoBehaviour
 
     public bool BeginSceneTransition(SceneTransitionRequest request)
     {
+        if (State == GameState.Paused)
+        {
+            Debug.LogWarning(
+                $"[GameManager] Rejecting scene transition to '{request.TargetScene}' while game state is Paused.");
+            return false;
+        }
+
         return _sceneTransitionManager != null && _sceneTransitionManager.Begin(request);
     }
 

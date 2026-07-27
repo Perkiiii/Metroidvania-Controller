@@ -170,17 +170,28 @@ public sealed class UIFlowController : MonoBehaviour
     {
         UpdateTransitionLockout();
 
-        if (pauseAction != null && pauseAction.WasPressedThisFrame())
+        // Snapshot every relevant edge before a handler can enable/disable an action map or
+        // change the active root. Enabling the UI map while Escape is still held can resynchronise
+        // UI/Cancel in the same frame, so arbitration must use the root that owned input when the
+        // frame began rather than the state produced midway through this Update.
+        bool pausePressed = pauseAction != null && pauseAction.WasPressedThisFrame();
+        bool gameplayMenuPressed = gameplayMenuAction != null && gameplayMenuAction.WasPressedThisFrame();
+        bool cancelPressed = uiCancelAction != null && uiCancelAction.WasPressedThisFrame();
+        UIRootKind? rootAtFrameStart = state == UIFlowState.Open ? activeKind : null;
+        bool pauseHandledForFrameStartRoot = false;
+
+        if (pausePressed)
         {
             HandlePausePressed();
+            pauseHandledForFrameStartRoot = rootAtFrameStart != UIRootKind.GameplayMenu;
         }
 
-        if (gameplayMenuAction != null && gameplayMenuAction.WasPressedThisFrame())
+        if (gameplayMenuPressed)
         {
             HandleGameplayMenuPressed();
         }
 
-        if (state == UIFlowState.Open && uiCancelAction != null && uiCancelAction.WasPressedThisFrame())
+        if (state == UIFlowState.Open && cancelPressed && !pauseHandledForFrameStartRoot)
         {
             HandleCancelPressed();
         }

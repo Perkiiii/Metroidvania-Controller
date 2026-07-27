@@ -56,7 +56,8 @@ work.
 - [x] High-level UI product decisions confirmed.
 - [x] UI implementation proposal reviewed.
 - [x] Authoritative UI ownership, pause/menu flow, Gear, and Sandbox specifications created.
-- [ ] No new UI implementation phase has been validated.
+- [x] Package A1 implementation and focused automated validation completed; production Boot-path
+  interactive validation remains pending.
 
 ### Prerequisite — New-game ability defaults
 
@@ -137,8 +138,8 @@ performed.**
   press immediately on resume if held through the close (`InputAction.IsPressed()` does not
   resynchronize within the same frame after `Enable()` following `Disable()` while a control is
   still held — only `WasPressedThisFrame()` does, one frame too late for disarm gating).
-- [x] Automated coverage, all confirmed via the real Unity Test Runner this pass: `UIFlowControllerTests`
-  (EditMode, 18/18), `PauseMenuScreenTests` (EditMode, 14/14), `ConfirmationModalTests` (EditMode,
+- [x] Automated coverage: `UIFlowControllerTests`
+  (EditMode, 20 tests), `PauseMenuScreenTests` (EditMode, 14 tests), `ConfirmationModalTests` (EditMode,
   4/4), `UISandboxControllerFixtureTests` (EditMode, 4/4) — full EditMode suite 365/365, zero
   PlayMode tests included. `HeroInputSuspensionPlayModeTests` (PlayMode, 14/14 — 9 original plus 5
   added this pass) confirmed executing and passing via the real PlayMode Test Runner after fixing
@@ -148,6 +149,11 @@ performed.**
   `UIFoundationValidator` (`Tools/Project/Validate UI Foundation`) passed, extended this pass to
   validate input-module action wiring (confirmed to fail when a reference is deliberately cleared)
   and Sandbox-only-component production exclusion.
+- [x] Final A1 hardening adds three real Input Action/player-loop Escape arbitration PlayMode tests
+  and paused-transition coverage. The 2026-07-27 focused UI EditMode run observed 42/42 passing.
+  PlayMode Input System event advancement was blocked by the available automated runner environment,
+  so this hardening pass makes no new PlayMode pass claim. Camera lifecycle/transition PlayMode
+  regression coverage observed 11/11 passing.
 - [x] Sandbox correction pass: Options preview placeholder (`SandboxOptionsPreviewPanel`) and Quit
   callback status label (`SandboxQuitCallbackStatus`) implemented and live-verified in a real Play
   Mode session; Bonus-health and resource fixture presets made deterministic across repeated clicks;
@@ -468,37 +474,16 @@ validation remain before Phase 2B.
   prerequisite above, including development-asset cleanup, existing-save compatibility review, and
   automated coverage, before Package A2 production validation.
 
-- **Paused gameplay input is not yet suspended.** `HeroInputReader.Tick()` continues sampling while
-  paused. Jump and attack buffers use scaled `Time.deltaTime`, so buffers created at time scale zero
-  do not expire.
+- **Package A1 production-path validation remains incomplete.** Boot-path keyboard/controller/mouse
+  checks, controller disconnect/focus loss, and real room-transition held-input checks remain manual.
 
-- **Legacy input fallbacks bypass action-map-only suppression.** Direct keyboard/mouse fallbacks for
-  attack, dash, and sprint are still sampled. Package A1 must gate or remove them through the
-  input-reader suspension/rearming implementation.
+- **Gameplay Menu and later UI remain deferred.** Package A2 Gameplay Menu/Gear/tab memory and Full
+  Map routing do not exist. Functional Options, functional Quit, frontend, and notifications remain
+  deferred.
 
-- **Fresh-press resume handling is missing.** Clearing command buffers alone cannot prevent held
-  Jump, Attack, Dash, Bind, Crouch, Interact, Sprint activation, or future one-shot commands from
-  triggering after resume. Held commands require per-command release and a later fresh press;
-  continuous movement is intentionally exempt.
-
-- **UI Cancel overlaps gameplay input.** Gamepad East is currently used by UI Cancel and
-  Bind/Crouch gameplay input. Re-enabling gameplay while it remains held can leak an action unless
-  Package A1 performs overlap release gating and per-command resume disarming.
-
-- **Root-menu transition availability has no implementation.** No transition-completed event exists;
-  the approved plan currently identifies the successful falling edge of
-  `GameManager.IsSceneTransitioning` while `GameManager.State == Playing` as the narrowest existing
-  observation seam. `SceneInit` is too early. The 1.0-second unscaled UI lockout, request rejection
-  without queueing, and independent root-action rearming remain planned.
-
-- **External transition interruption is not safe while UI owns pause.** Current transition flow does
-  not restore a menu-owned paused time scale. Package A rejects external transitions while a
-  pausing root is open; the deferred Quit flow must close presentation, clean input, release pause,
-  and then request scene flow in that order.
-
-- **UI focus and persistent Hero lifecycle are not implemented.** The project has UI navigation
-  actions but no project-owned menu `EventSystem`/`InputSystemUIInputModule`, root focus flow, or
-  persistent menu coordinator. Persistent UI must not retain a destroyed scene-local Hero reference.
+- **External transitions while paused are explicitly rejected.** `GameManager.BeginSceneTransition`
+  returns false without starting scene flow while `GameState.Paused`. A future functional Quit must
+  close presentation, resume input safely, release UI-owned pause, then request scene flow.
 
 - **`HeroController.ResolveDependencies` AssetDatabase fallback.** Lines 126–131 and 138–142 fall back to editor-only `AssetDatabase.LoadAssetAtPath<>` calls for `HeroConfig` and `HeroAnimationLibrary`. This masks missing prefab Inspector assignments. Fix: wire both in the Hero prefab Inspector and remove the fallback blocks. Guard: `#if UNITY_EDITOR` ensures no runtime impact in builds, but the silent fallback makes it easy to ship without the prefab correctly wired.
 

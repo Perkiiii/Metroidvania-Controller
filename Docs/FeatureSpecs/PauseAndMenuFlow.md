@@ -114,8 +114,19 @@ the Map tab. It is not a separate pausing root.
 - Package A does not add a generic pause-token framework.
 - Repeated callbacks must not duplicate Pause or Unpause.
 - Arbitrary external transitions are not accepted while UI owns an open pausing root.
+  `GameManager.BeginSceneTransition` enforces the general state rule: while
+  `GameManager.State == GameState.Paused`, it returns false without starting a coroutine, changing
+  scene/UI state, or unpausing.
 
 ## Input ownership
+
+### Same-frame Pause / Cancel arbitration
+
+`UIFlowController.Update()` snapshots Pause, Gameplay Menu, and UI Cancel edges before changing any
+root or action-map state, then arbitrates against the root active at frame start. With no root or
+Pause active, Pause owns Escape for that frame and duplicate Cancel is suppressed. With Gameplay
+Menu active, Pause remains rejected and Cancel continues through its Back hierarchy. Enabling the UI
+map mid-frame is never treated as protection against an Escape resynchronisation edge.
 
 ### System action-map direction
 
@@ -224,9 +235,9 @@ When the full transition lifecycle has completed and `GameManager.State` has ret
 7. After the lockout, a later fresh press of an armed action may open its root even if the other root
    action remains held.
 
-The current narrow candidate for observing completion is the successful falling edge of
-`GameManager.IsSceneTransitioning` while `GameManager.State == Playing`. The exact implementation
-seam remains open. The 1.0-second value is UI-flow tuning, not Hero, ability, camera, boss,
+The implemented A1 observation seam is the successful falling edge of
+`GameManager.IsSceneTransitioning` while `GameManager.State == Playing`, observed by
+`UIFlowController.UpdateTransitionLockout()`. The 1.0-second value is UI-flow tuning, not Hero, ability, camera, boss,
 transition-point, or save data.
 
 Every blocked request is discarded. Do not queue a Pause request, queue a Gameplay Menu request,

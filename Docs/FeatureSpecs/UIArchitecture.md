@@ -79,14 +79,14 @@ it. A project-owned production menu `EventSystem`/`InputSystemUIInputModule`/`UI
 `MenuRoot` and a UI Sandbox now exist (Package A1). Gear/Gameplay Menu views do not exist yet
 (Package A2).
 
-## Planned persistent composition
+## Persistent composition
 
 ```text
 _GameCameras
 ├── MainCamera / HUDCamera
 ├── HUDRoot                 implemented
 ├── NotificationRoot        future/deferred
-├── MenuRoot                planned
+├── MenuRoot                implemented (Package A1)
 └── FadeCanvas              implemented
 ```
 
@@ -127,8 +127,8 @@ interfaces, notifications, and future Map presentation do not control transition
 | Interface | Lifetime | Pauses? | Authority |
 |---|---|---:|---|
 | Gameplay HUD | Persistent | No | Persistent state views |
-| Root Pause menu | Persistent composition, transient visibility | Yes | Planned `UIFlowController` via `GameManager` |
-| Gameplay Menu / Full Map | Persistent composition, transient visibility | Yes | Planned `UIFlowController` via `GameManager` |
+| Root Pause menu | Persistent composition, transient visibility | Yes | Implemented `UIFlowController` via `GameManager` |
+| Gameplay Menu / Full Map | Deferred persistent composition | Yes | Future A2/later `UIFlowController` routing |
 | Notifications | Future persistent sibling | No by default | Future presentation owner |
 | Frontend | Scene-local | Policy-specific | Future frontend flow |
 | Dialogue/shop/station | Scene-local/contextual | No by default | Context owner + approved control lock/replacement |
@@ -145,10 +145,10 @@ current-Hero seam just in time.
 |---|---|---|
 | Health/resource/ability values | Persistent gameplay ScriptableObjects | Views, `UIFlowController` |
 | Pause state and time scale | `GameManager` | UI views, input reader |
-| Active pausing root, modal/back routing | Planned `UIFlowController` | `GameManager`, views |
+| Active pausing root, modal/back routing | Implemented `UIFlowController` | `GameManager`, views |
 | Gameplay input sampling/buffers/rearm | `HeroInputReader` | `GameManager`, UI |
 | UI-to-Hero suspension request boundary | `HeroController` | Direct view/input-reader coupling |
-| UI focus/selection | Planned UI flow/focus helpers | Gameplay systems |
+| UI focus/selection | Implemented UI flow/focus helpers | Gameplay systems |
 | Save data and save execution | `SaveManager` + `ISaveTarget` owners | UI views |
 | Scene transition execution | Existing game/scene-flow systems | UI views |
 | Map model/discovery/stable room resolution | Future Map/world-state owner | `UIFlowController` |
@@ -157,19 +157,20 @@ current-Hero seam just in time.
 
 ## UIFlowController boundary
 
-`UIFlowController` is the implemented persistent focused coordinator. It owns:
+`UIFlowController` currently owns in A1:
 
 - Root open/close requests and one-active-pausing-root enforcement.
 - `Closed`/opening/open/closing guards or equivalent.
-- Gameplay Menu current tab and session-only last-valid-tab memory.
 - Shallow modal and Back/Cancel routing.
 - Requests to `GameManager.Pause()` / `Unpause()`.
 - Requests through `HeroController` for input suspension/resume.
 - Player/UI/System action-map mode once the binding design is approved.
 - Full transition availability, post-transition lockout, and per-root-action arming.
 - EventSystem first selection, remembered selection, and restoration.
-- Routing a future valid Full Map gesture to the Gameplay Menu Map tab.
-- Calls to established scene-flow request seams after the owning policy is approved.
+
+Future A2 or later responsibilities are Gameplay Menu tab state, session-only last-valid-tab
+memory, Full Map routing, and future scene-flow request routing after policy approval. None is
+currently active at runtime.
 
 It must not own gameplay state, inventory quantities, recipes, tasks, journal content, map
 discovery, save data, scene loading, audio mix state, notifications, or artwork.
@@ -247,8 +248,8 @@ completion.
 
 After the full transition finishes and state returns to Playing, begin a configurable unscaled
 lockout with 1.0 seconds as the initial value. The successful falling edge of
-`GameManager.IsSceneTransitioning` while Playing is the narrowest current candidate observation
-seam; the exact seam remains an implementation detail.
+`GameManager.IsSceneTransitioning` while Playing is the implemented A1 observation seam in
+`UIFlowController.UpdateTransitionLockout()`.
 
 Blocked requests are discarded. There is no pending root, automatic delayed open, or held-input
 conversion. Pause and Gameplay Menu remain independently disarmed while their own controls are held;
@@ -332,16 +333,18 @@ Package A1 Unity Editor authoring performed: `System` map added to `InputSystem_
 
 ## Automated validation
 
-Implemented and passing (Package A1, EditMode): `UIFlowControllerTests` (18/18) covering root
+Implemented Package A1 EditMode coverage: `UIFlowControllerTests` (20 tests) covering root
 exclusivity, pause acquisition/release exactly once, repeated-callback guards, modal/root Back
 order, Pause-while-modal-open closing only the modal, first selection, unregistered-Gameplay-Menu
 safe rejection, transition/lockout rejection, no queued requests, and pause-safe teardown (owned
 pause released exactly once, duplicates never interfere, idempotent when already closed).
-`PauseMenuScreenTests` (14/14) and `ConfirmationModalTests` (4/4) covering production Options/Quit
+`PauseMenuScreenTests` (14 tests) and `ConfirmationModalTests` (4 tests) covering production Options/Quit
 gating and dynamic navigation, and confirmation-modal selection fallback. `UISandboxControllerFixtureTests`
-(4/4) covering deterministic Sandbox fixture presets. `HeroInputSuspensionPlayModeTests` (PlayMode,
-14/14) confirmed executing via the real Unity Test Runner, covering the full input-leakage matrix
-including every physical fallback control. `UIFoundationValidator` (`Tools/Project/Validate UI
+(4 tests) covering deterministic Sandbox fixture presets. `HeroInputSuspensionPlayModeTests`
+(PlayMode, 14 tests) cover the full input-leakage matrix. `UIFlowInputArbitrationPlayModeTests` adds
+three real Input Action/player-loop Escape scenarios. During the 2026-07-27 hardening pass, focused
+UI EditMode observed 42/42 passing; PlayMode Input System event advancement was blocked by the
+available automated runner environment, so no new PlayMode pass is claimed. `UIFoundationValidator` (`Tools/Project/Validate UI
 Foundation`) passed: single persistent EventSystem with a fully-wired `InputSystemUIInputModule`
 (validated to fail when a reference is missing), no competing gameplay-scene EventSystem, Sandbox
 build exclusion, production-asset isolation, Sandbox-only-component production exclusion, Canvas/
