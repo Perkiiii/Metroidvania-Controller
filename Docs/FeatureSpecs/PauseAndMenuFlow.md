@@ -11,7 +11,10 @@ input-leakage defect in `HeroInputReader`'s resume-disarm logic. The Sandbox-onl
 Quit callback status were live-verified in a real Play Mode session. Interactive manual validation of
 the full production Boot path (real gameplay scene, keyboard/gamepad device input, real room
 transitions) has not been performed — see Manual validation below for the exact remaining checks.
-Package A2 (Gameplay Menu tabs, Gear) remains not implemented.
+
+Package A2 (the seven-tab Gameplay Menu and read-only Gear) is now implemented and registered as
+the second pausing root. Its cross-tab contract lives in `Docs/FeatureSpecs/GameplayMenu.md`; this
+document remains authoritative for pausing-root behaviour, which A2 did not change.
 
 ## Purpose
 
@@ -25,8 +28,11 @@ Implemented (Package A1):
 - `GameManager.Pause()` / `Unpause()` own `GameState`, the Hero control lock, and
   `Time.timeScale`. `UIFlowController` is the only caller for UI-owned pauses.
 - The Input Actions asset contains `Player`, `UI`, and `System` maps. `System` holds `Pause`
-  (Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I; controller binding deferred).
-  `UI` contains navigation, submit, cancel, pointer, click, and scroll primitives.
+  (Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I, Gamepad Select — the controller
+  binding is a provisional Package A2 default). `UI` contains navigation, submit, cancel, pointer,
+  click, and scroll primitives, plus the Package A2 `PreviousTab`/`NextTab` tab-cycling actions
+  (Q/E and the shoulder buttons; also provisional). Keyboard `Tab` remains unbound and reserved for
+  the future Quick Map.
 - Root Pause screen (`PauseMenuScreen`: Continue, gated Options, Quit confirmation modal).
 - Dedicated Pause and Gameplay Menu actions, owned solely by `UIFlowController`.
 - Project-owned production `EventSystem` and `InputSystemUIInputModule` under `MenuRoot`.
@@ -36,10 +42,15 @@ Implemented (Package A1):
   through a thin `HeroController` facade).
 - Root focus/selection and modal hierarchy; EditMode/PlayMode tests; `UIFoundationValidator`.
 
-Missing/planned (Package A2+):
+Implemented (Package A2):
 
-- Gameplay Menu tabs and Gear (no `GameplayMenuScreen` exists; `UIFlowController` safely rejects
-  Gameplay Menu requests since none is registered).
+- `GameplayMenuScreen` is registered as the second pausing root through the existing
+  `UIFlowController.gameplayMenuRootBehaviour` field. No Package A1 production code changed.
+- Seven always-visible tabs, runtime-only tab memory, and read-only Gear. See
+  `Docs/FeatureSpecs/GameplayMenu.md`.
+
+Missing/planned (Package B+):
+
 - Device-prompt/glyph switching.
 - Interactive manual validation (see the Package A1 completion report for what specifically has
   not been performed).
@@ -88,9 +99,15 @@ The Gameplay Menu uses its own dedicated action. Planned final tabs are:
 - Journal.
 - Map.
 
-Package A2 exposes only production-backed Gear. Tabs with no authoritative gameplay owner are
-hidden in production rather than disabled or populated with fake data. Sandbox fixtures may preview
-their shell layout.
+All seven tabs are visible and reachable in production. A tab whose authoritative gameplay owner
+does not exist yet presents an authored, navigable empty state — it is never hidden, disabled, or
+populated with fake data. Only Gear is data-backed in Package A2, reading
+`PlayerAbilityState.IsUnlocked` read-only.
+
+Visibility is not a claim of functionality. Inventory quantities, recipe discovery, tasks, journal
+discovery, and the functional Map (plus Quick Map) remain deferred gameplay work behind their
+visible tabs. See `Docs/FeatureSpecs/GameplayMenu.md` for the full tab contract, navigation model,
+and per-tab deferred dependencies.
 
 The first Gameplay Menu open in a play session defaults to Gear. Later opens remember the last
 valid viewed tab for that session only; this is never saved. If the remembered tab is unavailable,
@@ -147,9 +164,9 @@ Responsibilities:
 Provisional bindings:
 
 - Pause: Escape; controller Start/Menu.
-- Gameplay Menu: keyboard I; controller binding open.
+- Gameplay Menu: keyboard I; provisional Gamepad Select.
 - Future Map: keyboard Tab provisionally reserved for hold Quick Map/double-tap Full Map.
-- Previous/next tab: approved UI-map actions; exact bindings open.
+- Previous/next tab: provisional Q/E and Left/Right Shoulder on the UI map.
 
 Tab must not be used as the Gameplay Menu binding. Existing gameplay `Previous`/`Next` actions are
 not reused for menu tabs because their D-pad bindings conflict with ordinary navigation.
@@ -329,8 +346,9 @@ gating combinations; Quit/Options click handlers no-op while gated; Pause-while-
 through the real `PauseMenuScreen`/`ConfirmationModal` pair) closes only the modal and restores Quit
 selection. `ConfirmationModalTests` (4/4) — close restores a valid invoker, falls back to the
 parent's fallback selection when the invoker is disabled or inactive, and a whole-root teardown close
-clears selection instead of restoring it. `UISandboxControllerFixtureTests` (4/4) — Bonus health and
-Resource fixture presets are deterministic across repeated applications.
+clears selection instead of restoring it. `UISandboxControllerFixtureTests` (6 tests) — one-point
+Damage/Heal, visible Resource current/capacity/fill changes, listener idempotency, and deterministic
+presets.
 
 Confirmed executing and passing via the real PlayMode Test Runner (`HeroInputSuspensionPlayModeTests`,
 14/14 — 9 original plus 5 added this pass for Right-Control Dash fallback, X-key double-path, Interact,
@@ -349,7 +367,8 @@ gameplay-scene EventSystem, Canvas/raycaster semantics, modal/panel hidden-by-de
 safety, Sandbox build exclusion; production and Sandbox `InputSystemUIInputModule` action references
 are all non-null and resolve to the expected `UI`-map actions (confirmed failing when a reference is
 deliberately cleared, then passing again once restored); Sandbox-only components
-(`UISandboxController`, `SandboxOptionsPreviewPanel`, `SandboxQuitCallbackStatus`) are absent from
+(`UISandboxController`, `SandboxOptionsPreviewPanel`, `SandboxQuitCallbackStatus`,
+`SandboxDeveloperUtilityLayer`) are absent from
 `_GameCameras.prefab`.
 
 Not yet covered: `SceneInit`-alone-insufficient as an explicit regression test (the implementation

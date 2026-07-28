@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a766c16078fd34c4ebcbdafd2345df5f, type: 3}
   m_Name: PlayerAbilityState
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAbilityState
-  dashUnlocked: 1
-  wallClingUnlocked: 1
+  dashUnlocked: 0
+  wallClingUnlocked: 0
   sprintUnlocked: 0
   wallLatchUnlocked: 0
-  doubleJumpUnlocked: 1
+  doubleJumpUnlocked: 0
   driftCloakUnlocked: 0
   spiritCastUnlocked: 0
-  bindUnlocked: 1
+  bindUnlocked: 0

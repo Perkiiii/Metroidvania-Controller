@@ -43,13 +43,19 @@ ScriptableObject at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.a
 Fields: `dashUnlocked`, `wallClingUnlocked`, `sprintUnlocked`, `wallLatchUnlocked`,
 `doubleJumpUnlocked`, `driftCloakUnlocked`, `spiritCastUnlocked`, and `bindUnlocked`.
 
-**Current code/design contradiction:** field initializers, `AbilitySaveData`, and
-`ResetToDefaults()` currently set Dash and Wall Cling unlocked. The mutable serialized asset also
-currently has Double Jump and Bind unlocked. Those are current implementation/development values,
-not intended product defaults. The confirmed contract below requires all eight flags locked for a
-new game. A future ability/save implementation pass must align field, save-data, reset, and
-new-save initialization defaults; clean up mutable development assets; and review compatibility
-with existing development saves. This has not been corrected.
+**Defaults corrected (Package A2 Stage 0, 2026-07-28).** Field initializers, `AbilitySaveData`,
+`ResetToDefaults()`, and the serialized `PlayerAbilityState.asset` now all start every one of the
+eight flags locked, matching the authoritative new-game contract below.
+
+Existing saves are preserved. `GatherSaveData` writes all eight booleans explicitly, so
+deserialization overwrites the initializers with the stored values; a save whose ability section is
+missing or null gets a fresh `AbilitySaveData` and therefore the all-locked default, which is the
+intended fresh state. `SaveDataMigrator.CurrentSaveVersion` was **not** bumped: no migration
+behaviour changed, only initializer values.
+
+To test with abilities unlocked, use the UI Sandbox's isolated runtime ability state or the
+in-world `AbilityPickup` objects. Do not edit the production asset back to unlocked —
+`PlayerPersistentStateTests.ProductionAbilityStateAssetShipsFullyLocked` fails if you do.
 
 Methods: `IsUnlocked(AbilityId)`, `Unlock(AbilityId)`, `Lock(AbilityId)`, `SetUnlocked(AbilityId, bool)`, `ResetToDefaults()`.
 
@@ -97,8 +103,8 @@ For a true new game:
 | Spirit Cast | Locked |
 | Bind | Locked |
 
-Dash and Wall Cling are progression unlocks, not starting capabilities. Current defaults that
-unlock them are known implementation debt and must not redefine player-facing behavior.
+Dash and Wall Cling are progression unlocks, not starting capabilities. Code, save-data, reset, and
+asset defaults all match this contract as of Package A2 Stage 0.
 
 ### Gear presentation boundary
 
@@ -192,29 +198,29 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 
 ## Planned validation
 
-The prerequisite new-game-default correction must add coverage proving:
+The new-game-default correction is covered by `PlayerPersistentStateTests` (EditMode), which proves:
 
-- A newly created save starts with all eight abilities locked.
-- `PlayerAbilityState.ResetToDefaults()` restores all eight abilities to locked.
-- Explicit unlocks persist through save/load.
-- Existing save data applies its explicitly stored values rather than being overwritten by new
-  defaults.
-- A true new-game state produces zero acquired entries in Gear.
-- Mutable production/development asset values are not used as test defaults.
+- A new `AbilitySaveData` and a new `PlayerAbilityState` instance start with all eight locked.
+- `PlayerAbilityState.ResetToDefaults()` restores all eight to locked.
+- The fresh-save composition (`new SaveData` → `Migrate` → apply) yields all eight locked.
+- A save with a missing or explicitly null ability section migrates to all-locked defaults without
+  a schema version increase.
+- A save with explicit unlocks applies exactly those values, unchanged by the new defaults.
+- All 256 explicit unlock combinations survive a serialize/deserialize/apply round trip.
+- The production `PlayerAbilityState.asset` ships fully locked.
+- A true new-game state produces zero acquired entries in Gear (`GearScreenTests`).
 
-Existing ability mechanics, gates, pickup reconciliation, and validated Hero feel must regress
-unchanged. No Unity compilation, tests, Editor validation, or playtesting was run for this
-documentation update.
+The full EditMode suite (458 tests) and PlayMode suite (45 tests) pass, so existing ability
+mechanics, gates, and pickup reconciliation regress unchanged. Hero feel was not re-playtested.
 
-## Required Unity Editor work for the future correction
+## Unity Editor work performed
 
-- Reset or recreate `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` so mutable
-  development values do not masquerade as new-game defaults.
-- Verify `_SaveManager.prefab`, Hero prefab, pickups, and gates continue referencing the intended
-  shared state asset.
-- Review existing development save slots before changing defaults or migration behavior.
+- `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset` reset to all-locked.
+- `_SaveManager.prefab`, Hero prefab, pickups, and gates were not modified and continue to
+  reference the same shared state asset.
 
-No Unity Editor work was performed by this documentation update.
+Existing development save slots were **not** inspected or deleted. Any slot already containing
+explicit unlocks keeps them; the change only affects a genuinely new game.
 
 ## Risks and open decisions
 

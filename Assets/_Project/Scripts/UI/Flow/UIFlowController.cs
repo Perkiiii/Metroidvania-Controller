@@ -3,9 +3,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Which pausing root is active. Package A1 implements the Pause root fully; GameplayMenu is
-/// routed and gated but has no registered production screen yet (see
-/// Docs/FeatureSpecs/PauseAndMenuFlow.md, Package A2).
+/// Which pausing root is active. Both roots are implemented: Pause (<see cref="PauseMenuScreen"/>,
+/// Package A1) and GameplayMenu (<see cref="GameplayMenuScreen"/>, Package A2). See
+/// Docs/FeatureSpecs/PauseAndMenuFlow.md and Docs/FeatureSpecs/GameplayMenu.md.
 /// </summary>
 public enum UIRootKind
 {
@@ -45,11 +45,11 @@ public sealed class UIFlowController : MonoBehaviour
 
     [Header("UI Composition")]
     [SerializeField] private EventSystem eventSystem;
-    [Tooltip("Must implement IUIFlowRootScreen. Production always authors this in Package A1.")]
+    [Tooltip("Must implement IUIFlowRootScreen. Production always authors this.")]
     [SerializeField] private MonoBehaviour pauseRootBehaviour;
-    [Tooltip("Must implement IUIFlowRootScreen. Left unassigned in Package A1 — GameplayMenu " +
-        "requests are safely rejected (no pause, no blank screen, no selection change) until " +
-        "Package A2 registers a real screen.")]
+    [Tooltip("Must implement IUIFlowRootScreen. Production authors GameplayMenuScreen here " +
+        "(Package A2). While unassigned, GameplayMenu requests are still rejected safely: no " +
+        "pause, no blank screen, no selection change.")]
     [SerializeField] private MonoBehaviour gameplayMenuRootBehaviour;
 
     [Header("Transition Availability")]
@@ -62,6 +62,7 @@ public sealed class UIFlowController : MonoBehaviour
 
     private IUIFlowRootScreen pauseRoot;
     private IUIFlowRootScreen gameplayMenuRoot;
+    private IUIFlowHost host;
 
     private InputAction pauseAction;
     private InputAction gameplayMenuAction;
@@ -91,6 +92,23 @@ public sealed class UIFlowController : MonoBehaviour
     {
         SetPauseRoot(pause);
         SetGameplayMenuRoot(gameplayMenu);
+    }
+
+    /// <summary>
+    /// Installs the environment seam described by <see cref="IUIFlowHost"/>. Production never calls
+    /// this: a null host means the authored <see cref="GameManager"/> availability gate and the
+    /// close-time UI-map teardown both stay exactly as Package A1 wrote them.
+    /// </summary>
+    public void ConfigureHost(IUIFlowHost flowHost)
+    {
+        host = flowHost;
+
+        // A host that owns navigation expects the UI map live immediately, not only once a root
+        // opens; Awake has already disabled it by the time a Sandbox/test host is injected.
+        if (host != null && host.KeepUiNavigationEnabledWhileClosed)
+        {
+            SetUiNavigationEnabled(true);
+        }
     }
 
     private void SetPauseRoot(IUIFlowRootScreen root)
@@ -247,6 +265,13 @@ public sealed class UIFlowController : MonoBehaviour
             return;
         }
 
+        // A host that owns navigation (the UI Sandbox) keeps the UI map live through close so its
+        // developer/fixture panels stay clickable; it never suppresses enabling.
+        if (!enabled && host != null && host.KeepUiNavigationEnabledWhileClosed)
+        {
+            return;
+        }
+
         if (enabled)
         {
             uiMap.Enable();
@@ -281,14 +306,23 @@ public sealed class UIFlowController : MonoBehaviour
 
     private bool CanAcceptNewRootRequest()
     {
+        // Controller-owned concerns first — a host can never override these.
+        if (state != UIFlowState.Closed) return false;
+        if (healthState != null && healthState.IsDepleted) return false;
+
+        if (host != null)
+        {
+            // An injected host owns the whole gameplay-availability question, including the
+            // transition lockout, because it has no GameManager or scene transitions to consult.
+            return host.CanOpenPausingRoot;
+        }
+
         GameManager gm = GameManager.Instance;
         if (gm == null) return false;
         if (gm.State != GameState.Playing) return false;
         if (gm.IsSceneTransitioning) return false;
         if (lockoutRemaining > 0f) return false;
         if (gm.IsRespawnOrRecoveryInProgress) return false;
-        if (healthState != null && healthState.IsDepleted) return false;
-        if (state != UIFlowState.Closed) return false;
         return true;
     }
 
@@ -344,8 +378,8 @@ public sealed class UIFlowController : MonoBehaviour
 
         if (gameplayMenuRoot == null)
         {
-            // No production Gameplay Menu screen registered in Package A1. Reject safely: do not
-            // pause, do not display anything, do not touch selection.
+            // No Gameplay Menu screen registered (e.g. a misauthored prefab). Reject safely: do
+            // not pause, do not display anything, do not touch selection.
             return;
         }
 
@@ -371,6 +405,82 @@ public sealed class UIFlowController : MonoBehaviour
         }
 
         RequestCloseActiveRoot();
+    }
+
+    // -------------------------------------------------------------------------
+    // Explicit (non-input) request seams
+    //
+    // Same predicates and same sequences as the input path — these exist so a caller without an
+    // Input System device (the UI Sandbox's developer controls, PlayMode tests) drives the real
+    // flow rather than reaching past it into a screen's Show/Hide.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Requests <paramref name="kind"/>'s root through the identical predicate and open sequence a
+    /// fresh Pause/GameplayMenu press uses. Returns false — changing nothing — when availability
+    /// rejects it, when the other root already owns the screen, or when that root is unregistered.
+    /// </summary>
+    public bool RequestOpenRoot(UIRootKind kind)
+    {
+        if (!CanAcceptNewRootRequest())
+        {
+            return false;
+        }
+
+        IUIFlowRootScreen screen = kind == UIRootKind.Pause ? pauseRoot : gameplayMenuRoot;
+        if (screen == null)
+        {
+            return false;
+        }
+
+        OpenRoot(kind, screen);
+        return true;
+    }
+
+    /// <summary>
+    /// Requests a full close of whichever root is stably open, running the same sequence Continue,
+    /// the Gameplay Menu's Close control, Back/Cancel, and the open-action toggle all run. A safe
+    /// no-op — returning false — when no root is stably open or one is mid-transition.
+    /// </summary>
+    public bool RequestCloseRoot()
+    {
+        if (state != UIFlowState.Open || activeKind == null)
+        {
+            return false;
+        }
+
+        RequestCloseActiveRoot();
+        return true;
+    }
+
+    /// <summary>
+    /// Sandbox-only recovery seam for a root whose authored visual state has drifted away from this
+    /// controller's state. It is unavailable unless a runtime <see cref="IUIFlowHost"/> is injected,
+    /// so production callers cannot bypass the normal stable-root predicate. When the flow is
+    /// healthy it delegates to the ordinary close sequence; otherwise it restores the Sandbox
+    /// composition to a known closed state without touching <see cref="GameManager"/> or time scale.
+    /// </summary>
+    public bool RequestHostRecoveryClose()
+    {
+        if (host == null)
+        {
+            return false;
+        }
+
+        if (state == UIFlowState.Open && activeKind != null)
+        {
+            RequestCloseActiveRoot();
+            return true;
+        }
+
+        pauseRoot?.Hide();
+        gameplayMenuRoot?.Hide();
+        eventSystem?.SetSelectedGameObject(null);
+        activeKind = null;
+        uiOwnsPause = false;
+        state = UIFlowState.Closed;
+        SetUiNavigationEnabled(false);
+        return true;
     }
 
     // -------------------------------------------------------------------------

@@ -473,6 +473,224 @@ public sealed class PlayerPersistentStateTests
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Permanent ability defaults (Package A2 Stage 0)
+    //
+    // A true new game owns no permanent ability. These tests pin the three places that decide
+    // that — the save-data initializers, the state asset's field initializers, and
+    // ResetToDefaults — plus the compatibility rule that explicitly-stored save values always win.
+    // -------------------------------------------------------------------------
+
+    private static readonly AbilityId[] AllAbilities =
+    {
+        AbilityId.Dash,
+        AbilityId.WallCling,
+        AbilityId.Sprint,
+        AbilityId.WallLatch,
+        AbilityId.DoubleJump,
+        AbilityId.DriftCloak,
+        AbilityId.SpiritCast,
+        AbilityId.Bind
+    };
+
+    [Test]
+    public void NewAbilitySaveDataStartsFullyLocked()
+    {
+        AbilitySaveData data = new AbilitySaveData();
+
+        Assert.That(data.dashUnlocked, Is.False);
+        Assert.That(data.wallClingUnlocked, Is.False);
+        Assert.That(data.sprintUnlocked, Is.False);
+        Assert.That(data.wallLatchUnlocked, Is.False);
+        Assert.That(data.doubleJumpUnlocked, Is.False);
+        Assert.That(data.driftCloakUnlocked, Is.False);
+        Assert.That(data.spiritCastUnlocked, Is.False);
+        Assert.That(data.bindUnlocked, Is.False);
+    }
+
+    [Test]
+    public void NewAbilityStateInstanceStartsFullyLocked()
+    {
+        PlayerAbilityState state = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        try
+        {
+            foreach (AbilityId ability in AllAbilities)
+            {
+                Assert.That(state.IsUnlocked(ability), Is.False, $"{ability} must start locked.");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(state);
+        }
+    }
+
+    [Test]
+    public void ResetToDefaultsLocksEveryAbility()
+    {
+        PlayerAbilityState state = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        try
+        {
+            foreach (AbilityId ability in AllAbilities)
+            {
+                state.Unlock(ability);
+            }
+
+            state.ResetToDefaults();
+
+            foreach (AbilityId ability in AllAbilities)
+            {
+                Assert.That(state.IsUnlocked(ability), Is.False, $"{ability} must be locked after reset.");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(state);
+        }
+    }
+
+    /// <summary>
+    /// Mirrors <c>SaveManager.CreateFreshSave</c>'s composition (new SaveData -> Migrate -> apply)
+    /// without touching the real save directory.
+    /// </summary>
+    [Test]
+    public void FreshSaveCompositionAppliesAllAbilitiesLocked()
+    {
+        PlayerAbilityState state = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        try
+        {
+            foreach (AbilityId ability in AllAbilities)
+            {
+                state.Unlock(ability);
+            }
+
+            SaveData fresh = new SaveData();
+            SaveDataMigrator.Migrate(fresh);
+            state.ApplySaveData(fresh);
+
+            foreach (AbilityId ability in AllAbilities)
+            {
+                Assert.That(state.IsUnlocked(ability), Is.False, $"{ability} must be locked in a fresh save.");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(state);
+        }
+    }
+
+    [Test]
+    public void SaveWithMissingAbilitySectionMigratesToAllLockedDefaults()
+    {
+        const string json = "{\"meta\":{\"saveVersion\":2},\"player\":{},\"world\":{}}";
+        Assert.That(SaveSerializer.TryDeserialize(json, out SaveData data), Is.True);
+
+        SaveDataMigrator.Migrate(data);
+
+        Assert.That(data.abilities, Is.Not.Null);
+        Assert.That(data.abilities.dashUnlocked, Is.False);
+        Assert.That(data.abilities.wallClingUnlocked, Is.False);
+        Assert.That(data.abilities.doubleJumpUnlocked, Is.False);
+        Assert.That(data.abilities.bindUnlocked, Is.False);
+        Assert.That(data.meta.saveVersion, Is.EqualTo(SaveDataMigrator.CurrentSaveVersion),
+            "Changing boolean defaults alone must not require a schema version beyond the current one.");
+    }
+
+    [Test]
+    public void SaveWithExplicitlyNullAbilitySectionMigratesToAllLockedDefaults()
+    {
+        SaveData data = new SaveData { abilities = null };
+
+        SaveDataMigrator.Migrate(data);
+
+        Assert.That(data.abilities, Is.Not.Null);
+        Assert.That(data.abilities.dashUnlocked, Is.False);
+        Assert.That(data.abilities.wallClingUnlocked, Is.False);
+    }
+
+    [Test]
+    public void ExistingSaveWithExplicitUnlocksIsAppliedUnchanged()
+    {
+        // A real save written by GatherSaveData always contains all eight booleans explicitly.
+        const string json =
+            "{\"meta\":{\"saveVersion\":4}," +
+            "\"abilities\":{\"dashUnlocked\":true,\"wallClingUnlocked\":false,\"sprintUnlocked\":true," +
+            "\"wallLatchUnlocked\":false,\"doubleJumpUnlocked\":true,\"driftCloakUnlocked\":false," +
+            "\"spiritCastUnlocked\":false,\"bindUnlocked\":true}}";
+        Assert.That(SaveSerializer.TryDeserialize(json, out SaveData data), Is.True);
+        SaveDataMigrator.Migrate(data);
+
+        PlayerAbilityState state = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        try
+        {
+            state.ApplySaveData(data);
+
+            Assert.That(state.IsUnlocked(AbilityId.Dash), Is.True, "An explicitly saved unlock must survive the new locked defaults.");
+            Assert.That(state.IsUnlocked(AbilityId.WallCling), Is.False);
+            Assert.That(state.IsUnlocked(AbilityId.Sprint), Is.True);
+            Assert.That(state.IsUnlocked(AbilityId.WallLatch), Is.False);
+            Assert.That(state.IsUnlocked(AbilityId.DoubleJump), Is.True);
+            Assert.That(state.IsUnlocked(AbilityId.DriftCloak), Is.False);
+            Assert.That(state.IsUnlocked(AbilityId.SpiritCast), Is.False);
+            Assert.That(state.IsUnlocked(AbilityId.Bind), Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(state);
+        }
+    }
+
+    [Test]
+    public void AbilitySaveDataRoundTripsEveryExplicitCombination()
+    {
+        PlayerAbilityState source = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        PlayerAbilityState destination = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        try
+        {
+            for (int mask = 0; mask < 1 << 8; mask++)
+            {
+                for (int bit = 0; bit < AllAbilities.Length; bit++)
+                {
+                    source.SetUnlocked(AllAbilities[bit], (mask & (1 << bit)) != 0);
+                }
+
+                SaveData data = new SaveData();
+                source.GatherSaveData(data);
+
+                Assert.That(SaveSerializer.TrySerialize(data, out string json), Is.True);
+                Assert.That(SaveSerializer.TryDeserialize(json, out SaveData reloaded), Is.True);
+                destination.ApplySaveData(reloaded);
+
+                for (int bit = 0; bit < AllAbilities.Length; bit++)
+                {
+                    Assert.That(destination.IsUnlocked(AllAbilities[bit]),
+                        Is.EqualTo((mask & (1 << bit)) != 0),
+                        $"Mask {mask}: {AllAbilities[bit]} did not round-trip.");
+                }
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(source);
+            Object.DestroyImmediate(destination);
+        }
+    }
+
+    [Test]
+    public void ProductionAbilityStateAssetShipsFullyLocked()
+    {
+        const string path = "Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset";
+        PlayerAbilityState asset = UnityEditor.AssetDatabase.LoadAssetAtPath<PlayerAbilityState>(path);
+        Assert.That(asset, Is.Not.Null, $"Expected the production ability state asset at {path}.");
+
+        foreach (AbilityId ability in AllAbilities)
+        {
+            Assert.That(asset.IsUnlocked(ability), Is.False,
+                $"{ability} is unlocked in the mutable production asset; a true new game must own no ability. " +
+                "Use Sandbox fixtures or the ability pickups to test unlocked behaviour.");
+        }
+    }
+
     private static SaveData CreateInitializedHealthData(int current, int maximum, int bonus)
     {
         return new SaveData

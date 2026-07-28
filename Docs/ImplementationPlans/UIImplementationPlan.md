@@ -1,7 +1,18 @@
 # Underbrew UI Systems — Implementation Proposal
 
-**Status:** Proposal for review. This document is not authoritative architecture and does not
-change the contracts in `Docs/Architecture.md`, `Docs/ImplementationPlan.md`, or any FeatureSpec.
+**Status:** Proposal for review, partly superseded. This document is not authoritative architecture
+and does not change the contracts in `Docs/Architecture.md`, `Docs/ImplementationPlan.md`, or any
+FeatureSpec.
+
+> **Superseded for Package A2.** `Docs/ImplementationPlans/UIA2ImplementationPlan.md` is the newer
+> approved product decision, and `Docs/FeatureSpecs/GameplayMenu.md` is the implemented contract.
+> Specifically, this document's recommendation that unavailable tabs be **hidden** in production
+> and that Package A2 expose **Gear only** no longer holds: all seven confirmed tabs are visible
+> and reachable, and a tab without a gameplay owner presents an authored empty state. Sections 8
+> ("Gameplay Menu shell"), Phase 4, and the Package A2 summary are affected. The Sandbox scene has
+> also moved to `Assets/_Project/Scenes/UISandbox.unity`. Everything else — the A1 input/pause
+> spine, Gear ownership rules, Sandbox isolation, and the deferred Map architecture — remains
+> accurate.
 
 **Repository audit date:** 2026-07-27
 **Unity version inspected:** 6000.3.10f1
@@ -769,7 +780,9 @@ Behavior:
 - Later opens restore the last viewed tab if it remains available; otherwise fall back to Gear.
 - Memory is runtime-only on the persistent flow root and is never saved.
 - Back from a tab root closes the Gameplay Menu. Back from a child/modal closes that child first.
-- Tabs with no production ownership are hidden, not disabled or filled with fake data.
+- ~~Tabs with no production ownership are hidden, not disabled or filled with fake data.~~
+  **Superseded:** all seven confirmed tabs are visible and reachable; a tab with no owner shows an
+  authored empty state. See `Docs/FeatureSpecs/GameplayMenu.md`.
 - A production-backed tab may define its own honest empty state.
 - Adding Map later requires a new registration and independent Map screen, not rebuilding the shell
   or forcing Map into the Gear layout.
@@ -777,8 +790,12 @@ Behavior:
   open this same shell directly on the available Map tab. It uses ordinary UI navigation/back and
   `GameManager.Pause()` ownership; it is not a separate pausing screen.
 
-**Recommendation requiring approval:** Package A exposes only Gear in production. Tools, Satchel,
-Recipes, Tasks, Journal, and Map remain hidden until their authoritative systems exist.
+~~**Recommendation requiring approval:** Package A exposes only Gear in production. Tools, Satchel,
+Recipes, Tasks, Journal, and Map remain hidden until their authoritative systems exist.~~
+
+**Superseded and implemented differently.** All seven tabs are visible and reachable. Only Gear is
+data-backed; the six siblings present authored, navigable empty states until their authoritative
+systems exist. Deferral means no data, not no tab.
 
 ---
 

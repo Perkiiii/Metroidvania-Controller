@@ -106,7 +106,7 @@ SaveManager (MonoBehaviour — DontDestroyOnLoad)
 ├── SaveData (serializable root)
 │   ├── MetaSaveData        saveVersion, lastSavedUtc, playTimeSeconds
 │   ├── PlayerSaveData      currentScene, activeRespawnSceneName, activeRespawnMarkerKey, activeHazardRespawnMarkerKey
-│   ├── AbilitySaveData     8 bool flags (mirrors PlayerAbilityState)
+│   ├── AbilitySaveData     8 bool flags (mirrors PlayerAbilityState; all default locked)
 │   ├── HealthSaveData      initialized marker, current/max/bonus health
 │   ├── ResourceSaveData    initialized marker, current/max integer parts
 │   └── WorldSaveData       collectedPickupIds, visitedRoomIds, defeatedEncounterIds, objectStates
@@ -179,11 +179,15 @@ public class PlayerSaveData
 }
 
 // AbilitySaveData.cs — defaults MUST match PlayerAbilityState.ResetToDefaults()
+// A true new game owns no permanent ability, so every flag defaults to locked. These initializers
+// are also what a save with a missing/null "abilities" section falls back to after migration.
+// Existing saves are unaffected: GatherSaveData writes all eight booleans explicitly, so
+// deserialization overwrites every initializer with the stored value.
 [Serializable]
 public class AbilitySaveData
 {
-    public bool dashUnlocked       = true;   // core — starts unlocked
-    public bool wallClingUnlocked  = true;   // core — starts unlocked
+    public bool dashUnlocked       = false;  // progression unlock, not a starting capability
+    public bool wallClingUnlocked  = false;  // progression unlock, not a starting capability
     public bool sprintUnlocked     = false;
     public bool wallLatchUnlocked  = false;
     public bool doubleJumpUnlocked = false;

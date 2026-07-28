@@ -1,8 +1,14 @@
 # Feature Spec — Gear
 
 **Last reviewed:** 2026-07-27  
-**Status:** Authoritative planned player-facing Gear contract. No Gear screen, display definition,
-catalogue, prefab, or production validation is implemented.
+**Status:** Authoritative player-facing Gear contract. Implemented in Package A2: `GearScreen`,
+`GearDisplayDefinition`, `GearDisplayCatalog`, `GearEntryView`, `GearDetailsPanel`, the `GearTab`
+and `GearEntryView` prefabs, EditMode/PlayMode coverage, and validator rules.
+
+The production `GearDisplayCatalog.asset` is intentionally **empty**. No physical Gear identity,
+name, artwork, category, description, or flavour text has been approved yet, and a raw `AbilityId`
+name is not an acceptable substitute. Gear therefore ships as a functional screen presenting its
+authored empty state; adding an approved definition asset is all that is needed to populate it.
 
 ## Purpose
 
@@ -23,11 +29,18 @@ discovered knowledge and do not enable remote production.
 - That empty collection is intentional, not an error or missing-data state.
 - Undiscovered possessions are not shown as placeholder slots.
 
-Current field/save/reset defaults unlock Dash and Wall Cling, and the mutable
-`PlayerAbilityState.asset` also contains Double Jump and Bind unlocked. This is a current
-code/development-state mismatch, not intended Gear behavior. Aligning the ability/save new-game
-defaults, reset behavior, development assets, compatibility, and tests is a prerequisite owned by
-the ability/save foundation before Package A2 production Gear validation. It has not been fixed.
+**Prerequisite resolved (Package A2 Stage 0).** `PlayerAbilityState`'s field initializers and
+`ResetToDefaults`, `AbilitySaveData`'s defaults, and the mutable `PlayerAbilityState.asset` now all
+begin with every one of the eight abilities locked. Existing saves are unaffected:
+`GatherSaveData` writes all eight booleans explicitly, so deserialization overwrites the new
+defaults with the stored values, and a save whose ability section is missing or null receives the
+all-locked default. The save schema version was not changed, because no migration behaviour
+changed. See `Docs/FeatureSpecs/Abilities.md` and `Docs/FeatureSpecs/SaveSystem.md`.
+
+A true new game therefore shows the Gear empty state, which is the intended presentation. To test
+unlocked Gear, use the UI Sandbox fixtures (`UISandboxController` creates isolated runtime ability
+state and a fixture catalogue) or acquire abilities through their pickups — never by editing the
+production asset back to unlocked.
 
 ## Non-goals
 
@@ -206,17 +219,20 @@ coordinates in display definitions.
 ## Gameplay Menu integration
 
 Gear is the default tab on the first Gameplay Menu open in a play session. It is the only
-production-backed Package A2 tab. Later opens remember the last valid tab for that session; if no
-longer available, return to Gear. Back at the Gear root closes the Gameplay Menu through the flow in
+data-backed Package A2 tab. Later opens remember the last valid tab for that session; if no longer
+available, return to Gear. Back at the Gear root closes the Gameplay Menu through the flow in
 `PauseAndMenuFlow.md`.
 
-The planned final sibling tabs are Tools, Satchel, Recipes, Tasks, Journal, and Map. They remain
-hidden in production until their authoritative systems exist. Fixture-only Sandbox content is not
-production data.
+The sibling tabs — Tools, Satchel, Recipes, Tasks, Journal, and Map — are **visible and reachable**
+in production, each presenting an authored empty state until its authoritative gameplay system
+exists. They are not hidden. See `Docs/FeatureSpecs/GameplayMenu.md`. Fixture-only Sandbox content
+is not production data, and `UIFoundationValidator` rejects a production Gear tab that references a
+Sandbox catalogue or a Sandbox Gear tab that references the production one.
 
 ## Automated tests
 
-Package A2 and its prerequisite must cover:
+Implemented in `GearScreenTests` (EditMode), `GameplayMenuProductionAssetTests` (EditMode), and
+`PlayerPersistentStateTests` (Stage 0 defaults). Coverage:
 
 - A new-game state shows zero Gear entries.
 - The new-game empty state is valid and navigable.
@@ -224,8 +240,8 @@ Package A2 and its prerequisite must cover:
 - Wall Cling remains absent while locked.
 - Unlocking Dash makes only its approved Gear entry appear.
 - Unlocking Wall Cling makes only its approved Gear entry appear.
-- Other locked abilities remain entirely hidden.
-- Reset-to-new-game returns to an empty collection after gameplay defaults are corrected.
+- Other locked abilities produce no entry, placeholder, or silhouette at all.
+- Reset-to-new-game returns to an empty collection.
 - Existing saves with unlocked abilities display their explicitly saved unlocks.
 - Empty-to-first-item selection remains valid.
 - Selection is retained by stable key when possible.
@@ -242,28 +258,44 @@ states; keyboard/controller/mouse navigation; device prompt switching; details/B
 selection retention; common aspect ratios and safe areas; save-load neutral refresh; and
 empty-to-first-item transition.
 
-No Unity compilation, EditMode tests, PlayMode tests, Editor validation, visual validation, or
-playtesting was run for this documentation update.
+Performed in Package A2: the empty state, several-acquired, and live-unlock states were reviewed in
+a real Play Mode session through the UI Sandbox's isolated Gear fixtures at 1920x1080. Keyboard and
+controller device input, mouse clicking, device prompt switching, other aspect ratios, and the
+production Boot path have **not** been interactively validated.
 
 ## Required Unity Editor work
 
-Package A2 requires:
+Completed in Package A2:
 
-- Author approved `GearDisplayDefinition` assets and one catalogue.
-- Assign only approved physical identities, names, copy, icons/art, categories, order, and controls.
-- Build the selected layout and details presentation.
-- Author the intentional empty state and valid Back target.
-- Configure explicit keyboard/controller navigation and mouse targets.
-- Assign Input Action references/control-hint metadata.
-- Configure Gear as the initial production Gameplay Menu tab.
-- Keep future fixture-only tabs and state outside production configuration.
+- `GearTab.prefab` (collection + details + empty state) and `GearEntryView.prefab`.
+- `GearDisplayCatalog.asset` created and assigned, alongside the production `PlayerAbilityState`.
+- Intentional empty state authored; global Close is always a valid focus target.
+- Explicit list navigation built at runtime, with Up from the first entry returning to the Gear
+  button in the shared top strip.
+- Isolated Sandbox fixtures for zero / one / several / live-unlock / missing-definition states.
 
-No Unity Editor work was performed by this documentation update.
+Still required, pending approval:
+
+- Author approved `GearDisplayDefinition` assets — physical identity, name, category, artwork,
+  functional description, flavour text, and optional control hint — one per approved ability.
+  Nothing else is blocking a populated Gear screen.
+
+## Provisional decisions to review
+
+- Gear presents as a list plus details panel rather than a bespoke physical tableau. The list
+  composition was chosen as the reliable, navigable first pass; the authored-collection option in
+  `UIImplementationPlan.md` remains open.
+- No ScrollRect: the acquired set is at most eight entries and fits the panel.
+- The `"CARRIED"` section label and the empty-state copy are drafts.
 
 ## Risks
 
 - Mutable `PlayerAbilityState.asset` values masquerade as intended starting content.
+  *Guarded:* `PlayerPersistentStateTests.ProductionAbilityStateAssetShipsFullyLocked` fails if the
+  asset is edited back to unlocked.
 - The prerequisite changes defaults but overwrites explicit existing-save unlocks.
+  *Guarded:* `ExistingSaveWithExplicitUnlocksIsAppliedUnchanged` and a full 256-combination
+  round-trip test.
 - Layout framing reveals unknown totals or future identities.
 - Raw mechanical ability names become final physical item names.
 - A definition becomes a second ownership or tuning source.

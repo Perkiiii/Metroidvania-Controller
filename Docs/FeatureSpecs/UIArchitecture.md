@@ -10,10 +10,14 @@ Pause-toggle behavior, production Quit/Options gating and dynamic navigation, co
 selection fallback, pause-safe `UIFlowController` teardown, and an input-leakage defect in
 `HeroInputReader`'s resume-disarm logic affecting Jump/Attack/Interact/Bind/Dash/Move. The
 Sandbox-only Options preview and Quit callback status were live-verified in a real Play Mode
-session. Package A2 (Gameplay Menu, Gear) and Package B (functional Options) have not been performed
-or validated. Interactive manual validation of the full production Boot path (keyboard/controller/
-mouse in the real gameplay scene, real room transitions, held-input timing) has not been performed —
-see `Docs/ImplementationPlan.md` Package A1 entry for exact scope.
+session.
+
+Package A2 (the seven-tab Gameplay Menu and read-only Gear) is implemented and covered by EditMode
+and PlayMode tests plus a passing validator pass; its cross-tab contract lives in
+`Docs/FeatureSpecs/GameplayMenu.md`. Package B (functional Options) has not been performed.
+Interactive manual validation of the full production Boot path (keyboard/controller/mouse in the
+real gameplay scene, real room transitions, held-input timing) has not been performed — see
+`Docs/ImplementationPlan.md` for exact scope.
 
 ## Purpose
 
@@ -22,6 +26,7 @@ presentation boundaries. Specialized behavior belongs in:
 
 - `Docs/FeatureSpecs/HUD.md`
 - `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/GameplayMenu.md`
 - `Docs/FeatureSpecs/Gear.md`
 - `Docs/FeatureSpecs/UISandbox.md`
 - `Docs/FeatureSpecs/Abilities.md`
@@ -66,17 +71,21 @@ presentation boundaries. Specialized behavior belongs in:
 | Pause authority | Implemented seam | `GameManager.Pause()` / `Unpause()` |
 | UI navigation actions | Implemented | Existing `UI` Input Action map, wired to `InputSystemUIInputModule` |
 | Root Pause menu | Implemented (Package A1) | `PauseMenuScreen` + `ConfirmationModal` under `MenuRoot`; Options authored but production-gated non-functional; Quit is a development-gated typed request seam only |
-| Gameplay Menu / Gear | Missing/planned | Package A2 |
+| Gameplay Menu (seven visible tabs) | Implemented (Package A2) | `GameplayMenuScreen` under `MenuRoot/RootInterfaceLayer`, registered as the second `IUIFlowRootScreen` |
+| Gear | Implemented (Package A2), read-only | `GearScreen` reading `PlayerAbilityState` + `GearDisplayCatalog` (production catalogue intentionally empty until identities are approved) |
+| Tools / Satchel / Recipes / Tasks / Journal / Map data | Deferred | Tabs are visible with authored empty states; each needs its own domain owner |
 | Persistent MenuRoot/EventSystem | Implemented (Package A1) | `_GameCameras.prefab` → `MenuRoot` (`EventSystem`, `InputSystemUIInputModule`, `UIFlowController`, `RootInterfaceLayer`, `ModalLayer`) |
 | Notifications | Deferred | Future `NotificationRoot` or equivalent |
 | Quick Map / Full Map | Deferred | Future Map system plus menu integration |
 | Frontend | Missing/deferred | Future scene-local frontend |
 
 The Input Actions asset now has `Player`, `UI`, and `System` maps. `System` contains `Pause`
-(Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I; controller binding deferred).
+(Keyboard Escape, Gamepad Start) and `GameplayMenu` (Keyboard I, Gamepad Select — provisional).
 `UIFlowController` is the System map's sole persistent owner; the scene Hero never enables/disables
-it. A project-owned production menu `EventSystem`/`InputSystemUIInputModule`/`UIFlowController`/
-`MenuRoot` and a UI Sandbox now exist (Package A1). Gear/Gameplay Menu views do not exist yet
+it. The `UI` map gained `PreviousTab`/`NextTab` for Gameplay Menu tab cycling (Q/E and the shoulder
+buttons — provisional); keyboard `Tab` stays unbound and reserved for the future Quick Map. A
+project-owned production menu `EventSystem`/`InputSystemUIInputModule`/`UIFlowController`/
+`MenuRoot` and a UI Sandbox exist (Package A1), and the Gameplay Menu and Gear views exist
 (Package A2).
 
 ## Persistent composition
@@ -98,11 +107,19 @@ without changing those subscriptions.
 
 ### MenuRoot
 
-`MenuRoot` is implemented (Package A1) as a persistent sibling under `_GameCameras.prefab`, not a
-child of `HUDRoot`. It contains `UIFlowController`, one project-owned `EventSystem`/
-`InputSystemUIInputModule`, a `RootInterfaceLayer` (nested `PauseMenuScreen` prefab instance), and a
-`ModalLayer` (nested `ConfirmationModal` prefab instance). `GameplayMenuScreen` does not exist yet;
-`UIFlowController.gameplayMenuRootBehaviour` is intentionally left unassigned until Package A2.
+`MenuRoot` is implemented as a persistent sibling under `_GameCameras.prefab`, not a child of
+`HUDRoot`. It contains `UIFlowController`, one project-owned `EventSystem`/
+`InputSystemUIInputModule`, a `RootInterfaceLayer` (nested `PauseMenuScreen` and, since Package A2,
+`GameplayMenuScreen` prefab instances as siblings), and a `ModalLayer` (nested `ConfirmationModal`
+prefab instance).
+
+`UIFlowController.gameplayMenuRootBehaviour` is now assigned to `GameplayMenuScreen`. Production
+still uses the Package A1 availability, pause, action-map, Hero suspension/resume, and close
+sequence. The Sandbox injects the runtime-only `IUIFlowHost` seam so it can exercise that sequence
+without a `GameManager`; explicit open/close requests and the host-gated recovery request remain
+owned by `UIFlowController`, never by the root screens. Package A2 additionally assigned the durable
+`System/Pause`, `System/GameplayMenu`, and `UI/Cancel` action references that Package A1 had left
+resolving through the map/name fallback.
 
 ### ModalLayer
 
@@ -340,7 +357,8 @@ safe rejection, transition/lockout rejection, no queued requests, and pause-safe
 pause released exactly once, duplicates never interfere, idempotent when already closed).
 `PauseMenuScreenTests` (14 tests) and `ConfirmationModalTests` (4 tests) covering production Options/Quit
 gating and dynamic navigation, and confirmation-modal selection fallback. `UISandboxControllerFixtureTests`
-(4 tests) covering deterministic Sandbox fixture presets. `HeroInputSuspensionPlayModeTests`
+(6 tests) covering one-step health, visible resource refresh, listener idempotency, and deterministic
+Sandbox fixture presets. `HeroInputSuspensionPlayModeTests`
 (PlayMode, 14 tests) cover the full input-leakage matrix. `UIFlowInputArbitrationPlayModeTests` adds
 three real Input Action/player-loop Escape scenarios. During the 2026-07-27 hardening pass, focused
 UI EditMode observed 42/42 passing; PlayMode Input System event advancement was blocked by the

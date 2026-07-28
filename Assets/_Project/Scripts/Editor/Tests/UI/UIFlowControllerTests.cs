@@ -37,6 +37,12 @@ public sealed class UIFlowControllerTests
         public void RaiseCloseRequested() => CloseRequested?.Invoke();
     }
 
+    private sealed class FakeSandboxHost : IUIFlowHost
+    {
+        public bool CanOpenPausingRoot => true;
+        public bool KeepUiNavigationEnabledWhileClosed => true;
+    }
+
     private GameObject gameManagerObject;
     private GameManager gameManager;
     private GameObject flowObject;
@@ -222,6 +228,50 @@ public sealed class UIFlowControllerTests
         Assert.That(flow.IsRootOpen, Is.False);
         Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
         Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+    }
+
+    [Test]
+    public void RepeatedRootConfigurationDoesNotDuplicateCloseRequestedSubscriptions()
+    {
+        flow.ConfigureRoots(pauseRoot, gameplayMenuRoot);
+        flow.ConfigureRoots(pauseRoot, gameplayMenuRoot);
+        flow.ConfigureRoots(pauseRoot, gameplayMenuRoot);
+
+        PressPause();
+        pauseRoot.RaiseCloseRequested();
+
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
+        Assert.That(flow.IsRootOpen, Is.False);
+        Assert.That(gameManager.State, Is.EqualTo(GameState.Playing));
+    }
+
+    [Test]
+    public void SandboxHostRecoveryRestoresClosedStateThroughTheFlowOwner()
+    {
+        flow.ConfigureRoots(pauseRoot, gameplayMenuRoot);
+        flow.ConfigureHost(new FakeSandboxHost());
+        SetField(flow, "state", Enum.Parse(GetField(flow, "state").GetType(), "Opening"));
+        SetField(flow, "activeKind", (UIRootKind?)UIRootKind.Pause);
+        eventSystem.SetSelectedGameObject(firstSelectable.gameObject);
+
+        bool recovered = flow.RequestHostRecoveryClose();
+
+        Assert.That(recovered, Is.True);
+        Assert.That(pauseRoot.HideCount, Is.EqualTo(1));
+        Assert.That(gameplayMenuRoot.HideCount, Is.EqualTo(1));
+        Assert.That(flow.IsRootOpen, Is.False);
+        Assert.That(flow.ActiveRootKind, Is.Null);
+        Assert.That(eventSystem.currentSelectedGameObject, Is.Null);
+    }
+
+    [Test]
+    public void HostRecoverySeamIsUnavailableInProductionConfiguration()
+    {
+        flow.ConfigureRoots(pauseRoot, gameplayMenuRoot);
+
+        Assert.That(flow.RequestHostRecoveryClose(), Is.False);
+        Assert.That(pauseRoot.HideCount, Is.Zero);
+        Assert.That(gameplayMenuRoot.HideCount, Is.Zero);
     }
 
     [Test]

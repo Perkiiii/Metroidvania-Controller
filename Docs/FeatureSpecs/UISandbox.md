@@ -1,14 +1,38 @@
 # Feature Spec — UI Sandbox
 
 **Last reviewed:** 2026-07-27  
-**Status:** Implemented (Package A1), including a correction pass. `Assets/_Project/Scenes/
-Development/UISandbox.unity`, `UISandboxController`, HUD/Pause/modal fixtures, the Options preview
+**Canonical scene path:** `Assets/_Project/Scenes/UISandbox.unity` (relocated out of
+`Scenes/Development/`; the scene GUID was preserved by the move). `UIFoundationValidator` and this
+spec both use the new path.
+
+**Status:** Implemented (Package A1), including a correction pass, and extended in Package A2 with
+the real Gameplay Menu and isolated Gear fixtures. `UISandboxController`, HUD/Pause/modal fixtures, the Options preview
 placeholder (`SandboxOptionsPreviewPanel`), the Quit callback status label (`SandboxQuitCallbackStatus`),
 and `UIFoundationValidator`'s Sandbox checks exist and pass. Health/resource fixture presets are now
 deterministic across repeated clicks, and runtime boss-fixture `EnemyConfig` instances are tracked
 and destroyed when superseded. A real Play Mode session live-drove the Options preview, Quit
-callback, and aspect-ratio flows this pass — see Manual validation below. Deferred-system fixtures
-(Gear, Map, notifications, etc.) remain out of scope per the exclusions below. Interactive review of
+callback, and aspect-ratio flows this pass — see Manual validation below.
+
+Package A2 nested the real production `GameplayMenuScreen.prefab` under the Sandbox's
+`RootInterfaceLayer` and added Gameplay Menu open/close plus five Gear fixture presets. The Gear
+tab's production `PlayerAbilityState` and `GearDisplayCatalog` references are cleared on the
+Sandbox instance; `UISandboxController` supplies runtime-created isolated substitutes instead, and
+the validator now fails if either boundary is crossed in either direction.
+
+Two pre-existing composition defects in this scene were corrected while adding the A2 fixtures:
+
+- `RootInterfaceLayer` and `ModalLayer` were left at Unity's default 100x100 child rect, which
+  silently collapsed any edge-anchored nested screen. Both are now full-screen stretched, matching
+  the production layers (which are Canvases and therefore always fill the screen). Existing
+  centre-anchored Pause/Confirmation content is unaffected.
+- `FixtureControlPanel` was not scrollable, so its content — already ~2.7x the canvas height before
+  A2, and 3704 px against a 1040 px viewport after — put most presets permanently off-screen.
+  The panel is now a clamped vertical `ScrollRect` with a `RectMask2D` over the same `Content`
+  object; mouse-wheel scrolling reaches every preset. There is deliberately no visible scrollbar
+  (development tool, mouse-driven); add one if keyboard/controller access to the fixture list is
+  ever wanted.
+
+Notification fixtures remain out of scope per the exclusions below. Interactive review of
 keyboard/controller device navigation and visual safe-area guides across all four aspect presets has
 not been performed.
 
@@ -23,7 +47,7 @@ frontend, gameplay scene, or fake implementation of deferred systems.
 
 ## Non-production scope
 
-- Proposed scene: `Assets/_Project/Scenes/Development/UISandbox.unity` or equivalent.
+- Scene: `Assets/_Project/Scenes/UISandbox.unity`.
 - Opened directly from the Unity Editor.
 - Excluded from Build Settings.
 - Does not run the production Boot or save flow.
@@ -53,12 +77,18 @@ prefabs are nested beneath it so approved changes can be applied back intentiona
 ## State isolation
 
 Health, resource, and ability preview state uses runtime-created ScriptableObject instances or
-isolated clones that are never registered with `SaveManager`. Fixture presets apply explicit values.
+isolated clones that are never registered with `SaveManager`. The health/resource controls and the
+shared displays are configured against those same instances; fixture presets apply explicit values.
 
 Ability fixtures must not clone mutable unlock values from
-`Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`. The confirmed new-game fixture
-explicitly locks every ability. This prevents the current development asset's unlocked Dash, Wall
-Cling, Double Jump, and Bind values from redefining product behavior.
+`Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`. `UISandboxController` creates a
+fresh runtime `PlayerAbilityState` and calls `ResetToDefaults()`, so the fixture always starts from
+the confirmed all-locked new-game state and never reads the production asset.
+
+Gear display data is likewise runtime-only: `UISandboxController` builds a `GearDisplayCatalog`
+instance and three `GearDisplayDefinition` instances through `SetFixtureContent`, labels their
+category "Sandbox fixture", and destroys all of them in `OnDestroy`. None of them is a project
+asset, and the production catalogue stays empty.
 
 No fixture can call production save/load, unlock a production ability state, mark world persistence,
 or trigger acquisition gameplay.
@@ -67,16 +97,18 @@ or trigger acquisition gameplay.
 
 ### Implemented-system presentation
 
-- Health: full, damaged, empty/death frame, changing capacity.
+- Health: Damage -1, Heal +1, full, damaged, empty/death frame, changing capacity. Incremental
+  actions clamp through `PlayerHealthState`; no production health rules are changed.
 - Bonus health: none, one/multiple bonus slots, clear.
-- Resource: empty, partial, full, and zero-capacity safety.
+- Resource: Empty, Add +1, Partial, Full, Spend -1, Clear, and zero-capacity safety. Every action
+  refreshes the real shared `ResourceDisplay` from the isolated `PlayerResourceState`.
 - Boss HUD: hidden, one source, aggregate sources, short/long names, zero state.
 
 ### Menu presentation
 
 Implemented (Package A1):
 
-- Root Pause menu (`OpenPauseMenuPreview`/`ClosePauseMenuPreview`).
+- Root Pause menu opened through the Sandbox-local `UIFlowController`.
 - Options preview: a Sandbox-only toggle enables the production `PauseMenuScreen`'s Options button;
   clicking it opens `SandboxOptionsPreviewPanel`, a labelled placeholder ("Options Preview / Package B
   will implement functional settings. / Back") that owns first selection on open, closes via its Back
@@ -87,13 +119,25 @@ Implemented (Package A1):
   `PauseMenuScreen.QuitToMainMenuRequested` and displays a visible fired/not-fired counter proving
   the callback actually reaches a subscriber, without loading a scene, saving, or running Boot.
 
-Planned (Package A2+):
+Implemented (Package A2):
 
-- Gameplay Menu shell.
-- Gear true-new-game empty state.
-- Gear first-unlock state.
-- Gear multi-item state.
-- Gear missing-definition diagnostic.
+- Gameplay Menu: `OpenGameplayMenuPreview` drives the real production prefab through the
+  Sandbox-local `UIFlowController`. The Sandbox injects `IUIFlowHost` because it has no
+  `GameManager`; root exclusivity, Cancel/toggle handling, `CloseRequested`, action-map mode, and
+  selection still run through the production flow owner.
+  `SelectGameplayMenuTab(GameplayMenuTabId)` switches tabs programmatically for review.
+- Gear "None acquired" — the true-new-game empty state.
+- Gear "One acquired" — first-unlock presentation and selection.
+- Gear "Several acquired" — deterministic catalogue order and details.
+- Gear "Live unlock" — unlocks one more ability with no explicit rebuild, exercising the
+  `AbilityChanged` path while the tab is open.
+- Gear "Unlocked, no definition" — the omit-and-log-once content-gap path.
+
+The scene also contains a separate `DeveloperUtilityLayer` Canvas above Root and Modal. Its
+emergency close uses the normal `UIFlowController.RequestCloseRoot` path. Its last-resort recovery
+uses the host-gated `RequestHostRecoveryClose` seam; the developer component never hides a root
+screen directly. Validator and asset tests reject this layer from `_GameCameras.prefab` and the
+standalone production Gameplay Menu prefab.
 
 ### Gear fixture presets
 
@@ -232,12 +276,16 @@ Implemented and passing (`UIFoundationValidator`, `Tools/Project/Validate UI Fou
 - `UISandboxController` is present.
 - The Sandbox-local `InputSystemUIInputModule` has the correct actions asset and all ten required
   action references resolving to the expected `UI`-map actions.
-- `UISandboxController`, `SandboxOptionsPreviewPanel`, and `SandboxQuitCallbackStatus` are absent
-  from `_GameCameras.prefab`.
+- `UISandboxController`, `SandboxOptionsPreviewPanel`, `SandboxQuitCallbackStatus`, and
+  `SandboxDeveloperUtilityLayer` are absent from `_GameCameras.prefab`.
+- Exactly one Sandbox-local `UIFlowController` owns both root prefabs.
+- Sandbox Canvas < Root < Modal < Developer Utility sorting is enforced; Root and Modal override
+  nested sorting and each interactive layer retains its `GraphicRaycaster`.
 
-Also implemented and passing (EditMode `UISandboxControllerFixtureTests`, 4/4): the Bonus health
-fixture and the Empty/Partial/Full resource fixtures produce the same value across repeated
-applications regardless of prior fixture state.
+Also implemented and passing (EditMode `UISandboxControllerFixtureTests`, 6 tests): Damage/Heal
+mutate one health per actual button click and clamp, every resource action updates both isolated
+state and displayed current/capacity/fill, repeated fixture configuration/enable cycles do not
+duplicate listeners, and the deterministic presets remain stable.
 
 Not yet covered by the validator (Package A2+ scope, since Gear/Map/notification fixtures do not
 exist yet): fixture-only-tab production-enable prevention, true-new-game Gear fixture lock/empty

@@ -1,12 +1,18 @@
 using System;
 using UnityEngine;
 
+/// <summary>
+/// Sole authority for permanent ability ownership. A true new game begins with all eight abilities
+/// locked — Dash and Wall Cling are progression unlocks, not starting Gear (see
+/// Docs/FeatureSpecs/Abilities.md). UI (e.g. the Gear tab) reads <see cref="IsUnlocked"/> and
+/// <see cref="AbilityChanged"/> only; it never unlocks, locks, or resets.
+/// </summary>
 [CreateAssetMenu(menuName = "Project/World/Player Ability State", fileName = "PlayerAbilityState")]
 public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
 {
     [Header("Core Traversal")]
-    public bool dashUnlocked = true;
-    public bool wallClingUnlocked = true;
+    public bool dashUnlocked = false;
+    public bool wallClingUnlocked = false;
 
     [Header("Future Traversal")]
     public bool sprintUnlocked = false;
@@ -64,8 +70,9 @@ public sealed class PlayerAbilityState : ScriptableObject, ISaveTarget
     {
         // Does NOT fire AbilityChanged — intended for editor/test resets only.
         // Runtime systems (e.g. AbilityGate) should call Refresh() manually after reset if needed.
-        dashUnlocked       = true;
-        wallClingUnlocked  = true;
+        // Matches the true-new-game contract: every permanent ability starts locked.
+        dashUnlocked       = false;
+        wallClingUnlocked  = false;
         sprintUnlocked     = false;
         wallLatchUnlocked  = false;
         doubleJumpUnlocked = false;

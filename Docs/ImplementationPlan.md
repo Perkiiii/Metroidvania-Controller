@@ -23,7 +23,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) implemented, corrected, and automated-tested with confirmed EditMode+PlayMode execution; Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation pending; Package A2/B not started |
+| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) and Package A2 (seven-tab Gameplay Menu, read-only Gear) implemented and automated-tested with confirmed EditMode+PlayMode execution; Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation pending; Package B not started |
 | Audio system | Partial |
 
 ---
@@ -35,19 +35,26 @@ contracts now live in:
 
 - `Docs/FeatureSpecs/UIArchitecture.md`
 - `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/GameplayMenu.md`
 - `Docs/FeatureSpecs/Gear.md`
 - `Docs/FeatureSpecs/UISandbox.md`
 - `Docs/FeatureSpecs/HUD.md`
 - `Docs/FeatureSpecs/Abilities.md`
+
+`Docs/ImplementationPlans/UIA2ImplementationPlan.md` is the approved Package A2 planning record and
+supersedes the earlier proposal's Gear-only/hidden-sibling-tab recommendation.
 
 Package A1 (root Pause menu, persistent MenuRoot/input foundation, Sandbox) has been implemented,
 corrected, and covered by automated EditMode and PlayMode tests — both confirmed executing via the
 real Unity Test Runner — plus a passing `UIFoundationValidator` pass. The Sandbox-only Options
 preview and Quit callback flows were live-verified in a real Play Mode session. See the Package A1
 entry below for exact scope and what remains unvalidated (interactive manual checks against the
-production Boot path). Package A2 and Package B have not been performed or validated. The
-implemented persistent HUD foundation is retained as an existing dependency, not counted as new menu
-work.
+production Boot path).
+
+Package A2 (Stage 0 ability defaults, the seven-tab Gameplay Menu, and read-only Gear) has been
+implemented and covered by EditMode and PlayMode tests plus a passing validator pass. Package B has
+not been performed. The implemented persistent HUD foundation is retained as an existing
+dependency, not counted as new menu work.
 
 ### Documentation/design contract
 
@@ -61,33 +68,28 @@ work.
 
 ### Prerequisite — New-game ability defaults
 
-**Status: Planned gameplay-state correction before Package A2 production validation.**
-
-#### New-game ability defaults mismatch
-
-**Current state:** `PlayerAbilityState` field defaults, `AbilitySaveData`, and
-`PlayerAbilityState.ResetToDefaults()` currently begin with Dash and Wall Cling unlocked. The
-mutable `PlayerAbilityState.asset` also has Double Jump and Bind unlocked. These values are current
-implementation/development state, not the intended product design.
+**Status: Done (Package A2 Stage 0, 2026-07-28).**
 
 **Confirmed intended state:** a new player starts with no unlocked permanent abilities. Dash, Wall
 Cling, Sprint, Wall Latch, Double Jump, Drift Cloak, Spirit Cast, and Bind are acquired through
 progression. The initial Gear collection may legitimately be empty.
 
-**Required future work:**
+- [x] Authoritative new-game and reset defaults updated so all eight abilities begin locked.
+- [x] `AbilitySaveData` defaults updated.
+- [x] `PlayerAbilityState.ResetToDefaults()` and field initializers updated.
+- [x] `Bootstrap`/fresh-save/migration paths audited. `SaveManager.CreateFreshSave` composes
+  `new SaveData()` → `Migrate` → apply, which now yields all-locked; no code change was needed
+  there.
+- [x] `PlayerAbilityState.asset` reset to all-locked.
+- [x] Compatibility reviewed: `GatherSaveData` writes all eight booleans explicitly, so existing
+  saves round-trip unchanged; a missing/null ability section receives the all-locked default.
+  `SaveDataMigrator.CurrentSaveVersion` was **not** bumped — no migration behaviour changed.
+- [x] Tests proving new-save and reset-to-defaults states contain no unlocked abilities.
+- [x] Tests proving existing saves preserve explicitly stored unlock values (including a
+  256-combination round trip) and that the production asset ships fully locked.
 
-- [ ] Update authoritative new-game and reset defaults so all abilities begin locked.
-- [ ] Update `AbilitySaveData` defaults where required.
-- [ ] Update `PlayerAbilityState.ResetToDefaults()` and field initializers where required.
-- [ ] Audit `Bootstrap`, fresh-save creation, migration, and other new-game initialization paths.
-- [ ] Reset or recreate mutable development-state assets without treating them as design defaults.
-- [ ] Review compatibility and migration behavior for existing development saves.
-- [ ] Add tests proving a new save and reset-to-defaults state contain no unlocked abilities.
-- [ ] Add tests proving existing saves preserve their explicitly stored unlock values.
-
-This prerequisite is owned by the ability/save foundation, not Gear UI. It must be completed before
-the Package A2 production Gear vertical slice is considered valid. No correction is performed by
-this documentation update.
+**Not done:** existing development save slots were deliberately not inspected or deleted. A slot
+that already contains explicit unlocks keeps them.
 
 ### Package A — Internal UI foundation vertical slice
 
@@ -99,7 +101,7 @@ this documentation update.
 Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation not yet
 performed.**
 
-- [x] Development-only UI Sandbox (`Assets/_Project/Scenes/Development/UISandbox.unity`, excluded
+- [x] Development-only UI Sandbox (`Assets/_Project/Scenes/UISandbox.unity`, excluded
   from Build Settings) and shared reusable UI prefabs (`Assets/_Project/Prefabs/UI/PauseMenuScreen.prefab`,
   `ConfirmationModal.prefab`, reusing the existing `HealthSlotView.prefab`). Sandbox uses isolated
   runtime `PlayerHealthState`/`PlayerResourceState` instances and fixture `EnemyHealthComponent`
@@ -165,17 +167,37 @@ performed.**
 
 ### Package A2 — Gameplay Menu and Gear
 
-**Status: Planned; blocked for production validation by the new-game-default prerequisite.**
+**Status: Implemented and automated-tested (EditMode 458/458, PlayMode 45/45, validator passing);
+production Boot-path interactive manual validation not yet performed.**
 
-- [ ] Gameplay Menu shell with session-only last-valid-tab memory.
-- [ ] Production tab filtering: Gear only in the first production-backed slice.
-- [ ] Planned Gear display definitions/catalogue backed read-only by `PlayerAbilityState`.
-- [ ] Acquired-only presentation with no silhouettes, unknown totals, or future placeholders.
-- [ ] Intentional, selectable true-new-game empty Gear state.
-- [ ] Details presentation and device-aware control hints.
-- [ ] Production layout selected after Sandbox comparison of authored groups, authored tableau, and
-  list/grid fallback.
-- [ ] Gear visibility, empty-state, selection, save-load, catalogue, and validator coverage.
+Planning record: `Docs/ImplementationPlans/UIA2ImplementationPlan.md`. Contract:
+`Docs/FeatureSpecs/GameplayMenu.md`.
+
+- [x] `GameplayMenuScreen` registered as the second `IUIFlowRootScreen` through the existing
+  `UIFlowController.gameplayMenuRootBehaviour` field. **No Package A1 production code changed** —
+  only comments/tooltips were refreshed.
+- [x] Seven always-visible tabs in the confirmed order (Gear, Tools, Satchel, Recipes, Tasks,
+  Journal, Map), with runtime-only last-tab and per-tab selection memory.
+- [x] **Superseded:** the earlier "Gear only, siblings hidden" filtering. Ownerless tabs are
+  visible with authored empty states; deferral now means *no data*, not *no tab*.
+- [x] Narrow `IGameplayMenuTab` contract; one shared presentation-only `GameplayMenuEmptyTabView`
+  for the six unfinished tabs, distinguished entirely by authored prefab content.
+- [x] Read-only Gear: `GearDisplayDefinition`/`GearDisplayCatalog`/`GearScreen`/`GearEntryView`/
+  `GearDetailsPanel`, filtered by `PlayerAbilityState.IsUnlocked` with stable-key selection.
+- [x] Acquired-only presentation with no silhouettes, unknown totals, or future placeholders.
+- [x] Intentional, selectable true-new-game empty Gear state.
+- [x] Details presentation and optional binding-string control hints (no glyph database).
+- [x] `UI/PreviousTab` and `UI/NextTab` actions plus a provisional controller `System/GameplayMenu`
+  binding; durable `InputActionReference` sub-assets assigned on both `UIFlowController` and
+  `GameplayMenuScreen`.
+- [x] Sandbox nests the real prefab with isolated runtime ability state and fixture catalogue.
+- [x] Validator extended; EditMode/PlayMode/asset-contract coverage added.
+- [ ] **Production Gear definitions.** The production catalogue is intentionally empty — no
+  physical Gear identity, name, artwork, or copy has been approved. Everything else is in place.
+- [ ] Production layout comparison of authored groups vs authored tableau vs list. A list + details
+  composition was chosen as a reversible first pass; the alternatives remain open.
+- [ ] Interactive manual validation with real keyboard/controller/mouse devices and the production
+  Boot path.
 
 ### Package B — First functional settings integration
 
@@ -468,18 +490,21 @@ validation remain before Phase 2B.
   single-gameplay-scene project. `Bootstrap.firstScene` still falls back to `"SampleScene"`, and a
   proper frontend/first-level routing policy remains planned.
 
-- **New-game ability defaults contradict the confirmed product design.** Current field/save/reset
-  defaults unlock Dash and Wall Cling, and the mutable development asset also contains Double Jump
-  and Bind unlocked. A true new game must start with all eight abilities locked. Complete the
-  prerequisite above, including development-asset cleanup, existing-save compatibility review, and
-  automated coverage, before Package A2 production validation.
+- **New-game ability defaults now match the confirmed product design.** Resolved in Package A2
+  Stage 0: field, save-data, reset, and asset defaults all begin locked, existing saves keep their
+  explicit values, and the save version was not bumped. Note the consequence for development: a
+  fresh save now has no Dash or Wall Cling. Use the ability pickups or the Sandbox fixtures.
 
-- **Package A1 production-path validation remains incomplete.** Boot-path keyboard/controller/mouse
-  checks, controller disconnect/focus loss, and real room-transition held-input checks remain manual.
+- **Package A1/A2 production-path validation remains incomplete.** Boot-path
+  keyboard/controller/mouse checks, controller disconnect/focus loss, and real room-transition
+  held-input checks remain manual for both packages.
 
-- **Gameplay Menu and later UI remain deferred.** Package A2 Gameplay Menu/Gear/tab memory and Full
-  Map routing do not exist. Functional Options, functional Quit, frontend, and notifications remain
-  deferred.
+- **Gameplay data behind the Gameplay Menu remains deferred.** All seven tabs are visible and
+  navigable, but only Gear is data-backed, and its production catalogue is empty pending approved
+  identities. Tools, Satchel (inventory/quantities), Recipes (discovery), Tasks, Journal
+  (discovery), and the functional Map — plus Quick Map, the Full Map double-tap shortcut, and map
+  markers — have no owners yet. Functional Options, functional Quit, frontend, and notifications
+  remain deferred.
 
 - **External transitions while paused are explicitly rejected.** `GameManager.BeginSceneTransition`
   returns false without starting scene flow while `GameState.Paused`. A future functional Quit must

@@ -176,12 +176,12 @@ PlayerAbilityState (SO)
 
 **Confirmed new-game contract:** a new game begins with all eight permanent abilities locked. Dash,
 Wall Cling, Sprint, Wall Latch, Double Jump, Drift Cloak, Spirit Cast, and Bind are acquired only
-through progression. Current code contradicts that product contract: field initializers,
-`AbilitySaveData`, and `PlayerAbilityState.ResetToDefaults()` currently unlock Dash and Wall Cling,
-while the mutable `PlayerAbilityState.asset` also has Double Jump and Bind unlocked. This is known
-implementation debt, not intended starting design. Aligning defaults, reset/new-save initialization,
-mutable development assets, existing-development-save compatibility, and tests is planned before the
-production Gear slice can be validated. It has not been corrected.
+through progression. Code matches that contract as of Package A2 Stage 0: field initializers,
+`AbilitySaveData`, `PlayerAbilityState.ResetToDefaults()`, and the serialized
+`PlayerAbilityState.asset` all begin fully locked. Existing saves keep their explicitly stored
+values (`GatherSaveData` writes all eight booleans), a missing/null ability section migrates to the
+all-locked default, and `SaveDataMigrator.CurrentSaveVersion` was not bumped because no migration
+behaviour changed.
 
 `AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) refreshes on enable, then subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
 
@@ -430,7 +430,7 @@ SaveManager (DontDestroyOnLoad)
   ↓  GatherSaveData() / ApplySaveData()
   ↓
 ISaveTarget (interface, implemented by persistent SOs)
-  ├── PlayerAbilityState.asset       8 ability unlock flags   [implemented; new-game defaults mismatch planned]
+  ├── PlayerAbilityState.asset       8 ability unlock flags   [implemented; all locked for a new game]
   ├── PlayerHealthState.asset        current/max/bonus health [gameplay ownership implemented]
   ├── PlayerResourceState.asset      current/max parts        [gameplay ownership implemented; generation + Bind spend + death-clear wired]
   └── WorldStateRegistry.asset       rooms, pickups, encounters, object states, enemy timers  [implemented — World Persistence Phase 1/2]
@@ -503,10 +503,16 @@ Authoritative detail:
 
 - `Docs/FeatureSpecs/UIArchitecture.md`
 - `Docs/FeatureSpecs/PauseAndMenuFlow.md`
+- `Docs/FeatureSpecs/GameplayMenu.md`
 - `Docs/FeatureSpecs/Gear.md`
 - `Docs/FeatureSpecs/UISandbox.md`
 - `Docs/FeatureSpecs/HUD.md`
 - `Docs/FeatureSpecs/Abilities.md`
+
+New UI ScriptableObject types (Package A2): `GearDisplayDefinition` (display-only Gear content;
+stable key, exactly one `AbilityId`, name/category/icon/description/flavour, optional control hint)
+and `GearDisplayCatalog` (ordered definitions plus lookup/validation). Neither carries unlock,
+equip, or tuning state — `PlayerAbilityState` remains the sole ownership authority.
 
 HUD and menus use UGUI. The persistent `_GameCameras` prefab contains the implemented `HUDCamera`,
 `HUDRoot`, and transition-owned `FadeCanvas`. The HUD Canvas is Screen Space - Camera and targets
@@ -547,8 +553,9 @@ must be released and freshly pressed after resume, while continuous movement may
 immediately. Persistent UI must invalidate or resolve scene-local Hero access across scene loads and
 must never retain a stale Hero reference.
 
-Pause and Gameplay Menu have separate open actions; only the root Pause screen is implemented in
-A1. Both root requests are unavailable
+Pause and Gameplay Menu have separate open actions. Both root screens are now implemented:
+`PauseMenuScreen` (A1) and `GameplayMenuScreen` (A2), registered as siblings under
+`MenuRoot/RootInterfaceLayer`. Both root requests are unavailable
 from scene exit through full transition completion and for an initial 1.0 seconds of unscaled
 post-transition UI-flow lockout. `SceneInit` is not transition completion. Blocked requests are
 discarded, never queued, and Pause/Gameplay Menu rearm independently after their own release.
@@ -571,11 +578,18 @@ established scene-flow APIs after their save/discard policy is approved. Future 
 narrow audio/settings APIs; `AudioManager` and the planned profile-independent settings foundation
 own mixer routing, persistence, and startup application.
 
-Gear is the planned read-only player-facing collection of acquired physical progression
-possessions. Package A initially reads existing `PlayerAbilityState` ownership and presents only
-acquired, approved definitions. A true new game has no unlocked abilities and may show an
-intentionally empty Gear collection; the UI must not use mutable development-asset values as
-product defaults or reveal locked abilities with placeholders.
+The Gameplay Menu presents seven always-visible tabs — Gear, Tools, Satchel, Recipes, Tasks,
+Journal, Map — in a fixed order. A tab whose gameplay owner does not exist yet shows an authored
+empty state; it is never hidden, disabled, or filled with invented data. Tab identity, the narrow
+`IGameplayMenuTab` contract, runtime-only tab memory, navigation, and per-tab deferred dependencies
+are specified in `Docs/FeatureSpecs/GameplayMenu.md`.
+
+Gear is the read-only player-facing collection of acquired physical progression possessions. It
+reads `PlayerAbilityState` ownership and presents only acquired, approved definitions. A true new
+game has no unlocked abilities and shows an intentionally empty Gear collection; the UI must not
+use mutable development-asset values as product defaults or reveal locked abilities with
+placeholders. The production `GearDisplayCatalog` is deliberately empty until physical Gear
+identities are approved.
 
 ---
 
@@ -616,5 +630,5 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
 | HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
-| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | A1 MenuRoot/Pause/modal/input/Sandbox implemented; Gameplay Menu, Gear, tab memory, Full Map, functional Options/Quit, frontend, and notifications deferred |
+| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/GameplayMenu.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | A1 MenuRoot/Pause/modal/input/Sandbox and A2 seven-tab Gameplay Menu + read-only Gear implemented; approved Gear identities, Tools/Satchel/Recipes/Tasks/Journal data owners, functional Map + Quick Map, functional Options/Quit, frontend, and notifications deferred |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |
