@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// The persistent, pausing Gameplay Menu root: the second <see cref="IUIFlowRootScreen"/> after
 /// <see cref="PauseMenuScreen"/>. See Docs/FeatureSpecs/GameplayMenu.md.
 ///
-/// Ownership boundary. This screen owns exactly: which of the seven fixed tabs is active, the
+/// Ownership boundary. This screen owns exactly: which of the five fixed tabs is active, the
 /// runtime-only last-tab and per-tab selection memory, the tab strip's presentation and explicit
 /// navigation, Previous/Next tab cycling, and Back delegation into the active tab.
 /// <see cref="UIFlowController"/> keeps sole ownership of root availability,
@@ -27,11 +27,9 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
     public static readonly GameplayMenuTabId[] FixedTabOrder =
     {
         GameplayMenuTabId.Gear,
-        GameplayMenuTabId.Tools,
+        GameplayMenuTabId.CombatLoadout,
         GameplayMenuTabId.Satchel,
-        GameplayMenuTabId.Recipes,
-        GameplayMenuTabId.Tasks,
-        GameplayMenuTabId.Journal,
+        GameplayMenuTabId.FieldNotes,
         GameplayMenuTabId.Map
     };
 
@@ -64,7 +62,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
         "the cells must collapse.")]
     [SerializeField, Min(0f)] private float stripReservedWidth = 240f;
 
-    [Header("Tabs — exactly seven, in fixed order")]
+    [Header("Tabs — fixed order")]
     [SerializeField] private List<GameplayMenuTabRegistration> tabs = new List<GameplayMenuTabRegistration>();
 
     [Header("Tab cycling input (UI map)")]
@@ -145,7 +143,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
 
     /// <summary>
     /// Runtime composition seam. Production authors everything in the Inspector; EditMode tests use
-    /// this to supply a lightweight seven-tab fixture, mirroring
+    /// this to supply a lightweight fixed-tab fixture, mirroring
     /// <see cref="UIFlowController.ConfigureRoots"/>.
     /// </summary>
     public void Configure(
@@ -216,7 +214,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
         {
             Debug.LogError(
                 $"[GameplayMenuScreen] '{name}' has {tabs.Count} tab registration(s); exactly " +
-                $"{FixedTabOrder.Length} are required (Gear, Tools, Satchel, Recipes, Tasks, Journal, Map).",
+                $"{FixedTabOrder.Length} are required ({DescribeFixedTabOrder()}).",
                 this);
         }
 
@@ -265,6 +263,11 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
         {
             Debug.LogError($"[GameplayMenuScreen] '{name}' has no global Close control assigned.", this);
         }
+    }
+
+    private static string DescribeFixedTabOrder()
+    {
+        return string.Join(", ", FixedTabOrder);
     }
 
     // -------------------------------------------------------------------------
@@ -556,7 +559,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
 
     /// <summary>
     /// Builds the horizontal top-strip chain in code so it can never drift from the authored tab
-    /// order: Left/Right walk the seven tabs and wrap at both ends, and Up leaves the strip for the
+    /// order: Left/Right walk the fixed tabs and wrap at both ends, and Up leaves the strip for the
     /// global Close control. Down (into the active tab's content) and Close's own Down are re-wired
     /// per tab by <see cref="WireActiveTabNavigation"/>, because both depend on which tab is active.
     /// </summary>
@@ -645,7 +648,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
 
     /// <summary>
     /// Collapses every strip cell to glyph-only when the viewport cannot fit glyph + title for all
-    /// seven, and expands them again when it can. Tabs are never hidden, disabled, scrolled out of
+    /// five, and expands them again when it can. Tabs are never hidden, disabled, scrolled out of
     /// reach, or dropped from the cycle — only the per-tab titles collapse, and
     /// <see cref="activeTabTitleLabel"/> keeps naming the active tab. A null viewport (EditMode
     /// fixtures) simply stays expanded.

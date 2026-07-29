@@ -578,9 +578,12 @@ established scene-flow APIs after their save/discard policy is approved. Future 
 narrow audio/settings APIs; `AudioManager` and the planned profile-independent settings foundation
 own mixer routing, persistence, and startup application.
 
-The Gameplay Menu presents seven always-visible tabs — Gear, Tools, Satchel, Recipes, Tasks,
-Journal, Map — in a fixed order. A tab whose gameplay owner does not exist yet shows an authored
-empty state; it is never hidden, disabled, or filled with invented data. Tab identity, the narrow
+The Gameplay Menu presents five always-visible tabs — Gear, Loadout, Satchel, Field Notes, Map — in
+a fixed order. Their stable IDs are `Gear`, `CombatLoadout`, `Satchel`, `FieldNotes`, and `Map`.
+A tab whose gameplay owner does not exist yet shows an authored empty state; it is never hidden,
+disabled, or filled with invented data. Loadout is the future combat-build destination, not literal
+gathering-tool ownership. Field Notes will eventually contain Recipes, Tasks, and Journal as
+internal sections. Tab identity, the narrow
 `IGameplayMenuTab` contract, runtime-only tab memory, navigation, and per-tab deferred dependencies
 are specified in `Docs/FeatureSpecs/GameplayMenu.md`.
 
@@ -630,5 +633,5 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
 | HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
-| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/GameplayMenu.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2 | A1 MenuRoot/Pause/modal/input/Sandbox and A2 seven-tab Gameplay Menu + read-only Gear implemented; approved Gear identities, Tools/Satchel/Recipes/Tasks/Journal data owners, functional Map + Quick Map, functional Options/Quit, frontend, and notifications deferred |
+| Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/GameplayMenu.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2.1 | A1 MenuRoot/Pause/modal/input/Sandbox and A2.1 five-tab Gameplay Menu + read-only Gear implemented; approved Gear identities, Loadout/Satchel/Field Notes/Map data owners, functional Quick Map, functional Options/Quit, frontend, and notifications deferred |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |

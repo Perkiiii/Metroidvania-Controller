@@ -4414,8 +4414,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIFlowController
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  pauseActionRef: {fileID: 0}
-  gameplayMenuActionRef: {fileID: 0}
+  pauseActionRef: {fileID: -2591820909312412287, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  gameplayMenuActionRef: {fileID: -5072519137725553192, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   uiCancelActionRef: {fileID: 7727032971491509709, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   eventSystem: {fileID: 651551340}
   pauseRootBehaviour: {fileID: 725874557}

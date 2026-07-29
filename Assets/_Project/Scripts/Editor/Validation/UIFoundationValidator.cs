@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// UI foundation validator (Packages A1 + A2). Checks the persistent MenuRoot composition, the
-/// registered pausing roots, the seven-tab Gameplay Menu contract, the Gear display catalogue, the
+/// registered pausing roots, the five-tab Gameplay Menu contract, the Gear display catalogue, the
 /// production/Sandbox boundary, and semantic Canvas layering described in
 /// Docs/FeatureSpecs/UIArchitecture.md, Docs/FeatureSpecs/GameplayMenu.md, and
 /// Docs/FeatureSpecs/UISandbox.md.
@@ -250,7 +250,7 @@ public static class UIFoundationValidator
 
     /// <summary>
     /// Package A2 contract: exactly one Gameplay Menu root under MenuRoot, hidden by default, with
-    /// exactly seven registrations in the fixed order, every view implementing
+    /// exactly five registrations in the fixed order, every view implementing
     /// <see cref="IGameplayMenuTab"/>, a resolvable selection for every tab, and durable
     /// Previous/Next tab action references.
     /// </summary>
@@ -312,25 +312,35 @@ public static class UIFoundationValidator
         for (int i = 0; i < tabs.arraySize; i++)
         {
             SerializedProperty element = tabs.GetArrayElementAtIndex(i);
-            int id = element.FindPropertyRelative("id").enumValueIndex;
+            int id = element.FindPropertyRelative("id").intValue;
+            if (!System.Enum.IsDefined(typeof(GameplayMenuTabId), id))
+            {
+                Debug.LogError(
+                    $"[UIFoundationValidator] Gameplay Menu tab {i} contains undefined serialized ID value {id}; " +
+                    "re-author the five registrations after the enum migration.");
+                issues++;
+                continue;
+            }
+
+            GameplayMenuTabId tabId = (GameplayMenuTabId)id;
             GameplayMenuTabId expected = GameplayMenuScreen.FixedTabOrder[i];
 
             if (id != (int)expected)
             {
-                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab {i} is '{(GameplayMenuTabId)id}'; the confirmed order requires '{expected}'. All seven tabs must stay visible and in order.");
+                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab {i} is '{tabId}'; the confirmed order requires '{expected}'. All five tabs must stay visible and in order.");
                 issues++;
             }
 
             if (!seenIds.Add(id))
             {
-                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{(GameplayMenuTabId)id}' is registered more than once.");
+                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{tabId}' is registered more than once.");
                 issues++;
             }
 
             Object button = element.FindPropertyRelative("tabButton").objectReferenceValue;
             if (button == null)
             {
-                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{(GameplayMenuTabId)id}' has no tab button; every confirmed tab must be reachable.");
+                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{tabId}' has no tab button; every confirmed tab must be reachable.");
                 issues++;
             }
             else
@@ -338,7 +348,7 @@ public static class UIFoundationValidator
                 Button uiButton = ((GameplayMenuTabButton)button).Button;
                 if (uiButton == null || !uiButton.interactable)
                 {
-                    Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{(GameplayMenuTabId)id}' button is missing or non-interactable; confirmed tabs are never disabled.");
+                    Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{tabId}' button is missing or non-interactable; confirmed tabs are never disabled.");
                     issues++;
                 }
             }
@@ -346,30 +356,30 @@ public static class UIFoundationValidator
             Object view = element.FindPropertyRelative("tabViewBehaviour").objectReferenceValue;
             if (view == null)
             {
-                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{(GameplayMenuTabId)id}' has no tab view assigned.");
+                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{tabId}' has no tab view assigned.");
                 issues++;
                 continue;
             }
 
             if (!(view is IGameplayMenuTab))
             {
-                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{(GameplayMenuTabId)id}' view '{view.GetType().Name}' does not implement IGameplayMenuTab.");
+                Debug.LogError($"[UIFoundationValidator] Gameplay Menu tab '{tabId}' view '{view.GetType().Name}' does not implement IGameplayMenuTab.");
                 issues++;
                 continue;
             }
 
-            issues += RejectGameplayOwnershipReferences((MonoBehaviour)view, (GameplayMenuTabId)id);
+            issues += RejectGameplayOwnershipReferences((MonoBehaviour)view, tabId);
 
             if (view is GameplayMenuEmptyTabView emptyTab)
             {
                 if (emptyTab.ContentRoot == null)
                 {
-                    Debug.LogError($"[UIFoundationValidator] Empty-state tab '{(GameplayMenuTabId)id}' has no content root.");
+                    Debug.LogError($"[UIFoundationValidator] Empty-state tab '{tabId}' has no content root.");
                     issues++;
                 }
 
-                issues += ValidateEmptyStateCopy((GameplayMenuTabId)id, emptyTab.AuthoredTitle, "title");
-                issues += ValidateEmptyStateCopy((GameplayMenuTabId)id, emptyTab.AuthoredBody, "body");
+                issues += ValidateEmptyStateCopy(tabId, emptyTab.AuthoredTitle, "title");
+                issues += ValidateEmptyStateCopy(tabId, emptyTab.AuthoredBody, "body");
             }
         }
 
@@ -380,7 +390,7 @@ public static class UIFoundationValidator
     /// <summary>
     /// Package A2 correction pass: the tab presentation is a top-centred horizontal strip, not a
     /// left vertical rail. Checks the strip is authored above the content region, is laid out
-    /// horizontally, holds all seven cells in order, and is flanked by Previous/Next hints.
+    /// horizontally, holds all five cells in order, and is flanked by Previous/Next hints.
     /// </summary>
     private static int ValidateTopTabStrip(GameplayMenuScreen screen)
     {

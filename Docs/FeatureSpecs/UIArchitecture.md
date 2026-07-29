@@ -12,8 +12,9 @@ selection fallback, pause-safe `UIFlowController` teardown, and an input-leakage
 Sandbox-only Options preview and Quit callback status were live-verified in a real Play Mode
 session.
 
-Package A2 (the seven-tab Gameplay Menu and read-only Gear) is implemented and covered by EditMode
-and PlayMode tests plus a passing validator pass; its cross-tab contract lives in
+Package A2.1 (the five-tab Gameplay Menu and read-only Gear) is implemented and covered by updated
+EditMode and PlayMode test coverage; tests and the validator are pending Sam's validation pass.
+Its cross-tab contract lives in
 `Docs/FeatureSpecs/GameplayMenu.md`. Package B (functional Options) has not been performed.
 Interactive manual validation of the full production Boot path (keyboard/controller/mouse in the
 real gameplay scene, real room transitions, held-input timing) has not been performed — see
@@ -71,9 +72,9 @@ presentation boundaries. Specialized behavior belongs in:
 | Pause authority | Implemented seam | `GameManager.Pause()` / `Unpause()` |
 | UI navigation actions | Implemented | Existing `UI` Input Action map, wired to `InputSystemUIInputModule` |
 | Root Pause menu | Implemented (Package A1) | `PauseMenuScreen` + `ConfirmationModal` under `MenuRoot`; Options authored but production-gated non-functional; Quit is a development-gated typed request seam only |
-| Gameplay Menu (seven visible tabs) | Implemented (Package A2) | `GameplayMenuScreen` under `MenuRoot/RootInterfaceLayer`, registered as the second `IUIFlowRootScreen` |
+| Gameplay Menu (five visible tabs) | Implemented (Package A2.1) | `GameplayMenuScreen` under `MenuRoot/RootInterfaceLayer`, registered as the second `IUIFlowRootScreen` |
 | Gear | Implemented (Package A2), read-only | `GearScreen` reading `PlayerAbilityState` + `GearDisplayCatalog` (production catalogue intentionally empty until identities are approved) |
-| Tools / Satchel / Recipes / Tasks / Journal / Map data | Deferred | Tabs are visible with authored empty states; each needs its own domain owner |
+| Combat Loadout / Satchel / Field Notes / Map data | Deferred | Tabs are visible with authored empty states; Field Notes will eventually contain Recipes, Tasks, and Journal sections |
 | Persistent MenuRoot/EventSystem | Implemented (Package A1) | `_GameCameras.prefab` → `MenuRoot` (`EventSystem`, `InputSystemUIInputModule`, `UIFlowController`, `RootInterfaceLayer`, `ModalLayer`) |
 | Notifications | Deferred | Future `NotificationRoot` or equivalent |
 | Quick Map / Full Map | Deferred | Future Map system plus menu integration |

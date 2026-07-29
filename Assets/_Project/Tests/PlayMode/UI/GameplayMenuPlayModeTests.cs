@@ -242,12 +242,13 @@ public sealed class GameplayMenuPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator AllSevenTabsAreVisibleAndReachableWhileOpen()
+    public IEnumerator AllFiveTabsAreVisibleAndReachableWhileOpen()
     {
         yield return Press(Key.I);
         yield return ReleaseAllKeys();
 
-        string[] expected = { "Gear", "Tools", "Satchel", "Recipes", "Tasks", "Journal", "Map" };
+        string[] expected = { "Gear", "CombatLoadout", "Satchel", "FieldNotes", "Map" };
+        string[] expectedDisplayNames = { "Gear", "Loadout", "Satchel", "Field Notes", "Map" };
         IList registrations = GetField(menuScreen, "tabs") as IList;
         Assert.That(registrations, Is.Not.Null);
         Assert.That(registrations.Count, Is.EqualTo(expected.Length));
@@ -258,6 +259,8 @@ public sealed class GameplayMenuPlayModeTests
             object registration = registrations[i];
             Assert.That(GetProperty(registration, "Id").ToString(), Is.EqualTo(expected[i]),
                 $"Registration {i} is out of the confirmed order.");
+            Assert.That(GetProperty(registration, "DisplayName"), Is.EqualTo(expectedDisplayNames[i]),
+                $"Registration {i} has the wrong player-facing display name.");
 
             Component tabButton = GetProperty(registration, "TabButton") as Component;
             Assert.That(tabButton, Is.Not.Null, $"Tab '{expected[i]}' has no strip button.");
@@ -359,7 +362,7 @@ public sealed class GameplayMenuPlayModeTests
         yield return ReleaseAllKeys();
         Assert.That(ActiveTab(), Is.EqualTo("Gear"));
 
-        string[] expected = { "Tools", "Satchel", "Recipes", "Tasks", "Journal", "Map" };
+        string[] expected = { "CombatLoadout", "Satchel", "FieldNotes", "Map" };
         foreach (string tab in expected)
         {
             yield return Press(Key.E);
@@ -389,7 +392,9 @@ public sealed class GameplayMenuPlayModeTests
         yield return Press(Key.I);
         yield return ReleaseAllKeys();
 
-        for (int i = 0; i < 7; i++)
+        IList registrations = GetField(menuScreen, "tabs") as IList;
+        Assert.That(registrations, Is.Not.Null);
+        for (int i = 0; i < registrations.Count; i++)
         {
             Assert.That(eventSystem.currentSelectedGameObject, Is.Not.Null,
                 $"Selection became null on '{ActiveTab()}'.");

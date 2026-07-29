@@ -4,10 +4,10 @@ using UnityEngine.UI;
 
 /// <summary>
 /// One authored Gameplay Menu tab: its identity, strip button, presentation owner, and an optional
-/// authored selection fallback. Authored as a fixed seven-element list on
+/// authored selection fallback. Authored as a fixed list on
 /// <see cref="GameplayMenuScreen"/>.
 ///
-/// There is deliberately no availability/hidden flag: all seven confirmed tabs are always visible.
+/// There is deliberately no availability/hidden flag: all five confirmed tabs are always visible.
 /// Missing content is expressed by the view's empty state, never by filtering registrations.
 /// </summary>
 [Serializable]

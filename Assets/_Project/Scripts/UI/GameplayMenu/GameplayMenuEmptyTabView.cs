@@ -3,11 +3,11 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Shared presentation-only presenter for a confirmed tab whose authoritative gameplay owner does
-/// not exist yet: Tools, Satchel, Recipes, Tasks, Journal, and Map in Package A2.
+/// not exist yet: Combat Loadout, Satchel, Field Notes, and Map.
 ///
 /// It owns no gameplay state, no data source, no persistence, and no subscriptions — every
-/// difference between the six tabs is authored in their prefabs (copy, motif, accent, layout), not
-/// duplicated in six identical scripts. When a tab's real domain owner is approved it gets its own
+/// difference between the four empty tabs is authored in their prefabs (copy, motif, accent,
+/// layout), not duplicated in four identical scripts. When a tab's real domain owner is approved it gets its own
 /// focused presenter (like <see cref="GearScreen"/>) and this component is simply swapped out of
 /// that tab's prefab; <see cref="IGameplayMenuTab"/> does not change.
 ///
@@ -30,7 +30,7 @@ public sealed class GameplayMenuEmptyTabView : MonoBehaviour, IGameplayMenuTab
 
     [Header("Selection")]
     [Tooltip("Optional. Package A2 empty states expose no content selection, so this stays unset " +
-        "and the Gameplay Menu keeps focus on the tab rail.")]
+        "and the Gameplay Menu keeps focus on the tab strip.")]
     [SerializeField] private Selectable firstSelection;
 
     public Selectable FirstSelection => firstSelection;

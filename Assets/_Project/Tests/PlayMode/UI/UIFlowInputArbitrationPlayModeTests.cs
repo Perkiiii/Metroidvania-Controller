@@ -16,6 +16,9 @@ using UnityEngine.UI;
 /// </summary>
 public sealed class UIFlowInputArbitrationPlayModeTests
 {
+    private const string InputActionsPath =
+        "Assets/_Project/Input/InputSystem_Actions.inputactions";
+
     private static Assembly gameAssembly;
 
     private Keyboard keyboard;
@@ -96,15 +99,17 @@ public sealed class UIFlowInputArbitrationPlayModeTests
     [UnitySetUp]
     public IEnumerator SetUp()
     {
+#if UNITY_EDITOR
         Time.timeScale = 1f;
         keyboard = InputSystem.AddDevice<Keyboard>();
 
-        actions = ScriptableObject.CreateInstance<InputActionAsset>();
-        InputActionMap systemMap = actions.AddActionMap("System");
-        systemMap.AddAction("Pause", InputActionType.Button, "<Keyboard>/escape");
-        systemMap.AddAction("GameplayMenu", InputActionType.Button, "<Keyboard>/i");
-        InputActionMap uiMap = actions.AddActionMap("UI");
-        uiMap.AddAction("Cancel", InputActionType.Button, "<Keyboard>/escape");
+        InputActionAsset shippedActions =
+            UnityEditor.AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
+        Assert.That(
+            shippedActions,
+            Is.Not.Null,
+            "Could not load " + InputActionsPath);
+        actions = InputActionAsset.FromJson(shippedActions.ToJson());
 
         gameManagerObject = new GameObject("UI Flow Input Test GameManager");
         gameManager = gameManagerObject.AddComponent(GameType("GameManager"));
@@ -136,6 +141,19 @@ public sealed class UIFlowInputArbitrationPlayModeTests
         SetField(flow, "lockoutRemaining", 0f);
 
         yield return ReleaseAllKeys();
+
+        InputActionMap systemMap = actions.FindActionMap("System", true);
+        InputActionMap uiMap = actions.FindActionMap("UI", true);
+
+        Assert.That(systemMap.FindAction("Pause", true), Is.Not.Null);
+        Assert.That(systemMap.FindAction("GameplayMenu", true), Is.Not.Null);
+        Assert.That(uiMap.FindAction("Cancel", true), Is.Not.Null);
+        Assert.That(systemMap.enabled, Is.True);
+        Assert.That(uiMap.enabled, Is.False);
+#else
+        yield return null;
+        Assert.Ignore("UI flow arbitration coverage loads the shipped action asset through the AssetDatabase.");
+#endif
     }
 
     [UnityTearDown]
@@ -151,7 +169,11 @@ public sealed class UIFlowInputArbitrationPlayModeTests
         if (modalSelectionObject != null) UnityEngine.Object.Destroy(modalSelectionObject);
         if (pauseRootObject != null) UnityEngine.Object.Destroy(pauseRootObject);
         if (gameplayRootObject != null) UnityEngine.Object.Destroy(gameplayRootObject);
-        if (actions != null) UnityEngine.Object.Destroy(actions);
+        if (actions != null)
+        {
+            actions.Disable();
+            UnityEngine.Object.Destroy(actions);
+        }
         if (keyboard != null && keyboard.added) InputSystem.RemoveDevice(keyboard);
 
         yield return null;

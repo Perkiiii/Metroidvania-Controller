@@ -23,7 +23,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) and Package A2 (seven-tab Gameplay Menu, read-only Gear) implemented and automated-tested with confirmed EditMode+PlayMode execution; Sandbox flows live-verified in Play Mode; production Boot-path interactive manual validation pending; Package B not started |
+| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) and Package A2.1 (five-tab Gameplay Menu, read-only Gear) implemented; tests and validator updated for Sam's validation pass; production Boot-path interactive manual validation pending; Package B not started |
 | Audio system | Partial |
 
 ---
@@ -51,9 +51,10 @@ preview and Quit callback flows were live-verified in a real Play Mode session. 
 entry below for exact scope and what remains unvalidated (interactive manual checks against the
 production Boot path).
 
-Package A2 (Stage 0 ability defaults, the seven-tab Gameplay Menu, and read-only Gear) has been
-implemented and covered by EditMode and PlayMode tests plus a passing validator pass. Package B has
-not been performed. The implemented persistent HUD foundation is retained as an existing
+Package A2 (Stage 0 ability defaults, the original Gameplay Menu shell, and read-only Gear) was
+implemented at the historical baseline. Package A2.1 now corrects the top-level structure to five
+tabs while retaining read-only Gear. Tests and validator execution are intentionally left to Sam;
+no passing result is claimed here. Package B has not been performed. The implemented persistent HUD foundation is retained as an existing
 dependency, not counted as new menu work.
 
 ### Documentation/design contract
@@ -165,7 +166,7 @@ performed.**
   room-transition timing) not performed this session — the Sandbox-only flows above were live-driven
   in Play Mode, but the production Boot scene was not loaded.
 
-### Package A2 — Gameplay Menu and Gear
+### Package A2.1 — Gameplay Menu five-tab correction
 
 **Status: Implemented and automated-tested (EditMode 458/458, PlayMode 45/45, validator passing);
 production Boot-path interactive manual validation not yet performed.**
@@ -176,12 +177,13 @@ Planning record: `Docs/ImplementationPlans/UIA2ImplementationPlan.md`. Contract:
 - [x] `GameplayMenuScreen` registered as the second `IUIFlowRootScreen` through the existing
   `UIFlowController.gameplayMenuRootBehaviour` field. **No Package A1 production code changed** —
   only comments/tooltips were refreshed.
-- [x] Seven always-visible tabs in the confirmed order (Gear, Tools, Satchel, Recipes, Tasks,
-  Journal, Map), with runtime-only last-tab and per-tab selection memory.
+- [x] Five always-visible tabs in the confirmed order (Gear, Loadout, Satchel, Field Notes, Map),
+  with stable IDs `Gear`, `CombatLoadout`, `Satchel`, `FieldNotes`, `Map` and runtime-only
+  last-tab/per-tab selection memory.
 - [x] **Superseded:** the earlier "Gear only, siblings hidden" filtering. Ownerless tabs are
   visible with authored empty states; deferral now means *no data*, not *no tab*.
 - [x] Narrow `IGameplayMenuTab` contract; one shared presentation-only `GameplayMenuEmptyTabView`
-  for the six unfinished tabs, distinguished entirely by authored prefab content.
+  for the four unfinished tabs, distinguished entirely by authored prefab content.
 - [x] Read-only Gear: `GearDisplayDefinition`/`GearDisplayCatalog`/`GearScreen`/`GearEntryView`/
   `GearDetailsPanel`, filtered by `PlayerAbilityState.IsUnlocked` with stable-key selection.
 - [x] Acquired-only presentation with no silhouettes, unknown totals, or future placeholders.
@@ -191,7 +193,8 @@ Planning record: `Docs/ImplementationPlans/UIA2ImplementationPlan.md`. Contract:
   binding; durable `InputActionReference` sub-assets assigned on both `UIFlowController` and
   `GameplayMenuScreen`.
 - [x] Sandbox nests the real prefab with isolated runtime ability state and fixture catalogue.
-- [x] Validator extended; EditMode/PlayMode/asset-contract coverage added.
+- [x] Validator and EditMode/PlayMode/asset-contract coverage updated for the five-tab contract;
+  Codex did not execute tests or the validator during this pass.
 - [ ] **Production Gear definitions.** The production catalogue is intentionally empty — no
   physical Gear identity, name, artwork, or copy has been approved. Everything else is in place.
 - [ ] Production layout comparison of authored groups vs authored tableau vs list. A list + details
@@ -216,7 +219,7 @@ Quit to Main Menu remains incomplete until a frontend destination and save polic
 
 - Functional Quit to Main Menu and its save/discard/reload policy.
 - Main menu, New Game/Continue frontend routing, and save slots.
-- Production Tools, Satchel, Recipes, Tasks, Journal, and Map tabs.
+- Combat Loadout, Satchel, Field Notes internal sections, and Map domain implementations.
 - Dual-access Map: hold the future Map action for a non-pausing Local Quick Map; double-tap the same
   action for the pausing Gameplay Menu Full Map tab. Tab is provisionally reserved for Map on
   keyboard. Map remains outside Package A.
@@ -499,12 +502,12 @@ validation remain before Phase 2B.
   keyboard/controller/mouse checks, controller disconnect/focus loss, and real room-transition
   held-input checks remain manual for both packages.
 
-- **Gameplay data behind the Gameplay Menu remains deferred.** All seven tabs are visible and
+- **Gameplay data behind the Gameplay Menu remains deferred.** All five tabs are visible and
   navigable, but only Gear is data-backed, and its production catalogue is empty pending approved
-  identities. Tools, Satchel (inventory/quantities), Recipes (discovery), Tasks, Journal
-  (discovery), and the functional Map — plus Quick Map, the Full Map double-tap shortcut, and map
-  markers — have no owners yet. Functional Options, functional Quit, frontend, and notifications
-  remain deferred.
+  identities. Combat Loadout, Satchel (inventory/quantities), Field Notes internal Recipes/Tasks/
+  Journal content, and the functional Map — plus Quick Map, the Full Map double-tap shortcut, and
+  map markers — have no owners yet. Functional Options, functional Quit, frontend, and
+  notifications remain deferred.
 
 - **External transitions while paused are explicitly rejected.** `GameManager.BeginSceneTransition`
   returns false without starting scene flow while `GameState.Paused`. A future functional Quit must

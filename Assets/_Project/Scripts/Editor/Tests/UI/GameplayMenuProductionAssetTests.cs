@@ -9,7 +9,7 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 /// <summary>
-/// Asserts the Package A2 contract directly against the shipped production assets, so a prefab or
+/// Asserts the Package A2.1 contract directly against the shipped production assets, so a prefab or
 /// Input Action edit that silently breaks the Gameplay Menu fails here rather than only when
 /// someone remembers to run Tools/Project/Validate UI Foundation.
 ///
@@ -28,11 +28,9 @@ public sealed class GameplayMenuProductionAssetTests
     private static readonly string[] TabPrefabPaths =
     {
         "Assets/_Project/Prefabs/UI/GameplayMenu/GearTab.prefab",
-        "Assets/_Project/Prefabs/UI/GameplayMenu/ToolsTab.prefab",
+        "Assets/_Project/Prefabs/UI/GameplayMenu/CombatLoadoutTab.prefab",
         "Assets/_Project/Prefabs/UI/GameplayMenu/SatchelTab.prefab",
-        "Assets/_Project/Prefabs/UI/GameplayMenu/RecipesTab.prefab",
-        "Assets/_Project/Prefabs/UI/GameplayMenu/TasksTab.prefab",
-        "Assets/_Project/Prefabs/UI/GameplayMenu/JournalTab.prefab",
+        "Assets/_Project/Prefabs/UI/GameplayMenu/FieldNotesTab.prefab",
         "Assets/_Project/Prefabs/UI/GameplayMenu/MapTab.prefab",
     };
 
@@ -179,20 +177,34 @@ public sealed class GameplayMenuProductionAssetTests
     }
 
     // -------------------------------------------------------------------------
-    // Seven visible tabs
+    // Five visible tabs
     // -------------------------------------------------------------------------
 
     [Test]
-    public void ExactlySevenTabsAreRegisteredInTheConfirmedOrder()
+    public void ExactlyFiveTabsAreRegisteredInTheConfirmedOrder()
     {
         SerializedProperty tabs = Tabs(Screen());
-        Assert.That(tabs.arraySize, Is.EqualTo(7));
+        Assert.That(tabs.arraySize, Is.EqualTo(GameplayMenuScreen.FixedTabOrder.Length));
 
         for (int i = 0; i < GameplayMenuScreen.FixedTabOrder.Length; i++)
         {
-            int id = tabs.GetArrayElementAtIndex(i).FindPropertyRelative("id").enumValueIndex;
+            int id = tabs.GetArrayElementAtIndex(i).FindPropertyRelative("id").intValue;
             Assert.That((GameplayMenuTabId)id, Is.EqualTo(GameplayMenuScreen.FixedTabOrder[i]),
-                $"Tab {i} is out of the confirmed Gear/Tools/Satchel/Recipes/Tasks/Journal/Map order.");
+                $"Tab {i} is out of the confirmed Gear/Loadout/Satchel/Field Notes/Map order.");
+        }
+    }
+
+    [Test]
+    public void ProductionRegistrationsUseTheApprovedDisplayNames()
+    {
+        string[] expected = { "Gear", "Loadout", "Satchel", "Field Notes", "Map" };
+        SerializedProperty tabs = Tabs(Screen());
+
+        Assert.That(tabs.arraySize, Is.EqualTo(expected.Length));
+        for (int i = 0; i < expected.Length; i++)
+        {
+            Assert.That(tabs.GetArrayElementAtIndex(i).FindPropertyRelative("displayName").stringValue,
+                Is.EqualTo(expected[i]), $"Tab {i} has the wrong player-facing display name.");
         }
     }
 
@@ -203,7 +215,7 @@ public sealed class GameplayMenuProductionAssetTests
         for (int i = 0; i < tabs.arraySize; i++)
         {
             SerializedProperty element = tabs.GetArrayElementAtIndex(i);
-            GameplayMenuTabId id = (GameplayMenuTabId)element.FindPropertyRelative("id").enumValueIndex;
+            GameplayMenuTabId id = (GameplayMenuTabId)element.FindPropertyRelative("id").intValue;
 
             GameplayMenuTabButton button = element.FindPropertyRelative("tabButton").objectReferenceValue as GameplayMenuTabButton;
             Assert.That(button, Is.Not.Null, $"Tab '{id}' has no button.");
@@ -275,9 +287,9 @@ public sealed class GameplayMenuProductionAssetTests
     }
 
     [Test]
-    public void SixSiblingTabsUseTheSharedEmptyPresenterAndGearIsTheOnlyDataBackedTab()
+    public void FourSiblingTabsUseTheSharedEmptyPresenterAndGearIsTheOnlyDataBackedTab()
     {
-        Assert.That(Screen().GetComponentsInChildren<GameplayMenuEmptyTabView>(true).Length, Is.EqualTo(6));
+        Assert.That(Screen().GetComponentsInChildren<GameplayMenuEmptyTabView>(true).Length, Is.EqualTo(4));
         Assert.That(Screen().GetComponentsInChildren<GearScreen>(true).Length, Is.EqualTo(1));
     }
 
@@ -293,6 +305,24 @@ public sealed class GameplayMenuProductionAssetTests
             Assert.That(content, Is.Not.Null, "Missing Content root in " + path);
             Assert.That(content.gameObject.activeSelf, Is.False,
                 "Tab content must default to inactive so only the active tab is ever visible: " + path);
+        }
+    }
+
+    [Test]
+    public void SupersededTopLevelTabPrefabPathsNoLongerExist()
+    {
+        string[] obsoletePaths =
+        {
+            "Assets/_Project/Prefabs/UI/GameplayMenu/ToolsTab.prefab",
+            "Assets/_Project/Prefabs/UI/GameplayMenu/RecipesTab.prefab",
+            "Assets/_Project/Prefabs/UI/GameplayMenu/TasksTab.prefab",
+            "Assets/_Project/Prefabs/UI/GameplayMenu/JournalTab.prefab",
+        };
+
+        foreach (string path in obsoletePaths)
+        {
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(path), Is.Null,
+                "Superseded top-level tab asset still exists: " + path);
         }
     }
 

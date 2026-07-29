@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 /// <summary>
-/// Package A2 coverage for the seven-tab Gameplay Menu root: fixed registration order, runtime tab
+/// Package A2.1 coverage for the five-tab Gameplay Menu root: fixed registration order, runtime tab
 /// memory, selection resolution and per-tab memory, Previous/Next cycling, Back delegation, and
 /// authoring diagnostics.
 ///
@@ -162,18 +162,26 @@ public sealed class GameplayMenuScreenTests
     // -------------------------------------------------------------------------
 
     [Test]
-    public void FixedTabOrderIsTheSevenConfirmedTabs()
+    public void FixedTabOrderIsTheFiveConfirmedTabs()
     {
         Assert.That(GameplayMenuScreen.FixedTabOrder, Is.EqualTo(new[]
         {
             GameplayMenuTabId.Gear,
-            GameplayMenuTabId.Tools,
+            GameplayMenuTabId.CombatLoadout,
             GameplayMenuTabId.Satchel,
-            GameplayMenuTabId.Recipes,
-            GameplayMenuTabId.Tasks,
-            GameplayMenuTabId.Journal,
+            GameplayMenuTabId.FieldNotes,
             GameplayMenuTabId.Map
         }));
+    }
+
+    [Test]
+    public void GameplayMenuTabIdsRemainStable()
+    {
+        Assert.That((int)GameplayMenuTabId.Gear, Is.EqualTo(0));
+        Assert.That((int)GameplayMenuTabId.CombatLoadout, Is.EqualTo(1));
+        Assert.That((int)GameplayMenuTabId.Satchel, Is.EqualTo(2));
+        Assert.That((int)GameplayMenuTabId.FieldNotes, Is.EqualTo(3));
+        Assert.That((int)GameplayMenuTabId.Map, Is.EqualTo(4));
     }
 
     [Test]
@@ -225,12 +233,12 @@ public sealed class GameplayMenuScreenTests
     public void LastTabIsRetainedAcrossHideAndShow()
     {
         screen.Show();
-        screen.SelectTab(GameplayMenuTabId.Journal);
+        screen.SelectTab(GameplayMenuTabId.FieldNotes);
         screen.Hide();
 
         screen.Show();
 
-        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.Journal),
+        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.FieldNotes),
             "Last-viewed tab is runtime memory on the persistent screen and must survive a close/reopen.");
     }
 
@@ -321,9 +329,9 @@ public sealed class GameplayMenuScreenTests
 
         // GameplayMenuTabButton.Awake does not run in Edit Mode, so drive the same handler its
         // Button.onClick listener would. Real click routing is covered in Play Mode.
-        InvokePrivate(tabButtons[IndexOf(GameplayMenuTabId.Recipes)], "HandleClicked");
+        InvokePrivate(tabButtons[IndexOf(GameplayMenuTabId.FieldNotes)], "HandleClicked");
 
-        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.Recipes));
+        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.FieldNotes));
     }
 
     // -------------------------------------------------------------------------
@@ -334,9 +342,9 @@ public sealed class GameplayMenuScreenTests
     public void EmptyTabWithNoContentSelectionFallsBackToItsTabButton()
     {
         screen.Show();
-        screen.SelectTab(GameplayMenuTabId.Tools);
+        screen.SelectTab(GameplayMenuTabId.CombatLoadout);
 
-        Assert.That(screen.FirstSelection, Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.Tools)].Selectable),
+        Assert.That(screen.FirstSelection, Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.CombatLoadout)].Selectable),
             "An empty tab keeps focus on the tab strip rather than leaving selection null.");
     }
 
@@ -376,14 +384,14 @@ public sealed class GameplayMenuScreenTests
         int gear = IndexOf(GameplayMenuTabId.Gear);
         AddContentSelectable(gear, "GearEntryA");
         Selectable second = AddContentSelectable(gear, "GearEntryB");
-        AddContentSelectable(IndexOf(GameplayMenuTabId.Journal), "JournalEntry");
+        AddContentSelectable(IndexOf(GameplayMenuTabId.FieldNotes), "FieldNotesEntry");
 
         screen.Show();
         eventSystem.SetSelectedGameObject(second.gameObject);
 
         // Both tabs have content, so focus stays in the content zone across the switch and the
         // remembered Gear selection — not merely the tab's own first entry — must come back.
-        screen.SelectTab(GameplayMenuTabId.Journal);
+        screen.SelectTab(GameplayMenuTabId.FieldNotes);
         screen.SelectTab(GameplayMenuTabId.Gear);
 
         Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(second.gameObject),
@@ -399,10 +407,10 @@ public sealed class GameplayMenuScreenTests
         screen.Show();
         eventSystem.SetSelectedGameObject(entry.gameObject);
 
-        // Tools has no content, so the only valid target is its strip button...
-        screen.SelectTab(GameplayMenuTabId.Tools);
+        // Combat Loadout has no content, so the only valid target is its strip button...
+        screen.SelectTab(GameplayMenuTabId.CombatLoadout);
         Assert.That(eventSystem.currentSelectedGameObject,
-            Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.Tools)].gameObject));
+            Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.CombatLoadout)].gameObject));
 
         // ...and focus therefore stays in the strip on the way back, rather than silently diving
         // into Gear's content behind the player.
@@ -413,14 +421,14 @@ public sealed class GameplayMenuScreenTests
     [Test]
     public void SwitchingTabsWhileFocusIsOnTheStripKeepsFocusOnTheStrip()
     {
-        AddContentSelectable(IndexOf(GameplayMenuTabId.Journal), "JournalEntry");
+        AddContentSelectable(IndexOf(GameplayMenuTabId.FieldNotes), "FieldNotesEntry");
         screen.Show();
 
         eventSystem.SetSelectedGameObject(tabButtons[0].gameObject);
-        screen.SelectTab(GameplayMenuTabId.Journal);
+        screen.SelectTab(GameplayMenuTabId.FieldNotes);
 
         Assert.That(eventSystem.currentSelectedGameObject,
-            Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.Journal)].gameObject),
+            Is.SameAs(tabButtons[IndexOf(GameplayMenuTabId.FieldNotes)].gameObject),
             "Cycling the strip must not throw focus into the new tab's content.");
     }
 
@@ -428,13 +436,13 @@ public sealed class GameplayMenuScreenTests
     public void SwitchingTabsWhileFocusIsInContentEntersTheNewTabsContent()
     {
         AddContentSelectable(IndexOf(GameplayMenuTabId.Gear), "GearEntry");
-        Selectable journalEntry = AddContentSelectable(IndexOf(GameplayMenuTabId.Journal), "JournalEntry");
+        Selectable fieldNotesEntry = AddContentSelectable(IndexOf(GameplayMenuTabId.FieldNotes), "FieldNotesEntry");
         screen.Show();
 
         eventSystem.SetSelectedGameObject(tabViews[IndexOf(GameplayMenuTabId.Gear)].First.gameObject);
-        screen.SelectTab(GameplayMenuTabId.Journal);
+        screen.SelectTab(GameplayMenuTabId.FieldNotes);
 
-        Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(journalEntry.gameObject));
+        Assert.That(eventSystem.currentSelectedGameObject, Is.SameAs(fieldNotesEntry.gameObject));
     }
 
     [Test]
@@ -451,7 +459,7 @@ public sealed class GameplayMenuScreenTests
     }
 
     [Test]
-    public void StripNavigationChainsAllSevenTabsHorizontallyWithWraparound()
+    public void StripNavigationChainsAllFiveTabsHorizontallyWithWraparound()
     {
         Selectable first = tabButtons[0].Selectable;
         Selectable last = tabButtons[tabButtons.Length - 1].Selectable;
@@ -533,12 +541,12 @@ public sealed class GameplayMenuScreenTests
         screen.Show();
 
         int selections = 0;
-        screen.SelectTab(GameplayMenuTabId.Tasks);
+        screen.SelectTab(GameplayMenuTabId.CombatLoadout);
         selections++;
 
-        // A duplicate subscription would re-enter SelectTab; the active tab must simply be Tasks.
-        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.Tasks));
-        Assert.That(tabViews[IndexOf(GameplayMenuTabId.Tasks)].ShowCount, Is.EqualTo(selections));
+        // A duplicate subscription would re-enter SelectTab; the active tab must simply be Combat Loadout.
+        Assert.That(screen.ActiveTabId, Is.EqualTo(GameplayMenuTabId.CombatLoadout));
+        Assert.That(tabViews[IndexOf(GameplayMenuTabId.CombatLoadout)].ShowCount, Is.EqualTo(selections));
     }
 
     [Test]
@@ -598,7 +606,7 @@ public sealed class GameplayMenuScreenTests
     [Test]
     public void WrongTabCountIsReported()
     {
-        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("exactly 7 are required"));
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("exactly 5 are required"));
         LogAssert.ignoreFailingMessages = true;
 
         screen.Configure(eventSystem, visualRoot, closeButton, new List<GameplayMenuTabRegistration>

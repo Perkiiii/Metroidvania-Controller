@@ -1,5 +1,11 @@
 # Package A2 — Full Gameplay Menu Interface Implementation Plan
 
+> **Historical implementation record.**
+> Package A2 was implemented with seven top-level Gameplay Menu tabs.
+> That product decision was superseded on 2026-07-29 by the post-A2
+> five-tab information-architecture correction documented in
+> `Docs/FeatureSpecs/GameplayMenu.md`.
+
 **Plan date:** 2026-07-27  
 **Repository audited:** `E:\GameDev\Projects\Final_Project\Metroidvania Controller`  
 **Status:** Implementation-ready plan; Package A2 is not implemented by this document.  

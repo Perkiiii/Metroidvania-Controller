@@ -7,8 +7,9 @@ FeatureSpec.
 > **Superseded for Package A2.** `Docs/ImplementationPlans/UIA2ImplementationPlan.md` is the newer
 > approved product decision, and `Docs/FeatureSpecs/GameplayMenu.md` is the implemented contract.
 > Specifically, this document's recommendation that unavailable tabs be **hidden** in production
-> and that Package A2 expose **Gear only** no longer holds: all seven confirmed tabs are visible
-> and reachable, and a tab without a gameplay owner presents an authored empty state. Sections 8
+> and that Package A2 expose **Gear only** no longer holds: the post-A2 correction now uses five
+> confirmed tabs (`Gear`, `Loadout`, `Satchel`, `Field Notes`, `Map`) that are visible and
+> reachable, and a tab without a gameplay owner presents an authored empty state. Sections 8
 > ("Gameplay Menu shell"), Phase 4, and the Package A2 summary are affected. The Sandbox scene has
 > also moved to `Assets/_Project/Scenes/UISandbox.unity`. Everything else — the A1 input/pause
 > spine, Gear ownership rules, Sandbox isolation, and the deferred Map architecture — remains
@@ -762,8 +763,9 @@ remain open. Do not hardcode internal action names as final player-facing copy.
 
 ## 8. Gameplay Menu shell
 
-The shell supports eventual Gear, Tools, Satchel, Recipes, Tasks, Journal, and Map without assuming
-their content layouts match.
+The shell supports the fixed top-level destinations Gear, CombatLoadout/Loadout, Satchel,
+FieldNotes/Field Notes, and Map without assuming their content layouts match. Field Notes will
+eventually contain Recipes, Tasks, and Journal as internal sections.
 
 Propose:
 
@@ -771,8 +773,10 @@ Propose:
 - A small serialized tab registration containing ID, label/icon presentation, root content object,
   tab control, availability source, and first selectable.
 - Independent tab screen components. Shared details-panel helpers are optional, not mandatory.
-- Production availability filtering before navigation links are built.
-- A separate Sandbox override that can expose fixture-only tabs.
+- Fixed production registrations in the approved order; domain availability does not filter the
+  top-level strip.
+- Sandbox uses the real five-tab prefab and isolated Gear fixtures; it does not add Loadout or
+  Field Notes domain data.
 
 Behavior:
 
@@ -781,7 +785,7 @@ Behavior:
 - Memory is runtime-only on the persistent flow root and is never saved.
 - Back from a tab root closes the Gameplay Menu. Back from a child/modal closes that child first.
 - ~~Tabs with no production ownership are hidden, not disabled or filled with fake data.~~
-  **Superseded:** all seven confirmed tabs are visible and reachable; a tab with no owner shows an
+  **Superseded:** all five confirmed tabs are visible and reachable; a tab with no owner shows an
   authored empty state. See `Docs/FeatureSpecs/GameplayMenu.md`.
 - A production-backed tab may define its own honest empty state.
 - Adding Map later requires a new registration and independent Map screen, not rebuilding the shell
@@ -793,8 +797,8 @@ Behavior:
 ~~**Recommendation requiring approval:** Package A exposes only Gear in production. Tools, Satchel,
 Recipes, Tasks, Journal, and Map remain hidden until their authoritative systems exist.~~
 
-**Superseded and implemented differently.** All seven tabs are visible and reachable. Only Gear is
-data-backed; the six siblings present authored, navigable empty states until their authoritative
+**Superseded and implemented differently.** All five tabs are visible and reachable. Only Gear is
+data-backed; the four siblings present authored, navigable empty states until their authoritative
 systems exist. Deferral means no data, not no tab.
 
 ---
@@ -1385,7 +1389,7 @@ Include:
 - Quit confirmation and flow request without assuming a frontend destination.
 - Gameplay Menu shell.
 - Production-backed Gear vertical slice using the layout approved from Sandbox prototypes.
-- Production tab availability filtering with only Gear exposed.
+- Five fixed production tab registrations with only Gear data-backed.
 - EditMode/PlayMode tests and Editor validators.
 
 Package A is internally testable and useful for ongoing UI development. It is not the complete
@@ -1397,7 +1401,8 @@ Package A explicitly defers:
 - Functional Quit transition.
 - Frontend scene, New Game, Continue, save slots, and Boot rerouting.
 - Functional Options settings.
-- Production Tools, Satchel, Recipes, Tasks, Journal, and Map.
+- Combat Loadout rules, practical tool ownership, Satchel inventory, Field Notes internal Recipes/
+  Tasks/Journal navigation and data, and Map presentation/data.
 - Map Input Action, hold/double-tap recognition, Quick Map overlay, Full Map route, and map data.
 - Acquisition gameplay/notifications.
 - Generic inventory, recipe, crafting, task, journal, or map ownership.

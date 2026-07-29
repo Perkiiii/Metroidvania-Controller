@@ -12,7 +12,7 @@ Quit callback status were live-verified in a real Play Mode session. Interactive
 the full production Boot path (real gameplay scene, keyboard/gamepad device input, real room
 transitions) has not been performed — see Manual validation below for the exact remaining checks.
 
-Package A2 (the seven-tab Gameplay Menu and read-only Gear) is now implemented and registered as
+Package A2.1 (the five-tab Gameplay Menu and read-only Gear) is now implemented and registered as
 the second pausing root. Its cross-tab contract lives in `Docs/FeatureSpecs/GameplayMenu.md`; this
 document remains authoritative for pausing-root behaviour, which A2 did not change.
 
@@ -46,7 +46,8 @@ Implemented (Package A2):
 
 - `GameplayMenuScreen` is registered as the second pausing root through the existing
   `UIFlowController.gameplayMenuRootBehaviour` field. No Package A1 production code changed.
-- Seven always-visible tabs, runtime-only tab memory, and read-only Gear. See
+- Five always-visible tabs (`Gear`, `Loadout`, `Satchel`, `Field Notes`, `Map`), runtime-only tab
+  memory, and read-only Gear. See
   `Docs/FeatureSpecs/GameplayMenu.md`.
 
 Missing/planned (Package B+):
@@ -89,17 +90,15 @@ Quit destination and save policy remain deferred because no frontend scene exist
 
 ## Gameplay Menu
 
-The Gameplay Menu uses its own dedicated action. Planned final tabs are:
+The Gameplay Menu uses its own dedicated action. The fixed top-level tabs are:
 
 - Gear.
-- Tools.
+- Loadout (`CombatLoadout` internally; future combat-build destination, not literal gathering tools).
 - Satchel.
-- Recipes.
-- Tasks.
-- Journal.
+- Field Notes (`FieldNotes` internally; future Recipes, Tasks, and Journal sections).
 - Map.
 
-All seven tabs are visible and reachable in production. A tab whose authoritative gameplay owner
+All five tabs are visible and reachable in production. A tab whose authoritative gameplay owner
 does not exist yet presents an authored, navigable empty state — it is never hidden, disabled, or
 populated with fake data. Only Gear is data-backed in Package A2, reading
 `PlayerAbilityState.IsUnlocked` read-only.

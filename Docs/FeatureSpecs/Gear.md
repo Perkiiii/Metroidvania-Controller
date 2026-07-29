@@ -19,6 +19,12 @@ Gear is separate from Satchel. Satchel will eventually contain seeds, crops, ing
 resources, enemy drops, processing/crafting materials, and consumables. Recipes are portable
 discovered knowledge and do not enable remote production.
 
+Gear is permanent physical progression. Combat Loadout is a separate future destination for
+player-configurable combat-build composition. Literal sickle, axe, mining, or farming-tool
+capabilities are not automatically Combat Loadout items; their eventual Gear presentation depends
+on their real gameplay owner and persistence. This correction does not implement or promise an
+equipment-swapping system.
+
 ## Confirmed starting state
 
 - A new player starts with no unlocked permanent abilities.
@@ -223,9 +229,11 @@ data-backed Package A2 tab. Later opens remember the last valid tab for that ses
 available, return to Gear. Back at the Gear root closes the Gameplay Menu through the flow in
 `PauseAndMenuFlow.md`.
 
-The sibling tabs — Tools, Satchel, Recipes, Tasks, Journal, and Map — are **visible and reachable**
-in production, each presenting an authored empty state until its authoritative gameplay system
-exists. They are not hidden. See `Docs/FeatureSpecs/GameplayMenu.md`. Fixture-only Sandbox content
+The sibling tabs — Loadout, Satchel, Field Notes, and Map — are **visible and reachable** in
+production, each presenting an authored empty state until its authoritative gameplay system exists.
+Loadout is not a literal harvesting-tool inventory, and Field Notes will eventually contain Recipes,
+Tasks, and Journal as internal sections. They are not hidden. See
+`Docs/FeatureSpecs/GameplayMenu.md`. Fixture-only Sandbox content
 is not production data, and `UIFoundationValidator` rejects a production Gear tab that references a
 Sandbox catalogue or a Sandbox Gear tab that references the production one.
 
@@ -305,7 +313,7 @@ Still required, pending approval:
 ## Deferred work
 
 - Non-ability permanent Gear after real ownership/persistence exists.
-- Production Tools, Satchel, Recipes, Tasks, Journal, and Map.
+- Production Loadout, Satchel, Field Notes internal sections, and Map.
 - Acquisition notifications.
 - Complete weapon/equipment systems.
 - Final glyph/localization/accessibility support.

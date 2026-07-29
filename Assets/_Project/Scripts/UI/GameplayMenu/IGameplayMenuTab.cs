@@ -4,7 +4,7 @@ using UnityEngine.UI;
 /// Narrow lifecycle contract every Gameplay Menu tab implements. Deliberately limited to
 /// presentation lifecycle, Back routing, and first selection: it exposes no gameplay owner, save
 /// API, item/recipe/task/map data, input-reader access, or generic window behaviour. This is a
-/// seven-tab lifecycle contract, not a window framework.
+/// fixed-tab lifecycle contract, not a window framework.
 ///
 /// A future domain owner (inventory, recipes, tasks, journal, map) is bound inside the concrete
 /// tab presenter, never by widening this interface. See Docs/FeatureSpecs/GameplayMenu.md.

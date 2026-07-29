@@ -91,7 +91,7 @@ public sealed class GameplayMenuTabButton : MonoBehaviour
     }
 
     /// <summary>
-    /// Collapses this cell to glyph-only. Never deactivates the cell itself: all seven tabs stay
+    /// Collapses this cell to glyph-only. Never deactivates the cell itself: all five tabs stay
     /// visible and reachable at every supported aspect ratio.
     /// </summary>
     public void SetCompact(bool compact)

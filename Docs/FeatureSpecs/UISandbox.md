@@ -152,7 +152,9 @@ the selected preview and do not imply production starting ownership.
 
 ### Deferred-system fixtures
 
-- Lightweight Tools, Satchel, Recipes, Tasks, Journal, and Map tab fixtures for shell/layout only.
+- Lightweight static shell/layout checks for Loadout, Satchel, Field Notes, and Map. No Loadout or
+  Field Notes domain fixture data is created; Field Notes' Recipes, Tasks, and Journal sections are
+  not navigable in this pass.
 - Static acquisition notification, area-title, save-indicator, tutorial, and interaction-prompt
   fixtures.
 - Map remains a non-functional layout fixture with no identity, discovery, input, save, or
@@ -237,7 +239,8 @@ Gear slice after the new-game-ability-default prerequisite is corrected for vali
 - Duplicate persistent manager/HUD composition.
 - Functional Options settings in Package A.
 - Functional Quit transition.
-- Gameplay inventory, Satchel, Recipes, Tasks, Journal, or Map systems.
+- Combat Loadout rules, practical tool ownership, Gameplay inventory, Satchel, Recipes, Tasks,
+  Journal, or Map systems.
 - Map input, discovery, identity, transition continuity, or persistence.
 - Acquisition notification gameplay.
 - Final art, localization, accessibility, display, and platform certification.
