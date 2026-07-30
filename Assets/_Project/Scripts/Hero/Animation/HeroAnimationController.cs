@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Animancer;
 using UnityEngine;
 
@@ -15,6 +14,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         WallSlide,
         WallJump,
         Dash,
+        Wildstride,
         LedgeClimb,
         Attack,
         Bind,
@@ -31,7 +31,7 @@ public sealed class HeroAnimationController : MonoBehaviour
     private HeroActionController actions;
     public event Action DeathAnimationComplete;
 
-    private LinearMixerState locomotionMixer;
+    private AnimationClip currentLocomotionClip;
     private AnimancerState activeAttackState;
     private AnimancerState activeBindState;
     private AnimancerState activeLedgeClimbState;
@@ -60,7 +60,6 @@ public sealed class HeroAnimationController : MonoBehaviour
         {
             Debug.LogWarning("[HeroAnimationController] Bind clip is missing. Bind will remain unavailable until HeroAnimationLibrary.bind is assigned.", this);
         }
-        BuildLocomotionMixer();
     }
 
     public void TickVisuals()
@@ -109,35 +108,18 @@ public sealed class HeroAnimationController : MonoBehaviour
         }
         else if (blackboard.grounded)
         {
-            PlayLocomotion(Mathf.Abs(velocity.x));
+            if (blackboard.sprinting)
+            {
+                PlayActionClip(animationLibrary.sprint, VisualState.Wildstride);
+            }
+            else
+            {
+                PlayGroundedLocomotion(Mathf.Abs(velocity.x));
+            }
         }
         else
         {
             PlayAirClip(animationLibrary.fall, VisualState.Fall);
-        }
-    }
-
-    private void BuildLocomotionMixer()
-    {
-        if (animancer == null || animationLibrary == null)
-        {
-            return;
-        }
-
-        List<float> thresholds = new List<float>(3);
-        locomotionMixer = new LinearMixerState
-        {
-            ExtrapolateSpeed = false
-        };
-        locomotionMixer.SetGraph(animancer.Graph);
-
-        AddLocomotionClip(animationLibrary.idle, config != null ? config.locomotionIdleThreshold : 0f, thresholds);
-        AddLocomotionClip(animationLibrary.walk, config != null ? config.locomotionWalkThreshold : 4.32f, thresholds);
-        AddLocomotionClip(animationLibrary.run, config != null ? config.locomotionRunThreshold : 6.5f, thresholds);
-
-        if (locomotionMixer.ChildCount > 0)
-        {
-            locomotionMixer.SetThresholds(thresholds.ToArray());
         }
     }
 
@@ -151,32 +133,23 @@ public sealed class HeroAnimationController : MonoBehaviour
         Debug.LogError("[HeroAnimationController] HeroAnimationLibrary is not assigned. Assign it on HeroController or HeroAnimationController before play.", this);
     }
 
-    private void AddLocomotionClip(AnimationClip clip, float threshold, List<float> thresholds)
+    private void PlayGroundedLocomotion(float speed)
     {
-        if (clip == null || locomotionMixer == null)
+        AnimationClip clip = speed <= config.locomotionIdleThreshold
+            ? animationLibrary.idle
+            : animationLibrary.walk;
+        if (clip == null)
         {
             return;
         }
 
-        locomotionMixer.Add(clip);
-        thresholds.Add(threshold);
-    }
-
-    private void PlayLocomotion(float speed)
-    {
-        if (locomotionMixer == null || locomotionMixer.ChildCount == 0)
-        {
-            PlayAirClip(animationLibrary.idle, VisualState.Locomotion);
-            return;
-        }
-
-        locomotionMixer.Parameter = speed;
-        if (currentVisualState == VisualState.Locomotion)
+        if (currentVisualState == VisualState.Locomotion && currentLocomotionClip == clip)
         {
             return;
         }
 
-        animancer.Play(locomotionMixer, config.locomotionFadeDuration);
+        animancer.Play(clip, config.locomotionFadeDuration);
+        currentLocomotionClip = clip;
         currentVisualState = VisualState.Locomotion;
     }
 

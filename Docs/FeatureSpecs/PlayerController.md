@@ -50,12 +50,15 @@ Subsystem responsibilities:
 | `jumping`, `jumpSustaining` | Motor | JumpAction, Animation |
 | `facingRight`, `FacingDirection` | Motor | AttackAction, Sensors, Motor visuals |
 | `velocity` | Motor | Animation |
+| `sprinting`, `sprintJumpCarrying`, `sprintDirection` | SprintAction | Motor orchestration, Animation |
 
 ---
 
 ## Movement Rules
 
-- Horizontal target speed is `walkSpeed` or `runSpeed` depending on `requireSprintForRun` and sprint input.
+- Ordinary horizontal input explicitly requests `Walk` and targets `HeroConfig.walkSpeed`.
+  Serialized Run fields remain compatible but are not the default movement result. Grounded
+  Wildstride explicitly requests `Wildstride` and targets `HeroAbilityConfig.sprintSpeed`.
 - Acceleration/deceleration rates differ for grounded and airborne states (four values in `HeroConfig`).
 - Facing direction is set by the horizontal input sign; it persists when input is zero.
 - Facing is applied via `SpriteRenderer.flipX` (preferred) or `spriteRoot.localScale.x` fallback.
@@ -100,6 +103,36 @@ the ledge motor mode begins.
 and Standing positions under an explicit `TargetFrame`. `HeroMotor` alone suppresses normal
 movement, suspends gravity, advances the code-timed phases, and performs exact final placement.
 Animation is optional presentation. See `Docs/FeatureSpecs/LedgeClimb.md`.
+
+---
+
+## Wildstride
+
+`HeroSprintAction` is a plain C# action owned by `HeroActionController`. `HeroDashAction` publishes
+typed `HeroDashCompletion` snapshots with sequence versions. Natural ground completion may hand off
+immediately; natural ordinary air completion may authorize the first subsequent landing. That
+landing consumes the exact version once even if entry checks fail.
+
+The action's small phase enum, consumed versions, command rearm, captured carry direction, and
+short ledge-jump buffer remain private. Only `sprinting`, `sprintJumpCarrying`, and direction are
+shared. Base Wildstride never reads or mutates `PlayerResourceState`. Jump carry is horizontal-only:
+`HeroJumpAction` retains the normal `HeroMotor.StartJump` path. Grounded reversal remains
+authorized while `HeroMotor` decelerates through zero and accelerates in the requested direction.
+Active grounded Wildstride retains its last valid direction and continues to request that signed
+movement during neutral horizontal input while Dash remains held and armed. Initial entry still
+requires active direction, so an idle held Dash cannot synthesize Wildstride.
+Airborne carry is directionally captured; opposite input cancels it into motor-owned momentum decay
+and ordinary air steering.
+
+Landing and Dash completion are reconciled in `HeroActionController.FixedTick`, which reapplies
+locomotion intent before `HeroMotor.FixedTick`. The restored Wildstride request and blackboard
+snapshot are therefore visible to physics and LateUpdate animation in the same step, without an
+intermediate Walk request/frame. External cleanup remains typed and idempotent.
+
+The provisional 0.08-second Sprint/ledge Jump buffer begins only when active grounded Wildstride
+leaves the ground. It is prepared before `HeroJumpAction` in the fixed-step order, consumed once by
+a valid Jump, and cleared by the established hard-interruption paths. Normal coyote and Jump-buffer
+tuning are unchanged.
 
 ---
 

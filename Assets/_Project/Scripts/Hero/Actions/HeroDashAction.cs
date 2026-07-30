@@ -14,6 +14,14 @@ public sealed class HeroDashAction
     private float cooldownTimer;
     private bool airDashUsed;
     private int dashDirection = 1;
+    private bool startedGrounded;
+
+    public int SequenceVersion { get; private set; }
+    public int CompletedGroundDashVersion { get; private set; }
+    public HeroDashCompletion LastCompletion { get; private set; }
+    public bool StartedGrounded => startedGrounded;
+    public int Direction => dashDirection;
+    public HeroDashEndReason LastEndReason { get; private set; }
 
     public HeroDashAction(
         HeroConfig heroConfig,
@@ -62,15 +70,14 @@ public sealed class HeroDashAction
             && dashDirection == (wallDirection >= 0 ? 1 : -1);
     }
 
-    public void CancelForLedgeClimb()
+    public void Cancel(HeroDashEndReason reason)
     {
         if (!blackboard.dashing)
         {
             return;
         }
 
-        StopDash();
-        motor.HoldStationary();
+        StopDash(reason);
     }
 
     public void FixedTick(float fixedDeltaTime)
@@ -85,7 +92,7 @@ public sealed class HeroDashAction
 
         if (dashTimer <= 0f)
         {
-            StopDash();
+            StopDash(HeroDashEndReason.Completed);
         }
     }
 
@@ -127,11 +134,16 @@ public sealed class HeroDashAction
             dashDirection = blackboard.FacingDirection;
         }
 
-        if (!blackboard.grounded)
+        startedGrounded = blackboard.grounded;
+        if (!startedGrounded)
         {
             airDashUsed = true;
         }
 
+        SequenceVersion++;
+        LastEndReason = HeroDashEndReason.None;
+        blackboard.dashSequenceVersion = SequenceVersion;
+        blackboard.lastDashEndReason = HeroDashEndReason.None;
         blackboard.dashing = true;
         blackboard.wallSliding = false;
         dashTimer = abilityConfig.dashDuration;
@@ -144,9 +156,26 @@ public sealed class HeroDashAction
         motor.SetDashVelocity(dashDirection);
     }
 
-    private void StopDash()
+    private void StopDash(HeroDashEndReason reason)
     {
+        if (!blackboard.dashing)
+        {
+            return;
+        }
+
         blackboard.dashing = false;
+        LastEndReason = reason;
+        LastCompletion = new HeroDashCompletion(
+            SequenceVersion,
+            startedGrounded,
+            dashDirection,
+            reason);
+        blackboard.lastDashEndReason = reason;
+        if (reason == HeroDashEndReason.Completed && startedGrounded)
+        {
+            CompletedGroundDashVersion = SequenceVersion;
+            blackboard.completedGroundDashVersion = SequenceVersion;
+        }
         motor.SetGravitySuspended(false);
         motor.SetNormalMovementSuppressed(false);
     }

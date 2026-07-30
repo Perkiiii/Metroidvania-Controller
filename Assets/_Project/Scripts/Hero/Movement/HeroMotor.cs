@@ -12,7 +12,7 @@ public sealed class HeroMotor : MonoBehaviour
     private Transform spriteRoot;
 
     private float desiredMoveX;
-    private bool runRequested;
+    private HeroLocomotionSpeed locomotionSpeed = HeroLocomotionSpeed.Walk;
     private int jumpStepsElapsed;
     private int jumpedSteps;
     private bool jumpReleasePending;
@@ -21,6 +21,9 @@ public sealed class HeroMotor : MonoBehaviour
     private float savedGravityScale;
     private float wallSlideInitialTimer;
     private bool ledgeClimbActive;
+    private bool wildstrideCarryActive;
+    private int wildstrideCarryDirection;
+    private int downslashBounceVersion;
 
     private bool scriptedEntryActive;
     private Vector2 scriptedVelocityTarget;
@@ -28,6 +31,7 @@ public sealed class HeroMotor : MonoBehaviour
 
     public Vector2 Velocity => body != null ? body.linearVelocity : Vector2.zero;
     public Vector2 Position => body != null ? body.position : (Vector2)transform.position;
+    public int DownslashBounceVersion => downslashBounceVersion;
 
     public void Initialize(
         HeroConfig heroConfig,
@@ -52,10 +56,10 @@ public sealed class HeroMotor : MonoBehaviour
         }
     }
 
-    public void SetDesiredMove(float moveX, bool wantsRun)
+    public void SetDesiredMove(float moveX, HeroLocomotionSpeed speedMode)
     {
         desiredMoveX = Mathf.Clamp(moveX, -1f, 1f);
-        runRequested = wantsRun;
+        locomotionSpeed = speedMode;
 
         if (blackboard != null)
         {
@@ -163,6 +167,23 @@ public sealed class HeroMotor : MonoBehaviour
         {
             blackboard.velocity = Vector2.zero;
         }
+    }
+
+    public void EnterDeathState()
+    {
+        EndWildstrideCarry();
+        HoldStationary();
+    }
+
+    public void BeginWildstrideCarry(int direction)
+    {
+        wildstrideCarryDirection = direction >= 0 ? 1 : -1;
+        wildstrideCarryActive = true;
+    }
+
+    public void EndWildstrideCarry()
+    {
+        wildstrideCarryActive = false;
     }
 
     public void SetGravitySuspended(bool suspended)
@@ -325,6 +346,7 @@ public sealed class HeroMotor : MonoBehaviour
     public void ResetMotion()
     {
         ledgeClimbActive = false;
+        EndWildstrideCarry();
         ResetJumpRuntime();
         EndWallSlide();
         SetGravitySuspended(false);
@@ -389,6 +411,8 @@ public sealed class HeroMotor : MonoBehaviour
             return;
         }
 
+        downslashBounceVersion++;
+        EndWildstrideCarry();
         ResetJumpRuntime();
         blackboard.wallSliding = false;
         blackboard.wallJumping = false;
@@ -526,20 +550,40 @@ public sealed class HeroMotor : MonoBehaviour
         float deadZone = GetDeadZone();
         float input = Mathf.Abs(desiredMoveX) > deadZone ? desiredMoveX : 0f;
         float speed = GetTargetSpeed();
-        float targetX = input * speed;
+        float targetX = wildstrideCarryActive
+            ? wildstrideCarryDirection * (abilityConfig != null ? abilityConfig.sprintJumpSpeed : speed)
+            : input * speed;
         if (blackboard.attacking && blackboard.grounded && !blackboard.dashing)
         {
             targetX *= config.groundAttackMoveMultiplier;
         }
 
         Vector2 velocity = body.linearVelocity;
-        bool accelerating = Mathf.Abs(targetX) > Mathf.Abs(velocity.x);
+        bool wildstrideMotion = wildstrideCarryActive || locomotionSpeed == HeroLocomotionSpeed.Wildstride;
+        bool reversingWildstride = wildstrideMotion
+            && Mathf.Abs(targetX) > Mathf.Epsilon
+            && Mathf.Abs(velocity.x) > Mathf.Epsilon
+            && Mathf.Sign(targetX) != Mathf.Sign(velocity.x);
+        bool accelerating = !reversingWildstride && Mathf.Abs(targetX) > Mathf.Abs(velocity.x);
         float acceleration = blackboard.grounded
             ? (accelerating ? config.groundAcceleration : config.groundDeceleration)
             : (accelerating ? config.airAcceleration : config.airDeceleration);
 
-        velocity.x = Mathf.MoveTowards(velocity.x, targetX, acceleration * fixedDeltaTime);
+        velocity.x = reversingWildstride
+            ? Mathf.MoveTowards(velocity.x, 0f, acceleration * fixedDeltaTime)
+            : Mathf.MoveTowards(velocity.x, targetX, acceleration * fixedDeltaTime);
         body.linearVelocity = velocity;
+
+        if (wildstrideMotion && Mathf.Abs(targetX) > Mathf.Epsilon)
+        {
+            int requestedDirection = targetX > 0f ? 1 : -1;
+            bool movingInRequestedDirection = Mathf.Abs(velocity.x) > Mathf.Epsilon
+                && (velocity.x > 0f ? 1 : -1) == requestedDirection;
+            if (movingInRequestedDirection || Mathf.Abs(velocity.x) <= acceleration * fixedDeltaTime)
+            {
+                SetFacingDirection(requestedDirection);
+            }
+        }
     }
 
     private void ApplyWallSlideVelocity(float fixedDeltaTime)
@@ -656,12 +700,15 @@ public sealed class HeroMotor : MonoBehaviour
 
     private float GetTargetSpeed()
     {
-        if (config.requireSprintForRun && !runRequested)
+        switch (locomotionSpeed)
         {
-            return config.walkSpeed;
+            case HeroLocomotionSpeed.Walk:
+                return config.walkSpeed;
+            case HeroLocomotionSpeed.Wildstride:
+                return abilityConfig != null ? abilityConfig.sprintSpeed : config.runSpeed;
+            default:
+                return config.runSpeed;
         }
-
-        return config.runSpeed;
     }
 
     private float GetDeadZone()

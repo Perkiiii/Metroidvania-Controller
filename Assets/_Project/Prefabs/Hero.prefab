@@ -1348,9 +1348,17 @@ MonoBehaviour:
   altAttackTime: 0
   wallSliding: 0
   wallJumping: 0
+  ledgeClimbing: 0
   binding: 0
   recoiling: 0
   attackDirection: 0
+  sprinting: 0
+  sprintJumpCarrying: 0
+  sprintDirection: 0
+  dashSequenceVersion: 0
+  completedGroundDashVersion: 0
+  lastDashEndReason: 0
+  lastSprintCancelReason: 0
   jumpStepsElapsed: 0
   jumpedSteps: 0
 --- !u!114 &6703165573796615895
@@ -1369,8 +1377,7 @@ MonoBehaviour:
   moveAction: {fileID: 0}
   jumpAction: {fileID: 0}
   attackAction: {fileID: 0}
-  dashAction: {fileID: 0}
-  sprintAction: {fileID: 0}
+  dashAction: {fileID: 336215916519698797, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   interactAction: {fileID: 0}
   bindAction: {fileID: 0}
 --- !u!114 &2358962535115874825

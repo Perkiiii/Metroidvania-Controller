@@ -123,7 +123,7 @@ performed.**
 - [x] Hero command-input suspension through `HeroController` (`SuspendGameplayInput`,
   `ClearTransientGameplayInput`, `BeginGameplayInputResume` forwarding facade).
 - [x] `HeroInputReader` sampling suspension, buffer clearing, per-command held-state tracking, and
-  fresh-press resume behavior for Jump/Attack/Dash/Sprint/Interact/Bind; continuous movement
+  fresh-press resume behavior for Jump/Attack/shared Dash-Wildstride/Interact/Bind; continuous movement
   (`MoveVector`) exempt from release gating and resumes live.
 - [x] Root Pause menu: functional Continue, authored-but-gated Options (non-interactable in
   production; Sandbox can preview it enabled via a labelled Sandbox-only placeholder child), and
@@ -396,7 +396,21 @@ world persistence (timed suppression on scene re-initialization) is implemented 
   platforms, Wall Latch, and indefinite hanging remain excluded. See
   `Docs/FeatureSpecs/LedgeClimb.md`.)
 - [ ] Implement wall-latch / aimed wall launch (`HeroWallLatchAction`).
-- [ ] Implement sprint (`HeroSprintAction`).
+- [x] Correct and harden Wildstride Pass 1/2 movement (`HeroSprintAction`). Ordinary movement now
+  explicitly uses Walk/HeroWalk; grounded Wildstride explicitly uses sprintSpeed/the Sprint slot.
+  Natural grounded Dash hands off immediately, while a natural ordinary air Dash creates a
+  typed/versioned authorization consumed exactly once by the first landing. Grounded direction
+  changes preserve authorization through motor-owned turning and same-step locomotion restoration;
+  active grounded neutral input retains the last valid Sprint direction while Dash remains held and
+  armed, without allowing an idle Dash hold to synthesize Wildstride.
+  Airborne carry captures its launch direction; opposite input cancels into ordinary motor-owned air
+  steering and cannot resume on landing. Base Wildstride is resource-free. A provisional 0.08-second
+  private ledge-jump buffer preserves specialized carry when Jump begins just after running off a
+  ledge, without changing normal coyote or Jump-buffer tuning. The earlier resource-drain rule and
+  the claim that grounded reversal was already fixed are superseded. Dedicated run-slash, down-dash,
+  skid/back-Sprint presentation, VFX/audio, swimming, optional enhanced-speed Gear, final tuning,
+  and manual feel approval remain outstanding;
+  the complete feature is not done. See `Docs/ImplementationPlans/Wildstride.md`.
 - [ ] Author a gate in the test level that requires an unlocked ability to pass.
 
 ---

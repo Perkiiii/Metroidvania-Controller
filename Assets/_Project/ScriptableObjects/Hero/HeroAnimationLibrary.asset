@@ -15,6 +15,7 @@ MonoBehaviour:
   idle: {fileID: 7400000, guid: 5c9a4e8d66393ba4ea37c3a879f51423, type: 2}
   walk: {fileID: 7400000, guid: 96b402720e7a1924ea213f20f30b4760, type: 2}
   run: {fileID: 7400000, guid: b9c220219c979ed46877b13d6577c5b6, type: 2}
+  sprint: {fileID: 7400000, guid: b9c220219c979ed46877b13d6577c5b6, type: 2}
   jump: {fileID: 7400000, guid: cc893bc6c59c129418cdbc2abd7c6938, type: 2}
   fall: {fileID: 7400000, guid: a1f60b1d00a5061429758ffad1a84bd2, type: 2}
   dash: {fileID: 7400000, guid: f89fc89cb67f49a408c6ea2713fb69b2, type: 2}

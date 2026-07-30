@@ -12,6 +12,35 @@ This document records the values that produce the current validated movement fee
 Core movement values are a snapshot of `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`.
 Dash, wall-slide, wall-jump, and double-jump values live in `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`.
 
+## Wildstride — HeroAbilityConfig (provisional)
+
+```text
+sprintSpeed:                  10
+sprintJumpSpeed:              10
+sprintLedgeJumpBufferTime:     0.08 seconds
+```
+
+These corrected Pass 1/2 values are automated-test inputs, not validated feel targets. Both speeds
+are above `runSpeed` (6.5) and below `dashSpeed` (18). Ordinary movement now explicitly uses
+`walkSpeed` (4.32); `runSpeed` remains serialized compatibility data and is not a default movement
+target. Grounded Wildstride uses the explicit Sprint animation slot. A previous hands-on Play Mode
+test found grounded keyboard reversal exited Wildstride because opposite physical keys collapsed to
+a false neutral input sample. The corrected input seam preserves authorization while the existing
+motor decelerates toward zero, changes facing, and accelerates in the requested direction.
+Subsequent hands-on testing found that a genuine short release gap still cancelled in
+`HeroSprintAction`. Active grounded Wildstride now remembers and continues its last valid direction
+through neutral input while Dash remains held and armed; this behavioural correction adds no tuning
+value.
+
+Base Wildstride is resource-free. The 0.08-second Sprint/ledge Jump buffer is provisional and
+unvalidated, chosen near the existing 0.08-second coyote-time scale. It does not change normal
+`coyoteTime` or `jumpBufferTime`. Airborne Wildstride Jump captures launch direction; opposite input
+cancels carry into ordinary motor-owned air steering instead of reversing full carry speed.
+
+No validated baseline movement, gravity, Jump, Dash, wall, ledge, attack, pogo, hurt, or Bind value
+changed in this pass. Manual distance measurement, turn/buffer feel review, and the complete
+regression checklist remain required before recording the Wildstride values as validated.
+
 ---
 
 ## Gravity and Jump Arc

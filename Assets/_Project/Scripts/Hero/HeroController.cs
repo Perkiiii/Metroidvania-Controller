@@ -81,8 +81,7 @@ public class HeroController : MonoBehaviour
             return;
         }
 
-        actions?.CancelBind();
-        actions?.CancelLedgeClimb();
+        actions?.CancelActions(HeroActionCancelReason.ControlLock);
         controlLocks.Add(source);
         blackboard.controlLocked = controlLocks.Count > 0;
     }
@@ -115,15 +114,13 @@ public class HeroController : MonoBehaviour
 
     public void BeginSceneEntryPlacement(TransitionPoint destinationGate)
     {
-        actions?.CancelBind();
-        actions?.CancelLedgeClimb();
+        actions?.CancelActions(HeroActionCancelReason.SceneEntry);
         if (sceneEntry != null) sceneEntry.PrepareSceneEntry(destinationGate);
     }
 
     public void BeginSceneEntryMotion(TransitionPoint destinationGate)
     {
-        actions?.CancelBind();
-        actions?.CancelLedgeClimb();
+        actions?.CancelActions(HeroActionCancelReason.SceneEntry);
         if (sceneEntry != null) sceneEntry.PlaySceneEntryMotion(destinationGate);
     }
 
@@ -153,14 +150,16 @@ public class HeroController : MonoBehaviour
     // logic itself — HeroInputReader owns sampling, buffer clearing, fallback gating,
     // held-command tracking, and fresh-press rearming. UI never reaches into HeroInputReader
     // directly.
-    public void SuspendGameplayInput() => inputReader?.SuspendGameplayInput();
+    public void SuspendGameplayInput()
+    {
+        actions?.CancelActions(HeroActionCancelReason.InputSuspension);
+        inputReader?.SuspendGameplayInput();
+    }
 
     public void ClearTransientGameplayInput()
     {
         inputReader?.ClearTransientInput();
-        actions?.CancelAttack();
-        actions?.CancelBind();
-        actions?.CancelLedgeClimb();
+        actions?.CancelActions(HeroActionCancelReason.InputSuspension);
     }
 
     public void BeginGameplayInputResume() => inputReader?.BeginResumeGameplayInput();
@@ -196,9 +195,7 @@ public class HeroController : MonoBehaviour
             deathFallbackRoutine = null;
         }
 
-        actions.CancelAttack();
-        actions.CancelBind();
-        actions.CancelLedgeClimb();
+        actions.CancelActions(HeroActionCancelReason.Respawn);
         motor.ResetMotion();
         motor.SetNormalMovementSuppressed(false);
         body.bodyType = RigidbodyType2D.Dynamic;
@@ -316,9 +313,7 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Hurt;
         blackboard.recoiling = true;
-        actions.CancelAttack();
-        actions.CancelBind();
-        actions.CancelLedgeClimb();
+        actions.CancelActions(HeroActionCancelReason.Hurt);
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -335,9 +330,7 @@ public class HeroController : MonoBehaviour
     private void HandleHazardDamaged(DamageResult _)
     {
         blackboard.actorState = HeroActorState.Hurt;
-        actions.CancelAttack();
-        actions.CancelBind();
-        actions.CancelLedgeClimb();
+        actions.CancelActions(HeroActionCancelReason.Hurt);
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -346,10 +339,9 @@ public class HeroController : MonoBehaviour
     private void HandleDeath()
     {
         blackboard.actorState = HeroActorState.Dead;
-        actions.CancelBind();
-        actions.CancelLedgeClimb();
+        actions.CancelActions(HeroActionCancelReason.Death);
         AddControlLock(this);
-        body.linearVelocity = Vector2.zero;
+        motor.EnterDeathState();
         body.bodyType = RigidbodyType2D.Kinematic;
         bodyCollider.enabled = false;
         audioController.PlayDeath();

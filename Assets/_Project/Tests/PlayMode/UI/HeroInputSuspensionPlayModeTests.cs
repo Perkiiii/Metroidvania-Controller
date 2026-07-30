@@ -224,25 +224,25 @@ public sealed class HeroInputSuspensionPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator SprintActivationHeldThroughResumeStaysDisarmedUntilReleaseThenFreshHoldWorks()
+    public IEnumerator DashHoldSignalHeldThroughResumeStaysDisarmedUntilReleaseThenFreshHoldWorks()
     {
-        yield return PressKey(keyboard, Key.LeftShift);
+        yield return PressKey(keyboard, Key.X);
         Invoke(reader, "Tick");
-        Assert.That(B("SprintHeld"), Is.True, "Precondition: sprint reads held before suspension.");
+        Assert.That(B("DashHeld"), Is.True, "Precondition: shared Dash/Wildstride command reads held before suspension.");
 
         Invoke(reader, "SuspendGameplayInput");
         Invoke(reader, "BeginResumeGameplayInput");
 
         Invoke(reader, "Tick");
-        Assert.That(B("SprintHeld"), Is.False, "Sprint has no press signal, so Held itself must be disarmed while still held.");
+        Assert.That(B("DashHeld"), Is.False, "Held Dash/Wildstride must remain disarmed while its control is still held.");
 
         yield return ReleaseAllKeys(keyboard);
         Invoke(reader, "Tick");
-        Assert.That(B("SprintHeld"), Is.False);
+        Assert.That(B("DashHeld"), Is.False);
 
-        yield return PressKey(keyboard, Key.LeftShift);
+        yield return PressKey(keyboard, Key.X);
         Invoke(reader, "Tick");
-        Assert.That(B("SprintHeld"), Is.True, "A fresh hold after release must work normally.");
+        Assert.That(B("DashHeld"), Is.True, "A fresh hold after release must work normally.");
 
         yield return ReleaseAllKeys(keyboard);
     }

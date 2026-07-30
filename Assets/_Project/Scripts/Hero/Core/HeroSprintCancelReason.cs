@@ -1,0 +1,24 @@
+public enum HeroSprintCancelReason
+{
+    None,
+    InputReleased,
+    NeutralInput,
+    DirectionReversed,
+    LeftGround,
+    LedgeJumpBufferExpired,
+    JumpCarryEnded,
+    Attack,
+    DoubleJump,
+    DownslashBounce,
+    WallState,
+    LedgeClimb,
+    Bind,
+    Hurt,
+    Death,
+    ControlLock,
+    InputSuspended,
+    SceneEntry,
+    Respawn,
+    AbilityLocked,
+    ComponentDisabled
+}

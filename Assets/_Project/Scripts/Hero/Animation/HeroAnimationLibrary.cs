@@ -7,6 +7,7 @@ public sealed class HeroAnimationLibrary : ScriptableObject
     public AnimationClip idle;
     public AnimationClip walk;
     public AnimationClip run;
+    public AnimationClip sprint;
 
     [Header("Air")]
     public AnimationClip jump;

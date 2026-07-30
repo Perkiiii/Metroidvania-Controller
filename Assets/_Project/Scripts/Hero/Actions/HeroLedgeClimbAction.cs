@@ -30,6 +30,7 @@ public sealed class HeroLedgeClimbAction
     private readonly HeroMotor motor;
     private readonly HeroSensors sensors;
     private readonly HeroDashAction dash;
+    private readonly Action onBegin;
     private readonly Action stopAnimation;
 
     private LedgeProbeResult target;
@@ -59,6 +60,27 @@ public sealed class HeroLedgeClimbAction
         HeroSensors heroSensors,
         HeroDashAction dashAction,
         Action stopLedgeAnimation)
+        : this(
+            heroConfig,
+            stateBlackboard,
+            inputReader,
+            heroMotor,
+            heroSensors,
+            dashAction,
+            stopLedgeAnimation,
+            null)
+    {
+    }
+
+    public HeroLedgeClimbAction(
+        HeroConfig heroConfig,
+        HeroStateBlackboard stateBlackboard,
+        HeroInputReader inputReader,
+        HeroMotor heroMotor,
+        HeroSensors heroSensors,
+        HeroDashAction dashAction,
+        Action stopLedgeAnimation,
+        Action onLedgeBegin)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
@@ -67,6 +89,7 @@ public sealed class HeroLedgeClimbAction
         sensors = heroSensors;
         dash = dashAction;
         stopAnimation = stopLedgeAnimation;
+        onBegin = onLedgeBegin;
     }
 
     public bool FixedTick(float fixedDeltaTime)
@@ -143,7 +166,8 @@ public sealed class HeroLedgeClimbAction
 
     private void Begin(in LedgeProbeResult result)
     {
-        dash?.CancelForLedgeClimb();
+        dash?.Cancel(HeroDashEndReason.LedgeClimb);
+        onBegin?.Invoke();
 
         target = result;
         active = true;

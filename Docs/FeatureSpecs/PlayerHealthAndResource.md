@@ -27,6 +27,7 @@
 | Current/maximum resource parts | `PlayerResourceState` (persistent `ScriptableObject`, `ISaveTarget`) | Sole authority. |
 | i-frames, invulnerability, damage/hazard/death events | `HeroHealthComponent` (scene facade on Hero) | Counted invulnerability-source set (`HashSet<object>`), not a single bool. Delegates all value mutation to `PlayerHealthState`. |
 | Bind lifecycle | `HeroBindAction` (plain C# class, owned by `HeroActionController`) | Reads/writes `PlayerHealthState`/`PlayerResourceState` directly; no MonoBehaviour. |
+| Base Wildstride | `HeroSprintAction` (plain C# class, owned by `HeroActionController`) | Resource-independent; has no `PlayerResourceState` reference and never spends or generates resource. |
 | Resource-award decision | `HeroAttackAction` | Reads `HeroAttackResult` after the receiver resolves the hit; the receiver never calls back into hero code. |
 | Game-flow sequencing (death/respawn/hazard/transition placement) | `GameManager` | Delegates value mutation to `HeroController.ResetAfterRespawn()` / `ResetAfterHazardRecovery()`; never mutates `PlayerHealthState`/`PlayerResourceState` fields directly, except the one narrow zero-health-continue normalization seam described below. |
 | Serialization / save orchestration | `SaveManager` | Gather/apply loop over `ISaveTarget`s; contains no gameplay lifecycle rules. |
@@ -103,6 +104,19 @@ OnDeath (fired exactly once, guarded by IsDepleted / ForceDeplete's already-dead
 `Changed` fires a `PlayerResourceChangeInfo{CurrentParts, MaximumParts, Reason}`. `PlayerResourceChangeReason` values: `Gain, Spend, MaximumChanged, StateApplied, Reset, Cleared`. `StateApplied` and `Reset` are neutral (no HUD feedback); `Cleared` (death) is treated as a real gameplay change like `Gain`/`Spend`, since forfeiting resource on death is a real, player-visible event, not a neutral state application.
 
 Resource has no orb/pip sub-unit model — it is a plain integer-parts value, presented as one continuous fill bar (see HUD below).
+
+### Wildstride resource independence
+
+Base Wildstride is not a resource consumer. Entry, grounded maintenance, grounded turns, jump carry,
+and authorized landing resumption work when resource is zero. `HeroSprintAction` receives no
+`PlayerResourceState`, never calls `TrySpend`, and cannot alter HUD or persisted resource state.
+Dash is also resource-free. Bind spending, combat generation, save/load, and death/reset policy are
+unchanged.
+
+A future optional Gear may increase grounded Wildstride speed and consume resource only while that
+enhanced grounded speed is active. Base Wildstride remains available when resource is empty.
+Airborne Wildstride Jump receives no speed bonus and no drain. Values, grace periods, persistence,
+and Gear ownership are deferred.
 
 ## Accepted-hit resource generation
 

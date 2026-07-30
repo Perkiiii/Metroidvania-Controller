@@ -15,6 +15,9 @@ MonoBehaviour:
   dashSpeed: 18
   dashDuration: 0.22
   dashCooldown: 0.45
+  sprintSpeed: 10
+  sprintJumpSpeed: 10
+  sprintLedgeJumpBufferTime: 0.08
   wallSlideInitialHoldTime: 0.25
   wallSlideInitialSpeed: 0.1
   wallSlideAcceleration: 16

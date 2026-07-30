@@ -1,3 +1,5 @@
+using System;
+
 public sealed class HeroJumpAction
 {
     private readonly HeroConfig config;
@@ -11,6 +13,8 @@ public sealed class HeroJumpAction
     private float coyoteTimer;
     private bool doubleJumpConsumed;
     private bool wasWallSliding;
+    private readonly Func<bool> tryBeginSprintCarry;
+    private readonly Action notifyDoubleJump;
 
     public HeroJumpAction(
         HeroConfig heroConfig,
@@ -19,7 +23,9 @@ public sealed class HeroJumpAction
         HeroInputReader inputReader,
         HeroMotor heroMotor,
         HeroAudioController heroAudio,
-        PlayerAbilityState heroAbilityState)
+        PlayerAbilityState heroAbilityState,
+        Func<bool> tryBeginSprintCarry = null,
+        Action notifyDoubleJump = null)
     {
         config = heroConfig;
         abilityConfig = heroAbilityConfig;
@@ -28,6 +34,8 @@ public sealed class HeroJumpAction
         motor = heroMotor;
         audio = heroAudio;
         abilityState = heroAbilityState;
+        this.tryBeginSprintCarry = tryBeginSprintCarry;
+        this.notifyDoubleJump = notifyDoubleJump;
     }
 
     public void FixedTick(float fixedDeltaTime)
@@ -55,6 +63,7 @@ public sealed class HeroJumpAction
         {
             input.ConsumeJumpBuffer();
             coyoteTimer = 0f;
+            tryBeginSprintCarry?.Invoke();
             motor.StartJump();
             audio?.PlayJump();
             startedJumpThisTick = true;
@@ -64,6 +73,7 @@ public sealed class HeroJumpAction
         {
             input.ConsumeJumpBuffer();
             doubleJumpConsumed = true;
+            notifyDoubleJump?.Invoke();
             motor.StartDoubleJump(abilityConfig.doubleJumpSpeed);
             audio?.PlayJump();
             startedJumpThisTick = true;

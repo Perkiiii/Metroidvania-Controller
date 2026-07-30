@@ -36,7 +36,9 @@ public sealed class HeroCameraSignalBridge : MonoBehaviour
         target.SetFacingDirection(blackboard.FacingDirection);
         target.SetVelocityHint(blackboard.velocity);
         target.SetDashActive(blackboard.dashing, blackboard.FacingDirection);
-        target.SetSprintActive(input.SprintHeld && blackboard.grounded, blackboard.FacingDirection);
+        target.SetSprintActive(
+            blackboard.sprinting || blackboard.sprintJumpCarrying,
+            blackboard.sprintDirection != 0 ? blackboard.sprintDirection : blackboard.FacingDirection);
     }
 
     private float GetManualLookInput(CameraController controller)

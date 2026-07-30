@@ -55,8 +55,14 @@ ownership is accepted, the controller returns immediately. An established wall s
 queried for automatic mantle.
 
 A dash may have started on the ground, but ledge entry is still airborne-only. A grounded dash into
-a wall remains a dash. A successful dash handoff calls `HeroDashAction.CancelForLedgeClimb`;
+a wall remains a dash. A successful dash handoff calls typed
+`HeroDashAction.Cancel(HeroDashEndReason.LedgeClimb)`;
 cooldown and `airDashUsed` are preserved. Invalid geometry never alters dash state.
+
+A Wildstride jump carry may supply ordinary horizontal approach intent. Successful ledge entry
+cancels Dash, grounded Wildstride, and jump carry and disarms the shared Dash/Wildstride command
+until physical release. Completing a mantle while Dash remains held cannot begin Wildstride;
+release and a later fresh qualifying Dash are required.
 
 ## Geometry contract
 

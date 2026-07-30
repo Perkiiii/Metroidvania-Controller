@@ -18,7 +18,7 @@ The ability unlock spine is implemented (Milestone 3). `PlayerAbilityState` exis
 | Ability | Status | Notes |
 |---|---|---|
 | Dash | **Gated** | `HeroDashAction`; gate: `PlayerAbilityState.dashUnlocked`; covers both ground and air dash |
-| Sprint | Planned | Hold input to increase grounded move speed |
+| Wildstride (`Sprint`) | **Corrected movement implemented** | Shared Dash command; natural ground completion or one-shot air-Dash landing handoff; resource-free base movement; attack/presentation remain planned |
 | Wall-slide | **Gated** | `HeroWallSlideAction`; gate: `PlayerAbilityState.wallClingUnlocked` |
 | Wall-jump | **Gated** | `HeroWallJumpAction`; gate: `PlayerAbilityState.wallClingUnlocked` (shared with wall-slide) |
 | Wall latch / aimed wall launch | Planned | Hold jump to latch, aim, and launch off wall |
@@ -66,7 +66,8 @@ Event: `AbilityChanged(AbilityId, bool)` — fired by `SetUnlocked` only when th
 ### Unlock flag model
 - **Dash** uses `dashUnlocked`. Covers both ground dash and air dash — there are no separate `groundDashUnlocked` or `airDashUnlocked` flags.
 - **Wall-slide and wall-jump** share `wallClingUnlocked`. There are no separate `wallSlideUnlocked` or `wallJumpUnlocked` flags.
-- Sprint, WallLatch, DriftCloak, and SpiritCast are defined in the enum and `PlayerAbilityState` but their action classes do not exist yet.
+- WallLatch, DriftCloak, and SpiritCast remain defined but unimplemented. Sprint is implemented as
+  player-facing Wildstride movement; its attack and final presentation remain planned.
 - **Bind** uses `bindUnlocked`. Checked in `HeroBindAction.CanStart()` only (not `CanContinue()`), matching the dash/wall-cling convention of gating on entry.
 
 ### AbilityPickup (`Assets/_Project/Scripts/World/Persistence/Participants/AbilityPickup.cs`)
@@ -114,15 +115,44 @@ does not unlock, purchase, equip, tune, or modify abilities. A true new game the
 intentional empty Gear collection until the first approved ability-granting physical object is
 acquired. See `Docs/FeatureSpecs/Gear.md`.
 
-### Sprint
-Sprint is a movement modifier, not an action — it adjusts grounded move speed while held.
+### Wildstride (internal Sprint)
 
-- Trigger condition: `SprintHeld && grounded && moving`.
-- While active, movement speed increases (tuned in `HeroConfig`; separate from `runSpeed` or gated behind it depending on final design).
-- Sprint ends immediately when Sprint input is released or movement conditions are no longer met.
-- Use a `HeroSprintAction` class that evaluates conditions each `Tick` and signals the motor.
-- The motor applies the speed change through the normal horizontal velocity pipeline — sprint must not bypass `HeroMotor` or write velocity directly.
-- Gate: check `PlayerAbilityState.sprintUnlocked` before allowing.
+Wildstride shares the Dash command. A fresh press attempts Dash immediately; there is no hold
+threshold and no standalone Sprint action. A typed `HeroDashCompletion` identifies one Dash
+sequence/version, its ground/air origin, direction, and typed end reason.
+
+A natural grounded completion may enter Wildstride immediately. A natural ordinary air-Dash
+completion may instead create one pending landing authorization. The first landing consumes that
+exact version whether entry succeeds or fails. Both entry paths use current movement direction and
+  require `sprintUnlocked`, held and armed Dash, active horizontal input, and no incompatible owner.
+  Zero resource does not block either path. Idle holds, cooldown holds, stale completions,
+cancelled Dashes, and unrelated landings cannot begin Wildstride.
+
+`HeroSprintAction` owns a small internal phase model, authorization, landing consumption, captured
+carry direction, a short ledge-jump buffer, typed cancellation, and disarm-until-release. Only grounded
+Wildstride, jump carry, and direction are mirrored to the blackboard. Ordinary movement explicitly
+requests `Walk`; grounded Wildstride requests `Wildstride`. `HeroMotor` remains the sole velocity
+writer.
+
+Jump uses the unchanged normal vertical path plus motor-owned horizontal carry. Its signed direction
+is captured at launch; opposite input cancels locked carry into motor-owned momentum decay and
+ordinary air steering. Landing resumes in the same fixed step only when carry authorization remains
+valid. Grounded direction reversal preserves authorization: the motor decelerates toward zero,
+changes facing at the turn seam, and accelerates in the new direction. Once grounded Wildstride is
+active, neutral horizontal input retains the last valid direction and continues Wildstride while
+Dash remains held and armed; a later opposite input uses the same turn path. Dash release ends the
+sequence. Neutral input remains a valid cancellation for airborne carry and the ledge buffer.
+Wall/ledge/pogo/Double Jump,
+Attack/Bind, hurt/death, control/input loss, scene lifecycle, and runtime unlock loss cancel it.
+
+Base Wildstride, Dash, jump carry, and landing resumption never read or mutate
+`PlayerResourceState`. A provisional `sprintLedgeJumpBufferTime` (0.08 seconds) lets a Jump started
+just after leaving a ledge from active Wildstride consume one private authorization and begin the
+specialized carry. It does not alter normal coyote time or normal Jump buffering.
+
+A future optional enhanced-speed Gear may drain resource only while its grounded bonus is active.
+Base Wildstride remains available at empty resource; airborne carry receives no bonus or drain.
+Exact Gear ownership and tuning remain deferred.
 
 ### Wall-Jump
 Standard wall jump is the quick, responsive traversal option. It should feel immediate and intuitive.
@@ -165,7 +195,8 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 1. Add an unlock flag to `PlayerAbilityState`.
 2. If the ability requires new physics behaviour, add a method to `HeroMotor`.
 3. If the ability is a new triggered action (wall-jump, spirit cast), create a `Hero<Name>Action` plain C# class and instantiate it in `HeroActionController.Initialize`.
-4. If the ability is a movement modifier (sprint), create an action class that evaluates conditions each `Tick` and communicates the result to `HeroMotor` through the normal pipeline — not by writing velocity directly.
+4. If an ability modifies locomotion, use a typed locomotion request and communicate through
+   `HeroMotor`; actions never write velocity directly.
 5. If the ability involves a new shared state that other actions need to react to (e.g. `wallJumping`, `wallLatched`), add a flag to `HeroStateBlackboard` and write it from the owning action class.
 6. If the ability spawns an entity (spirit cast), keep the spawn request in the action class and all spawned-entity behaviour in a separate component.
 7. Reserve an animation slot in `HeroAnimationLibrary` and add the clip.
@@ -181,8 +212,9 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 - `HeroConfig` — core shared movement/combat tuning (walk/run, base jump, gravity, attack, pogo, sensors, health/hurt, animation fades)
 - `HeroAbilityConfig` — gated traversal ability tuning (dash, wall-slide, wall-jump, double-jump); asset at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`
 - `PlayerAbilityState` — unlock flags only (implemented; asset at `Assets/_Project/ScriptableObjects/Hero/PlayerAbilityState.asset`); does not store any tuning values
-- `PlayerResourceState` — implemented and persisted; displayed by `ResourceDisplay` and spent by
-  `HeroBindAction`. Future Spirit Cast resource usage remains a design decision.
+- `PlayerResourceState` — implemented and persisted; displayed by `ResourceDisplay`, spent by
+  `HeroBindAction`, and generated by eligible combat hits. Base Wildstride does not consume it.
+  Future Spirit Cast and optional enhanced-speed Gear usage remain design decisions.
 - Projectile prefab / projectile data assets (TODO) — used by Spirit Cast; behaviour lives on the prefab, not in the cast action
 
 ---
@@ -234,7 +266,7 @@ Risks:
 - Treating `AbilityChanged` during save application as acquisition feedback.
 - Letting Gear display data become a second ownership or tuning source.
 
-Open decisions remain limited to ability-specific future mechanics and content: Sprint behavior and
-tuning, Wall Latch controls, Spirit Cast resource/cast design, Drift Cloak behavior, and physical
+Open decisions remain limited to ability-specific future mechanics and content: Wildstride attack,
+presentation and final tuning, Wall Latch controls, Spirit Cast resource/cast design, Drift Cloak behavior, and physical
 Gear identities/art/copy. Whether Dash or Wall Cling start unlocked is not open; both start locked
 and appear in Gear only after progression acquisition and approved physical representation.

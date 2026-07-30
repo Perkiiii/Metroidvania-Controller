@@ -44,6 +44,15 @@ public sealed class HeroStateBlackboard : MonoBehaviour
     public bool recoiling;
     public HeroAttackDirection attackDirection = HeroAttackDirection.Side;
 
+    [Header("Wildstride")]
+    public bool sprinting;
+    public bool sprintJumpCarrying;
+    public int sprintDirection;
+    public int dashSequenceVersion;
+    public int completedGroundDashVersion;
+    public HeroDashEndReason lastDashEndReason;
+    public HeroSprintCancelReason lastSprintCancelReason;
+
     [Header("Debug")]
     public int jumpStepsElapsed;
     public int jumpedSteps;

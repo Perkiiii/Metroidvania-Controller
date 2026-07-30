@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// Stores tuning for progression-gated traversal abilities (dash, wall-slide, wall-jump, double-jump).
+// Stores tuning for progression-gated traversal abilities (dash, Wildstride, wall-slide, wall-jump, double-jump).
 // Unlock flags live in PlayerAbilityState. Core movement/combat tuning lives in HeroConfig.
 // Bind/Spirit Cast tuning lives in PlayerResourceConfig rather than this traversal asset.
 [CreateAssetMenu(menuName = "Hero/Hero Ability Config", fileName = "HeroAbilityConfig")]
@@ -10,6 +10,11 @@ public sealed class HeroAbilityConfig : ScriptableObject
     public float dashSpeed = 18f;
     public float dashDuration = 0.22f;
     public float dashCooldown = 0.45f;
+
+    [Header("Wildstride")]
+    public float sprintSpeed = 10f;
+    public float sprintJumpSpeed = 10f;
+    [Min(0f)] public float sprintLedgeJumpBufferTime = 0.08f;
 
     [Header("Wall Slide")]
     public float wallSlideInitialHoldTime = 0.25f;

@@ -10,7 +10,6 @@ public sealed class HeroInputReader : MonoBehaviour
     [SerializeField] private InputActionReference jumpAction;
     [SerializeField] private InputActionReference attackAction;
     [SerializeField] private InputActionReference dashAction;
-    [SerializeField] private InputActionReference sprintAction;
     [SerializeField] private InputActionReference interactAction;
     [SerializeField] private InputActionReference bindAction;
 
@@ -29,9 +28,9 @@ public sealed class HeroInputReader : MonoBehaviour
     private bool jumpDisarmed;
     private bool attackDisarmed;
     private bool dashDisarmed;
-    private bool sprintDisarmed;
     private bool interactDisarmed;
     private bool bindDisarmed;
+    private int lastHorizontalKeyboardDirection;
 
     public Vector2 MoveVector { get; private set; }
     public bool JumpPressedThisFrame { get; private set; }
@@ -40,7 +39,9 @@ public sealed class HeroInputReader : MonoBehaviour
     public bool AttackPressedThisFrame { get; private set; }
     public bool AttackHeld { get; private set; }
     public bool DashPressedThisFrame { get; private set; }
-    public bool SprintHeld { get; private set; }
+    public bool DashHeld { get; private set; }
+    public bool DashReleasedThisFrame { get; private set; }
+    public bool DashCommandArmed => !dashDisarmed;
     public bool InteractPressedThisFrame { get; private set; }
     public bool BindPressedThisFrame { get; private set; }
     public bool BindHeld { get; private set; }
@@ -103,14 +104,11 @@ public sealed class HeroInputReader : MonoBehaviour
 
         bool dashPressedRaw = ReadPressedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackPressed();
         bool dashHeldRaw = ReadHeld(GetAction(dashAction, "Dash"), false) || ReadDashFallbackHeld();
+        bool dashReleasedRaw = ReadReleasedThisFrame(GetAction(dashAction, "Dash"), false) || ReadDashFallbackReleased();
         if (dashDisarmed && !dashHeldRaw) dashDisarmed = false;
         DashPressedThisFrame = !dashDisarmed && dashPressedRaw;
-
-        bool sprintHeldRaw = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
-        if (sprintDisarmed && !sprintHeldRaw) sprintDisarmed = false;
-        // Sprint has no discrete "start" signal — SprintHeld is its only gameplay entry point —
-        // so unlike Jump/Attack/Dash it must itself be suppressed while disarmed.
-        SprintHeld = !sprintDisarmed && sprintHeldRaw;
+        DashHeld = !dashDisarmed && dashHeldRaw;
+        DashReleasedThisFrame = !dashDisarmed && dashReleasedRaw;
 
         bool interactPressedRaw = ReadPressedThisFrame(GetAction(interactAction, "Interact"), false);
         bool interactHeldRaw = ReadHeld(GetAction(interactAction, "Interact"), false);
@@ -192,11 +190,13 @@ public sealed class HeroInputReader : MonoBehaviour
         AttackPressedThisFrame = false;
         AttackHeld = false;
         DashPressedThisFrame = false;
-        SprintHeld = false;
+        DashHeld = false;
+        DashReleasedThisFrame = false;
         InteractPressedThisFrame = false;
         BindPressedThisFrame = false;
         BindHeld = false;
         BindReleasedThisFrame = false;
+        lastHorizontalKeyboardDirection = 0;
     }
 
     /// <summary>
@@ -211,59 +211,91 @@ public sealed class HeroInputReader : MonoBehaviour
         jumpDisarmed = ReadHeld(GetAction(jumpAction, "Jump"));
         attackDisarmed = ReadHeld(GetAction(attackAction, "Attack"), false) || ReadAttackFallbackHeld();
         dashDisarmed = ReadHeld(GetAction(dashAction, "Dash"), false) || ReadDashFallbackHeld();
-        sprintDisarmed = ReadHeld(GetAction(sprintAction, "Sprint"), false) || ReadSprintFallback();
         interactDisarmed = ReadHeld(GetAction(interactAction, "Interact"), false);
         bindDisarmed = ReadHeld(GetAction(bindAction, "Bind"), false);
 
         suspended = false;
     }
 
+    public void DisarmDashUntilRelease()
+    {
+        dashDisarmed = true;
+        DashPressedThisFrame = false;
+        DashHeld = false;
+        DashReleasedThisFrame = false;
+    }
+
     private Vector2 ReadMove()
     {
         InputAction action = GetAction(moveAction, "Move");
-        if (action != null)
-        {
-            Vector2 value = action.ReadValue<Vector2>();
-            if (value != Vector2.zero)
-            {
-                return value;
-            }
+        Vector2 value = action != null ? action.ReadValue<Vector2>() : Vector2.zero;
+        Vector2 keyboardValue = ReadKeyboardMove();
 
-            // A composite Value action's cached ReadValue() can still read zero for one frame
-            // immediately after Enable() even while its bound keys remain physically held (same
-            // resync gap as IsPressed() above) — fall back to the raw keyboard read so continuous
-            // movement genuinely resumes live on the very tick input suspension ends, with no
-            // neutral-release requirement. Harmless when input is genuinely absent (both are zero).
+        if (Mathf.Abs(value.x) > Mathf.Epsilon)
+        {
+            lastHorizontalKeyboardDirection = value.x > 0f ? 1 : -1;
+        }
+        else if (Mathf.Abs(keyboardValue.x) > Mathf.Epsilon)
+        {
+            value.x = keyboardValue.x;
         }
 
-        Vector2 fallback = Vector2.zero;
+        if (Mathf.Abs(value.y) <= Mathf.Epsilon && Mathf.Abs(keyboardValue.y) > Mathf.Epsilon)
+        {
+            value.y = keyboardValue.y;
+        }
+
+        return value;
+    }
+
+    private Vector2 ReadKeyboardMove()
+    {
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null)
         {
-            return fallback;
+            lastHorizontalKeyboardDirection = 0;
+            return Vector2.zero;
         }
 
-        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
+        bool leftHeld = keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed;
+        bool rightHeld = keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed;
+        bool leftPressed = keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame;
+        bool rightPressed = keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame;
+
+        float horizontal = 0f;
+        if (leftHeld != rightHeld)
         {
-            fallback.x -= 1f;
+            horizontal = leftHeld ? -1f : 1f;
+            lastHorizontalKeyboardDirection = horizontal > 0f ? 1 : -1;
         }
-
-        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
+        else if (leftHeld)
         {
-            fallback.x += 1f;
+            // The digital D-pad composite collapses opposite keys to zero. Treat the newest
+            // physical press as intent so a held-key reversal cannot masquerade as neutral.
+            if (leftPressed != rightPressed)
+            {
+                lastHorizontalKeyboardDirection = leftPressed ? -1 : 1;
+            }
+
+            horizontal = lastHorizontalKeyboardDirection;
+        }
+        else
+        {
+            lastHorizontalKeyboardDirection = 0;
         }
 
+        float vertical = 0f;
         if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
         {
-            fallback.y -= 1f;
+            vertical -= 1f;
         }
 
         if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
         {
-            fallback.y += 1f;
+            vertical += 1f;
         }
 
-        return fallback;
+        return new Vector2(horizontal, vertical);
     }
 
     private static bool ReadPressedThisFrame(InputAction action)
@@ -336,12 +368,6 @@ public sealed class HeroInputReader : MonoBehaviour
         return false;
     }
 
-    private static bool ReadSprintFallback()
-    {
-        Keyboard keyboard = Keyboard.current;
-        return keyboard != null && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
-    }
-
     private static bool ReadAttackFallbackPressed()
     {
         Keyboard keyboard = Keyboard.current;
@@ -376,13 +402,21 @@ public sealed class HeroInputReader : MonoBehaviour
                 || keyboard.xKey.isPressed);
     }
 
+    private static bool ReadDashFallbackReleased()
+    {
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+            && (keyboard.leftCtrlKey.wasReleasedThisFrame
+                || keyboard.rightCtrlKey.wasReleasedThisFrame
+                || keyboard.xKey.wasReleasedThisFrame);
+    }
+
     private void SetActionsEnabled(bool enabled)
     {
         SetActionEnabled(GetAction(moveAction, "Move"), enabled);
         SetActionEnabled(GetAction(jumpAction, "Jump"), enabled);
         SetActionEnabled(GetAction(attackAction, "Attack"), enabled);
         SetActionEnabled(GetAction(dashAction, "Dash"), enabled);
-        SetActionEnabled(GetAction(sprintAction, "Sprint"), enabled);
         SetActionEnabled(GetAction(interactAction, "Interact"), enabled);
         SetActionEnabled(GetAction(bindAction, "Bind"), enabled);
     }

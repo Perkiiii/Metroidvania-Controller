@@ -19,6 +19,7 @@ HeroController (MonoBehaviour — coordinator)
 ├── HeroActionController  action logic orchestrator
 │   ├── HeroJumpAction      (plain C# class)
 │   ├── HeroDashAction      (plain C# class)
+│   ├── HeroSprintAction    (plain C# class; player-facing Wildstride)
 │   ├── HeroAttackAction    (plain C# class)
 │   ├── HeroWallSlideAction (plain C# class)
 │   ├── HeroWallJumpAction  (plain C# class)
@@ -43,24 +44,26 @@ HeroController (MonoBehaviour — coordinator)
 Core baseline tuning at `Assets/_Project/ScriptableObjects/Hero/HeroConfig.asset`. Contains shared controller parameters: walk/run speeds, base jump, gravity, attack, downslash pogo, sensor probes, health response, and animation fade durations. All subsystems receive a reference at initialization. Its serialized `maxHealth` field is legacy data retained for migration safety and is not read by gameplay; maximum health belongs to `PlayerHealthState`.
 
 ### HeroAbilityConfig (ScriptableObject)
-Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`. Holds numeric parameters for dash, wall-slide, wall-jump, and double-jump. Wired into `HeroController` via a serialized Inspector field alongside `HeroConfig`. Absent from core movement logic — actions and the motor use it only for the ability-specific behaviours it governs. Bind tuning is intentionally held in the separate `PlayerResourceConfig` asset.
+Gated traversal ability tuning at `Assets/_Project/ScriptableObjects/Hero/HeroAbilityConfig.asset`. Holds numeric parameters for dash, Wildstride, wall-slide, wall-jump, and double-jump. Wired into `HeroController` via a serialized Inspector field alongside `HeroConfig`. Absent from core movement logic — actions and the motor use it only for the ability-specific behaviours it governs. Bind tuning is intentionally held in the separate `PlayerResourceConfig` asset.
 
 - **HeroConfig** = core baseline movement and combat config (always required)
-- **HeroAbilityConfig** = gated traversal ability tuning (dash, wall-slide, wall-jump, double-jump); abilities are disabled gracefully if missing
+- **HeroAbilityConfig** = gated traversal ability tuning (dash, Wildstride, wall-slide, wall-jump, double-jump); abilities are disabled gracefully if missing
 - **PlayerAbilityState** = unlock flags only; no tuning values; wired via Inspector
 
 ### HeroStateBlackboard (MonoBehaviour)
 Single source of truth for the hero's runtime state. Written by Sensors, Motor, and Action classes; read by everything else, including AnimationController. Keeps subsystems decoupled — no direct references between Motor and ActionController, for example.
 
 ### Persistent Player State (ScriptableObjects)
-`PlayerHealthState` and `PlayerResourceState` are persistent-value owners implementing `ISaveTarget`. Health is the sole owner of current, maximum, and temporary bonus health; `HeroHealthComponent` delegates value mutations to it while retaining scene-local damage context and i-frames. Resource stores current and maximum integer parts; `HeroAttackAction` receives the injected resource state and awards configured parts only from accepted, resource-eligible attack results. `HeroBindAction` spends resource and heals normal health once after a valid grounded hold; it is a plain C# action owned by `HeroActionController`. Both states enforce invariants, apply fresh-save defaults, and emit a neutral `StateApplied` notification after save application.
+`PlayerHealthState` and `PlayerResourceState` are persistent-value owners implementing `ISaveTarget`. Health is the sole owner of current, maximum, and temporary bonus health; `HeroHealthComponent` delegates value mutations to it while retaining scene-local damage context and i-frames. Resource stores current and maximum integer parts; `HeroAttackAction` receives the injected resource state and awards configured parts only from accepted, resource-eligible attack results. `HeroBindAction` spends resource and heals normal health once after a valid grounded hold. Base `HeroSprintAction` has no resource-state dependency and never mutates resource. Attack and Bind remain plain C# actions owned by `HeroActionController`; neither the coordinator, motor, animation, nor HUD mutates resource. Both persistent states enforce invariants, apply fresh-save defaults, and emit a neutral `StateApplied` notification after save application.
 
 ### Persistent HUD
 
 `PersistentHudRoot` is the implemented presentation composition root under the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `ResourceDisplay` renders one continuous, always-visible bar. `PlayerResourceConfig.partsPerPip` is retained inert configuration and does not control current HUD grouping. `GameCameras` remains camera-only. See `Docs/FeatureSpecs/HUD.md`.
 
 ### HeroAnimationLibrary (ScriptableObject)
-Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, ledgeClimb, attackSide, attackUp, attackDown, bind) to `AnimationClip` references. Swapping a clip does not require code changes.
+Maps logical animation names (idle, walk, retained legacy run, explicit sprint/Wildstride, jump,
+fall, dash, wallSlide, ledgeClimb, attackSide, attackUp, attackDown, bind) to `AnimationClip`
+references. Swapping a clip does not require code changes.
 
 ### HeroAttackHit (readonly struct)
 Value type passed to hit-reaction interfaces. Contains: `Source` (GameObject), `Direction` (HeroAttackDirection), `Damage` (int), `Point` (Vector2), `ForceDirection` (Vector2).
@@ -105,7 +108,14 @@ Resource generation is attacker-owned. `HeroController` passes the Inspector-ass
 
 ## Animation
 
-`HeroAnimationController` drives Animancer directly — no Animator parameters. Locomotion uses a `LinearMixerState` keyed on horizontal speed (idle → walk → run thresholds from `HeroConfig`). Action states (attack, dash, wall-slide, Bind, jump, fall) are played as one-shots with configurable fade durations. Bind uses an Animancer end-event as a completion signal and a duration timer as a fail-safe; missing Bind clips disable the action rather than silently falling back.
+`HeroAnimationController` drives Animancer directly — no Animator parameters. Ground locomotion is
+explicit: stationary uses `idle`, ordinary movement uses `walk`, and grounded
+`blackboard.sprinting` uses the library's `sprint` slot. Horizontal velocity does not infer
+Wildstride. The serialized `run` slot and Run tuning remain for compatibility/future design but are
+not ordinary locomotion. Action states (attack, dash, wall-slide, Bind, jump, fall) are played
+directly with configurable fades. Bind uses an Animancer end-event as a completion signal and a
+duration timer as a fail-safe; missing Bind clips disable the action rather than silently falling
+back.
 
 Attack animation completion is signalled back to `HeroAttackAction.CompleteAttackFromAnimation` via an Animancer end-event. A fail-safe timer forces the attack to end if the event does not fire within the expected duration.
 
@@ -128,6 +138,11 @@ See `Docs/FeatureSpecs/LedgeClimb.md`.
 ## Control Lock System
 
 `HeroController` exposes `AddControlLock(object)` / `RemoveControlLock(object)`. Any system can suppress player input by registering a lock token. The lock set is reference-counted; `blackboard.controlLocked` is true whenever any lock is held.
+
+External traversal interruption routes through typed
+`HeroActionController.CancelActions(HeroActionCancelReason)`. Dash, Wildstride/carry, Attack, Bind,
+and ledge climb each perform idempotent cleanup. Held Dash is disarmed until release for control
+loss, input suspension, hurt/death, scene entry, respawn, and component disable.
 
 ---
 
@@ -192,9 +207,27 @@ values (`GatherSaveData` writes all eight booleans), a missing/null ability sect
 all-locked default, and `SaveDataMigrator.CurrentSaveVersion` was not bumped because no migration
 behaviour changed.
 
+`AbilityId.Sprint` is presented to players as Wildstride. It shares the Dash input but remains a
+separate unlock. Dash publishes typed, versioned `HeroDashCompletion` snapshots. Natural ground
+completion may hand off immediately; natural ordinary air completion may create a one-shot
+authorization consumed by the first landing whether entry succeeds or fails.
+
+`HeroSprintAction` keeps its phase, Dash versions, disarm state, captured airborne direction, and
+short ledge-jump buffer private. Only grounded Sprint, jump carry, and direction are mirrored to the
+blackboard. Base Wildstride is resource-free. Ordinary
+movement explicitly requests `Walk`; Wildstride requests `Wildstride`. `HeroMotor` owns speed,
+grounded reversal deceleration/acceleration, facing at the turn seam, captured horizontal jump
+carry, post-cancellation air steering/deceleration, and the death stationary request.
+While active grounded Wildstride has neutral horizontal input, `HeroSprintAction` retains its last
+valid direction and `HeroActionController` continues that signed Wildstride locomotion request;
+entry still requires a qualifying direction and Dash sequence.
+`HeroActionController.FixedTick` prepares the private ledge-jump buffer before Jump, then reapplies
+locomotion after Dash/landing reconciliation and before `HeroMotor.FixedTick`, avoiding a one-step
+Walk gap. No Wildstride state writes `Rigidbody2D` directly.
+
 `AbilityPickup` (MonoBehaviour) calls `abilityState.Unlock(ability)` on hero trigger contact. `AbilityGate` (MonoBehaviour) refreshes on enable, then subscribes to `AbilityChanged` and enables/disables a blocker object or collider reactively.
 
-`PlayerAbilityState`, `PlayerHealthState`, `PlayerResourceState`, and `PlayerResourceConfig` are wired into `HeroController` via serialized Inspector fields; `HeroActionController.Initialize` passes them to the relevant action constructors. No `AssetDatabase` lookup is used.
+`PlayerAbilityState`, `PlayerHealthState`, `PlayerResourceState`, and `PlayerResourceConfig` are wired into `HeroController` via serialized Inspector fields; `HeroActionController.Initialize` passes them only to the relevant action constructors. `PlayerResourceState` remains wired for Attack and Bind, not Wildstride. No `AssetDatabase` lookup is used.
 
 See `Docs/FeatureSpecs/Abilities.md` for the full per-ability spec.
 

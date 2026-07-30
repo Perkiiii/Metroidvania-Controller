@@ -39,8 +39,11 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroWallJumpAction wallJump;
     private HeroBindAction bind;
     private HeroLedgeClimbAction ledgeClimb;
+    private HeroSprintAction sprint;
 
     public int AttackVersion => attack != null ? attack.AttackVersion : 0;
+    public bool IsSprinting => sprint != null && sprint.IsSprinting;
+    public bool IsSprintJumpCarrying => sprint != null && sprint.IsJumpCarrying;
 
     public void Initialize(
         HeroConfig heroConfig,
@@ -66,8 +69,25 @@ public sealed class HeroActionController : MonoBehaviour
         this.healthState = healthState;
         this.resourceConfig = resourceConfig;
 
-        jump = new HeroJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
         dash = new HeroDashAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
+        sprint = new HeroSprintAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            heroMotor,
+            abilityState,
+            dash);
+        jump = new HeroJumpAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            heroMotor,
+            this.heroAudio,
+            abilityState,
+            sprint.TryBeginJumpCarry,
+            sprint.NotifyDoubleJump);
         attack = new HeroAttackAction(config, blackboard, input, heroMotor, this.heroAudio, gameObject, transform, ResolveAttackModules(), attackFailSafeTimeout, resourceState);
         wallSlide = new HeroWallSlideAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
         wallJump = new HeroWallJumpAction(config, abilityConfig, blackboard, input, heroMotor, this.heroAudio, abilityState);
@@ -88,7 +108,8 @@ public sealed class HeroActionController : MonoBehaviour
             motor,
             sensors,
             dash,
-            () => animations?.StopLedgeClimbAnimation());
+            () => animations?.StopLedgeClimbAnimation(),
+            () => sprint?.Cancel(HeroSprintCancelReason.LedgeClimb, true));
     }
 
     public void SetAnimationController(HeroAnimationController animationController)
@@ -105,6 +126,7 @@ public sealed class HeroActionController : MonoBehaviour
 
         if (ledgeClimb != null && ledgeClimb.IsActive)
         {
+            sprint?.Cancel(HeroSprintCancelReason.LedgeClimb, true);
             dash?.TickCooldown(Time.deltaTime);
             ApplyLocomotionIntent();
             return;
@@ -113,6 +135,7 @@ public sealed class HeroActionController : MonoBehaviour
         bind?.Tick(Time.deltaTime);
         if (bind != null && bind.IsBinding)
         {
+            sprint?.Cancel(HeroSprintCancelReason.Bind, true);
             input.ConsumeAttackBuffer();
             input.ConsumeJumpBuffer();
             ApplyLocomotionIntent();
@@ -121,6 +144,7 @@ public sealed class HeroActionController : MonoBehaviour
 
         dash.Tick(Time.deltaTime);
         attack.Tick(Time.deltaTime);
+        sprint.Tick();
         ApplyLocomotionIntent();
     }
 
@@ -144,9 +168,14 @@ public sealed class HeroActionController : MonoBehaviour
 
         wallSlide.FixedTick();
         wallJump.FixedTick(fixedDeltaTime);
+        sprint.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);
         dash.FixedTick(fixedDeltaTime);
         attack.FixedTick(fixedDeltaTime);
+        sprint.Tick();
+        // Landing and natural Dash completion happen in FixedUpdate. Re-issuing locomotion here
+        // lets HeroMotor observe a resumed/entered Wildstride request in this same simulation step.
+        ApplyLocomotionIntent();
     }
 
     public void CancelAttack()
@@ -162,6 +191,17 @@ public sealed class HeroActionController : MonoBehaviour
     public void CancelLedgeClimb()
     {
         ledgeClimb?.Cancel();
+    }
+
+    public void CancelActions(HeroActionCancelReason reason)
+    {
+        dash?.Cancel(MapDashReason(reason));
+        attack?.CancelAttack();
+        bind?.Cancel();
+        ledgeClimb?.Cancel(reason == HeroActionCancelReason.ComponentDisabled
+            ? HeroLedgeClimbCancelReason.ComponentDisabled
+            : HeroLedgeClimbCancelReason.ExternalState);
+        sprint?.Cancel(MapSprintReason(reason), true);
     }
 
     public void CompleteLedgeClimbFromAnimation()
@@ -203,10 +243,19 @@ public sealed class HeroActionController : MonoBehaviour
             || blackboard.binding
             ? 0f
             : input.MoveVector.x;
-        bool wantsRun = input.SprintHeld || !config.requireSprintForRun;
-        motor.SetDesiredMove(moveX, wantsRun);
+        if (sprint != null)
+        {
+            moveX = sprint.ResolveGroundedMoveInput(moveX);
+        }
 
-        if (Mathf.Abs(moveX) > config.horizontalInputDeadZone && !blackboard.controlLocked)
+        HeroLocomotionSpeed speedMode = sprint != null
+            ? sprint.RequestedSpeed
+            : HeroLocomotionSpeed.Walk;
+        motor.SetDesiredMove(moveX, speedMode);
+
+        if (Mathf.Abs(moveX) > config.horizontalInputDeadZone
+            && !blackboard.controlLocked
+            && (sprint == null || (!sprint.IsSprinting && !sprint.IsJumpCarrying)))
         {
             motor.SetFacingDirection(moveX > 0f ? 1 : -1);
         }
@@ -214,7 +263,35 @@ public sealed class HeroActionController : MonoBehaviour
 
     private void OnDisable()
     {
-        ledgeClimb?.Cancel(HeroLedgeClimbCancelReason.ComponentDisabled);
+        CancelActions(HeroActionCancelReason.ComponentDisabled);
+    }
+
+    private static HeroDashEndReason MapDashReason(HeroActionCancelReason reason)
+    {
+        switch (reason)
+        {
+            case HeroActionCancelReason.ControlLock: return HeroDashEndReason.ControlLock;
+            case HeroActionCancelReason.InputSuspension: return HeroDashEndReason.InputSuspension;
+            case HeroActionCancelReason.Hurt: return HeroDashEndReason.Hurt;
+            case HeroActionCancelReason.Death: return HeroDashEndReason.Death;
+            case HeroActionCancelReason.SceneEntry: return HeroDashEndReason.SceneEntry;
+            case HeroActionCancelReason.Respawn: return HeroDashEndReason.Respawn;
+            default: return HeroDashEndReason.ComponentDisabled;
+        }
+    }
+
+    private static HeroSprintCancelReason MapSprintReason(HeroActionCancelReason reason)
+    {
+        switch (reason)
+        {
+            case HeroActionCancelReason.ControlLock: return HeroSprintCancelReason.ControlLock;
+            case HeroActionCancelReason.InputSuspension: return HeroSprintCancelReason.InputSuspended;
+            case HeroActionCancelReason.Hurt: return HeroSprintCancelReason.Hurt;
+            case HeroActionCancelReason.Death: return HeroSprintCancelReason.Death;
+            case HeroActionCancelReason.SceneEntry: return HeroSprintCancelReason.SceneEntry;
+            case HeroActionCancelReason.Respawn: return HeroSprintCancelReason.Respawn;
+            default: return HeroSprintCancelReason.ComponentDisabled;
+        }
     }
 
     private HeroAttackModule[] ResolveAttackModules()
