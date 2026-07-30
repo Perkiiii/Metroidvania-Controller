@@ -403,11 +403,15 @@ world persistence (timed suppression on scene re-initialization) is implemented 
   changes preserve authorization through motor-owned turning and same-step locomotion restoration;
   active grounded neutral input retains the last valid Sprint direction while Dash remains held and
   armed, without allowing an idle Dash hold to synthesize Wildstride.
-  Airborne carry captures its launch direction; opposite input cancels into ordinary motor-owned air
-  steering and cannot resume on landing. Base Wildstride is resource-free. A provisional 0.08-second
-  private ledge-jump buffer preserves specialized carry when Jump begins just after running off a
-  ledge, without changing normal coyote or Jump-buffer tuning. The earlier resource-drain rule and
-  the claim that grounded reversal was already fixed are superseded. Dedicated run-slash, down-dash,
+  Airborne carry captures its launch direction as a private `AirborneCarry` phase. Normal falling,
+  neutral/opposite air input, residual decay, and Double Jump end only forced carry through the
+  motor; `AirborneAuthorised` keeps first-landing permission through arbitrary ordinary airtime.
+  Landing consumes it once and restores grounded Wildstride in the same fixed step, using current
+  input before the remembered sequence direction. Base Wildstride is resource-free. A provisional
+  0.08-second private ledge-jump buffer preserves specialized carry when Jump begins just after
+  running off a ledge, without changing normal coyote or Jump-buffer tuning. The earlier
+  resource-drain rule, carry-required landing rule, and Double-Jump-hard-cancellation rule are
+  superseded. Dedicated run-slash, down-dash,
   skid/back-Sprint presentation, VFX/audio, swimming, optional enhanced-speed Gear, final tuning,
   and manual feel approval remain outstanding;
   the complete feature is not done. See `Docs/ImplementationPlans/Wildstride.md`.

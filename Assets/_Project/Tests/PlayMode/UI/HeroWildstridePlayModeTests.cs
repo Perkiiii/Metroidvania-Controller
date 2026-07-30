@@ -349,6 +349,92 @@ public sealed class HeroWildstridePlayModeTests
         Assert.That(GetField(animations, "currentVisualState").ToString(), Is.Not.EqualTo("Wildstride"));
     }
 
+    [UnityTest]
+    public IEnumerator WildstrideNaturalFall_LongAirtime_ReconcilesLandingWithoutWalkFrame()
+    {
+        yield return BeginGroundedWildstride(Key.D);
+        yield return AdvanceHero(0.02f, Key.D, Key.X, Key.Space);
+        yield return AdvanceHero(0.02f, Key.D, Key.X);
+
+        SetField(blackboard, "grounded", false);
+        SetField(blackboard, "falling", true);
+        SimulateHeroStep(0.02f);
+        Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.False);
+
+        for (int i = 0; i < 240; i++)
+        {
+            SetField(blackboard, "grounded", false);
+            SetField(blackboard, "falling", true);
+            SimulateHeroStep(0.02f);
+        }
+
+        SetField(blackboard, "wasGrounded", false);
+        SetField(blackboard, "grounded", true);
+        SimulateHeroStep(0.02f);
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f));
+    }
+
+    [UnityTest]
+    public IEnumerator WildstrideOppositeAirInput_LandingRestoresCurrentDirectionWithoutWalkFrame()
+    {
+        yield return BeginGroundedWildstride(Key.D);
+        yield return AdvanceHero(0.02f, Key.D, Key.X, Key.Space);
+
+        InputSystem.QueueStateEvent(keyboard, new KeyboardState(Key.A, Key.X));
+        yield return null;
+        body.linearVelocity = new Vector2(body.linearVelocity.x, 0f);
+        SetField(blackboard, "grounded", true);
+        SetField(blackboard, "wasGrounded", false);
+        SetField(blackboard, "falling", true);
+        SimulateHeroStep(0.02f);
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That((int)GetField(blackboard, "sprintDirection"), Is.EqualTo(-1));
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(-1f));
+    }
+
+    [UnityTest]
+    public IEnumerator WildstrideDoubleJump_PreservesLandingContinuityWithoutWalkFrame()
+    {
+        SetField(abilityState, "doubleJumpUnlocked", true);
+        yield return BeginGroundedWildstride(Key.D);
+        yield return AdvanceHero(0.02f, Key.D, Key.X, Key.Space);
+        yield return AdvanceHero(0.02f, Key.D, Key.X);
+        yield return AdvanceHero(0.02f, Key.D, Key.X, Key.Space);
+        Assert.That(
+            body.linearVelocity.y,
+            Is.EqualTo((float)GetField(abilityConfig, "doubleJumpSpeed")).Within(0.001f),
+            "Wildstride continuity must not alter the normal Double Jump vertical path.");
+        yield return AdvanceHero(0.02f, Key.D, Key.X);
+
+        Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.False, "Double Jump must end forced carry");
+        Assert.That((bool)GetProperty(input, "DashCommandArmed"), Is.True, "Double Jump must keep Dash armed");
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f), "Ordinary air steering must resume after Double Jump.");
+
+        for (int i = 0; i < 240; i++)
+        {
+            SetField(blackboard, "grounded", false);
+            SetField(blackboard, "falling", true);
+            SimulateHeroStep(0.02f);
+        }
+
+        SetField(blackboard, "wasGrounded", false);
+        SetField(blackboard, "grounded", true);
+        body.linearVelocity = new Vector2(body.linearVelocity.x, 0f);
+        SimulateHeroStep(0.02f);
+
+        object sprintAction = GetField(actions, "sprint");
+        Assert.That(
+            (bool)GetField(blackboard, "sprinting"),
+            Is.True,
+            $"Landing must resume Wildstride after Double Jump (authorised={GetProperty(sprintAction, "HasAirborneLandingAuthorisation")}, phaseCarry={GetProperty(sprintAction, "IsJumpCarrying")}, reason={GetField(blackboard, "lastSprintCancelReason")}, grounded={GetField(blackboard, "grounded")}, dash={GetProperty(input, "DashHeld")})");
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
     private IEnumerator BeginGroundedWildstride(Key direction)
     {
         yield return AdvanceHero(0.11f, direction, Key.X);

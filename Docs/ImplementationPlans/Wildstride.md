@@ -2,8 +2,8 @@
 
 **Player-facing name:** Wildstride  
 **Internal identity:** Sprint (`AbilityId.Sprint`, `PlayerAbilityState.sprintUnlocked`)  
-**Status:** corrected Swift Step-style movement loop implemented; attack, final presentation, and
-human feel approval remain outstanding.
+**Status:** corrected Swift Step-style movement loop implemented and airborne continuity hardened;
+attack, final presentation, and human feel approval remain outstanding.
 
 ## Implemented correction
 
@@ -30,13 +30,17 @@ None
 PendingAirDashLanding
 Grounded
 LedgeJumpBuffered
-JumpCarry
+AirborneCarry
+AirborneAuthorised
 DisarmedUntilRelease
 ```
 
+`AirborneCarry` means forced horizontal Wildstride carry is active and the current sequence retains
+landing authorisation. `AirborneAuthorised` means forced carry has ended, ordinary airborne
+movement/gravity owns the hero, and that same sequence still owns permission for its first landing.
 Dash sequence versions, pending landing authorization, captured carry direction, the short
-ledge-jump timer, and disarm state remain private. Only grounded Sprint, active jump carry, and the
-current signed direction are mirrored to `HeroStateBlackboard`.
+ledge-jump timer, and disarm state remain private. Only grounded Sprint, active carry, carry
+presentation, and the current signed direction are mirrored to `HeroStateBlackboard`.
 
 `HeroDashAction` publishes a typed, versioned `HeroDashCompletion` with ground/air origin,
 direction, and typed end reason. Natural grounded completion may enter Wildstride in the same fixed
@@ -66,14 +70,25 @@ turn. Most-recent digital direction wins while both sides overlap. Dash release 
 sequence immediately, and an idle held Dash without a qualifying Dash/Wildstride sequence cannot
 create one.
 
+Digital movement overlap is resolved from the currently enabled `Move` action's named composite
+parts (`left`/`right`) when they are digital `ButtonControl`s, plus a directly bound
+`DpadControl`. This covers default A/D, arrow keys, custom keyboard composite rebindings, and the
+production Gamepad D-pad: newest press wins, releasing it restores the older held direction, and
+releasing both returns true neutral. Analogue stick values are never fed through this press memory.
+Other non-composite/custom controls remain under the Input System's normal value resolution rather
+than fragile generic reflection; the raw keyboard fallback is limited to the legacy path when no
+`Move` action is available, so removed default bindings do not remain active after rebinding.
+
 ## Wildstride Jump direction
 
 Wildstride Jump uses the unchanged normal vertical Jump path. At launch, it captures one signed
-horizontal carry direction. Same-direction input maintains `sprintJumpSpeed`. Opposite-direction
-input cancels the locked carry instead of changing its sign. The motor then decays the remaining
-momentum and resumes ordinary air steering through the normal locomotion pipeline. A cancelled
-carry cannot resume Wildstride on landing; an authorized same-direction carry may still resume in
-the landing fixed step.
+horizontal carry direction from current nonzero input, falling back to the remembered authorised
+direction. Same-direction input maintains `sprintJumpSpeed`. Opposite-direction or neutral input
+ends only the forced carry; `HeroMotor.EndWildstrideCarry()` then lets ordinary air steering and
+gravity take over. The phase becomes `AirborneAuthorised`, so the same sequence can still resume
+Wildstride on its first landing. Normal falling ends forced carry automatically; the carry does not
+apply `sprintJumpSpeed` through an arbitrarily long descent. Double Jump uses the same soft carry
+end and intentionally preserves landing authorisation for Underbrew continuity.
 
 ## Sprint/ledge Jump buffer
 
@@ -85,11 +100,12 @@ sprintLedgeJumpBufferTime: 0.08 seconds
 ```
 
 A normal Jump that begins before expiry consumes the buffer and starts captured Wildstride Jump
-carry. The buffer does not start grounded Wildstride, create another Dash, or authorize a later
-landing. Ordinary falls, Walk ledge exits, cancelled Dashes, and stale sequences do not create it.
-Dash release, neutral input while buffered, Attack, Bind, hurt/recoil, death, hazard/respawn flow, control/input
-loss, wall states, ledge climb, pogo, scene/scripted motion, component disable, and Sprint unlock
-loss clear it.
+carry. Neutral input does not erase the valid buffer; launch still falls back to its remembered
+direction. The buffer does not start grounded Wildstride, create another Dash, or authorize a later
+landing by itself. Ordinary falls, Walk ledge exits, cancelled Dashes, and stale sequences do not
+create it. Dash release, Attack, Bind, hurt/recoil, death, hazard/respawn flow, control/input loss,
+wall states, ledge climb, pogo, scene/scripted motion, component disable, and Sprint unlock loss
+clear it.
 
 The Sprint buffer is separate from and does not change normal `HeroConfig.coyoteTime` or
 `jumpBufferTime`. `HeroActionController.FixedTick` prepares the Wildstride buffer after wall
@@ -119,7 +135,9 @@ The full feature is not complete. Still deferred:
 - final distance/timing tuning and human Play Mode feel approval.
 
 Automated tests cover resource independence, both grounded reversal directions, grounded neutral
-direction retention and digital-key arbitration, captured air carry, the short ledge-jump buffer,
-typed Dash handoffs, same-step landing reconciliation, input safety, production asset wiring, and
-the real action/motor/animation PlayMode order. Automated correctness does not replace hands-on feel
+direction retention, captured carry versus persistent landing authorisation, natural falling, long
+airtime, Double Jump continuity, neutral remembered direction, opposite-air-input continuation,
+the short ledge-jump buffer, typed Dash handoffs, same-step landing reconciliation, default and
+rebound digital input, D-pad/analogue separation, input safety, production asset wiring, and the
+real action/motor/animation PlayMode order. Automated correctness does not replace hands-on feel
 validation.

@@ -9,6 +9,12 @@
 `Docs/ImplementationPlans/Wildstride.md`; where this plan conflicts, the implementation document
 and current feature specs supersede it.
 
+> **Superseded cancellation assumptions:** this historical plan's claims that opposite/neutral
+> airborne input prevents landing Wildstride, that carry must remain active through the landing,
+> and that Double Jump destroys the complete sequence are no longer canonical. Underbrew now ends
+> forced carry at normal falling or Double Jump while preserving an established first-landing
+> authorisation; an ordinary Jump/Double Jump cannot create one.
+
 ---
 
 ## 1. Executive Recommendation

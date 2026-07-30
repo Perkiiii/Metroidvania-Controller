@@ -306,18 +306,21 @@ public sealed class HeroSprintActionTests
     }
 
     [Test]
-    public void JumpCarry_OppositeCancellationDoesNotResumeOnLanding()
+    public void JumpCarry_OppositeCancellationPreservesAuthorisationForLanding()
     {
         BeginCarry();
         SetInput("MoveVector", Vector2.left);
         sprint.Tick();
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
 
         blackboard.wasGrounded = false;
         blackboard.grounded = true;
         sprint.NotifyLanded();
 
-        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(blackboard.sprinting, Is.True);
         Assert.That(blackboard.sprintJumpCarrying, Is.False);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(-1));
     }
 
     [Test]
@@ -332,7 +335,6 @@ public sealed class HeroSprintActionTests
         Assert.That(sprint.RequestedSpeed, Is.EqualTo(HeroLocomotionSpeed.Wildstride));
     }
 
-    [TestCase(HeroSprintCancelReason.DoubleJump)]
     [TestCase(HeroSprintCancelReason.DownslashBounce)]
     [TestCase(HeroSprintCancelReason.WallState)]
     [TestCase(HeroSprintCancelReason.LedgeClimb)]
@@ -342,9 +344,6 @@ public sealed class HeroSprintActionTests
 
         switch (reason)
         {
-            case HeroSprintCancelReason.DoubleJump:
-                sprint.NotifyDoubleJump();
-                break;
             case HeroSprintCancelReason.DownslashBounce:
                 motor.ApplyDownslashBounce();
                 sprint.Tick();
@@ -361,6 +360,162 @@ public sealed class HeroSprintActionTests
 
         Assert.That(blackboard.sprintJumpCarrying, Is.False);
         Assert.That(input.DashCommandArmed, Is.False);
+    }
+
+    [Test]
+    public void DoubleJumpEndsCarryButPreservesLandingAuthorisationAndDashArming()
+    {
+        BeginCarry();
+        sprint.NotifyDoubleJump();
+
+        Assert.That(blackboard.sprintJumpCarrying, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
+        Assert.That(input.DashCommandArmed, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(1));
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+    }
+
+    [TestCase(1)]
+    [TestCase(50)]
+    [TestCase(600)]
+    public void FallingEndsForcedCarryWithoutExpiringLandingAuthorisation(int airborneFixedSteps)
+    {
+        BeginCarry();
+        body.linearVelocity = new Vector2(abilityConfig.sprintJumpSpeed, -1f);
+        blackboard.falling = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprintJumpCarrying, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
+        Assert.That(sprint.RequestedSpeed, Is.EqualTo(HeroLocomotionSpeed.Walk));
+
+        for (int i = 0; i < airborneFixedSteps; i++)
+        {
+            sprint.FixedTick(0.02f);
+        }
+
+        SetInput("MoveVector", Vector2.zero);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void DashReleaseDuringLongFallConsumesLandingAuthorisation()
+    {
+        BeginCarry();
+        blackboard.falling = true;
+        sprint.FixedTick(0.02f);
+        for (int i = 0; i < 300; i++)
+        {
+            sprint.FixedTick(0.02f);
+        }
+
+        SetInput("DashHeld", false);
+        SetInput("DashReleasedThisFrame", true);
+        sprint.Tick();
+
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void HardInterruptionAfterDoubleJumpConsumesLandingAuthorisationAndDisarms()
+    {
+        BeginCarry();
+        sprint.NotifyDoubleJump();
+        blackboard.attacking = true;
+        sprint.Tick();
+
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(input.DashCommandArmed, Is.False);
+
+        blackboard.attacking = false;
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void DashReleaseAfterDoubleJumpPreventsLandingResumption()
+    {
+        BeginCarry();
+        sprint.NotifyDoubleJump();
+        SetInput("DashHeld", false);
+        SetInput("DashReleasedThisFrame", true);
+        sprint.Tick();
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+    }
+
+    [Test]
+    public void UnauthorisedDoubleJumpCannotCreateLandingAuthorisation()
+    {
+        blackboard.grounded = false;
+        blackboard.wasGrounded = true;
+        SetInput("DashHeld", true);
+        SetInput("MoveVector", Vector2.right);
+
+        sprint.NotifyDoubleJump();
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void NeutralGroundedWildstrideJumpUsesRememberedDirection()
+    {
+        BeginAndEnterSprint();
+        SetInput("MoveVector", Vector2.zero);
+
+        Assert.That(sprint.TryBeginJumpCarry(), Is.True);
+        Assert.That(sprint.CapturedJumpCarryDirection, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void NeutralLedgeBufferDoesNotEraseSpecialisedJumpLaunch()
+    {
+        BeginLedgeJumpBuffer();
+        SetInput("MoveVector", Vector2.zero);
+        sprint.Tick();
+
+        Assert.That(sprint.HasLedgeJumpBuffer, Is.True);
+        Assert.That(sprint.TryBeginJumpCarry(), Is.True);
+        Assert.That(sprint.CapturedJumpCarryDirection, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void UnrelatedJumpCannotReuseCancelledWildstrideAuthorisation()
+    {
+        BeginCarry();
+        sprint.Cancel(HeroSprintCancelReason.InputReleased, false);
+        SetInput("DashHeld", true);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
     }
 
     [TestCase("attack")]

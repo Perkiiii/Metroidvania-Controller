@@ -34,8 +34,19 @@ value.
 
 Base Wildstride is resource-free. The 0.08-second Sprint/ledge Jump buffer is provisional and
 unvalidated, chosen near the existing 0.08-second coyote-time scale. It does not change normal
-`coyoteTime` or `jumpBufferTime`. Airborne Wildstride Jump captures launch direction; opposite input
-cancels carry into ordinary motor-owned air steering instead of reversing full carry speed.
+`coyoteTime` or `jumpBufferTime`. Airborne Wildstride Jump captures launch direction; normal falling,
+neutral/opposite input, residual decay, and Double Jump end only the forced carry into ordinary
+motor-owned air steering. The private landing authorisation persists through arbitrary ordinary
+airtime and is consumed on the first landing, with current nonzero input preferred over remembered
+sequence direction. This is an intentional Underbrew continuity decision after Double Jump. The
+supplied Silksong C# proves carry cancellation, but its hidden `sprintFSM` does not prove the full
+landing policy.
+
+Digital overlap resolution now reads named `left`/`right` digital parts from the bound `Move`
+action's composites and handles its directly bound Gamepad `DpadControl`. This includes custom
+keyboard rebindings. Only simultaneous digital opposition uses newest-press memory; analogue stick
+values remain untouched. Other controls use the Input System's own value, and the old raw-keyboard
+fallback runs only when no `Move` action is available, so removed defaults do not survive a rebind.
 
 No validated baseline movement, gravity, Jump, Dash, wall, ledge, attack, pogo, hurt, or Bind value
 changed in this pass. Manual distance measurement, turn/buffer feel review, and the complete

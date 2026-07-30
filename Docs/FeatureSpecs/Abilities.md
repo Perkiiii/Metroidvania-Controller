@@ -123,8 +123,9 @@ sequence/version, its ground/air origin, direction, and typed end reason.
 
 A natural grounded completion may enter Wildstride immediately. A natural ordinary air-Dash
 completion may instead create one pending landing authorization. The first landing consumes that
-exact version whether entry succeeds or fails. Both entry paths use current movement direction and
-  require `sprintUnlocked`, held and armed Dash, active horizontal input, and no incompatible owner.
+exact version whether entry succeeds or fails. Both entry paths require `sprintUnlocked`, held and
+armed Dash, a valid direction (current input for initial entry/air-Dash landing, remembered sequence
+direction for an established Wildstride landing), and no incompatible owner.
   Zero resource does not block either path. Idle holds, cooldown holds, stale completions,
 cancelled Dashes, and unrelated landings cannot begin Wildstride.
 
@@ -134,16 +135,26 @@ Wildstride, jump carry, and direction are mirrored to the blackboard. Ordinary m
 requests `Walk`; grounded Wildstride requests `Wildstride`. `HeroMotor` remains the sole velocity
 writer.
 
-Jump uses the unchanged normal vertical path plus motor-owned horizontal carry. Its signed direction
-is captured at launch; opposite input cancels locked carry into motor-owned momentum decay and
-ordinary air steering. Landing resumes in the same fixed step only when carry authorization remains
-valid. Grounded direction reversal preserves authorization: the motor decelerates toward zero,
-changes facing at the turn seam, and accelerates in the new direction. Once grounded Wildstride is
-active, neutral horizontal input retains the last valid direction and continues Wildstride while
-Dash remains held and armed; a later opposite input uses the same turn path. Dash release ends the
-sequence. Neutral input remains a valid cancellation for airborne carry and the ledge buffer.
-Wall/ledge/pogo/Double Jump,
-Attack/Bind, hurt/death, control/input loss, scene lifecycle, and runtime unlock loss cancel it.
+Jump uses the unchanged normal vertical path plus motor-owned horizontal carry. The private phase
+model distinguishes `AirborneCarry` (forced `sprintJumpSpeed` plus first-landing authorisation) from
+`AirborneAuthorised` (forced carry ended; ordinary airborne steering/gravity active; first-landing
+authorisation retained). Carry ends at normal falling, neutral/opposite airborne input, Double Jump,
+or residual carry cleanup without ending the sequence. Landing consumes that authorisation exactly
+once and reconciles directly to grounded Wildstride in the same fixed step. There is no airborne
+timer, apex expiry, sustaining-state expiry, or generic-not-carrying expiry. Grounded direction
+reversal preserves authorization: the motor decelerates toward zero, changes facing at the turn
+seam, and accelerates in the new direction. Once grounded Wildstride is active, neutral horizontal
+input retains the last valid direction and continues Wildstride while Dash remains held and armed;
+a later opposite input uses the same turn path. Dash release ends the sequence.
+
+Double Jump cancels forced carry, leaves the existing normal Double Jump vertical path and tuning
+untouched, keeps Dash armed, and preserves an existing Wildstride landing authorisation. This is an
+intentional Underbrew continuity decision: the supplied Silksong C# proves that Double Jump cancels
+shuttlecock carry, but the hidden `sprintFSM` was not supplied, so its complete landing policy is
+not proven by the reference. Underbrew deliberately preserves landing Wildstride authorisation
+after Double Jump for continuity and game feel. An ordinary Jump plus Double Jump cannot create
+authorisation. Wall/ledge/pogo, Attack/Bind, hurt/death, control/input loss, scene lifecycle, and
+runtime unlock loss remain genuine hard cancellations.
 
 Base Wildstride, Dash, jump carry, and landing resumption never read or mutate
 `PlayerResourceState`. A provisional `sprintLedgeJumpBufferTime` (0.08 seconds) lets a Jump started

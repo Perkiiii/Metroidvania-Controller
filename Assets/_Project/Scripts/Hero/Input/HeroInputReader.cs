@@ -1,5 +1,7 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 [DisallowMultipleComponent]
 public sealed class HeroInputReader : MonoBehaviour
@@ -229,13 +231,24 @@ public sealed class HeroInputReader : MonoBehaviour
     {
         InputAction action = GetAction(moveAction, "Move");
         Vector2 value = action != null ? action.ReadValue<Vector2>() : Vector2.zero;
+
+        if (action != null)
+        {
+            // Dpad/2DVector composites intentionally collapse opposing digital parts to
+            // neutral. Resolve that one ambiguity from the action's bound controls so custom
+            // keyboard and D-pad rebindings receive the same newest-press behaviour.
+            if (TryResolveOppositeDigitalHorizontal(action, out float resolvedHorizontal)
+                && Mathf.Abs(value.x) <= Mathf.Epsilon)
+            {
+                value.x = resolvedHorizontal;
+            }
+
+            return value;
+        }
+
         Vector2 keyboardValue = ReadKeyboardMove();
 
-        if (Mathf.Abs(value.x) > Mathf.Epsilon)
-        {
-            lastHorizontalKeyboardDirection = value.x > 0f ? 1 : -1;
-        }
-        else if (Mathf.Abs(keyboardValue.x) > Mathf.Epsilon)
+        if (Mathf.Abs(keyboardValue.x) > Mathf.Epsilon)
         {
             value.x = keyboardValue.x;
         }
@@ -246,6 +259,102 @@ public sealed class HeroInputReader : MonoBehaviour
         }
 
         return value;
+    }
+
+    private bool TryResolveOppositeDigitalHorizontal(InputAction action, out float resolvedHorizontal)
+    {
+        resolvedHorizontal = 0f;
+        bool foundDigitalPart = false;
+        bool leftHeld = false;
+        bool rightHeld = false;
+        int newestDirection = 0;
+
+        foreach (InputControl control in action.controls)
+        {
+            if (control is DpadControl dpad)
+            {
+                foundDigitalPart = true;
+                if (dpad.left.isPressed)
+                {
+                    leftHeld = true;
+                    if (dpad.left.wasPressedThisFrame) newestDirection = -1;
+                }
+
+                if (dpad.right.isPressed)
+                {
+                    rightHeld = true;
+                    if (dpad.right.wasPressedThisFrame) newestDirection = 1;
+                }
+
+                continue;
+            }
+
+            if (!(control is ButtonControl button))
+            {
+                // Analog sticks and axes remain entirely under the Input System's normal
+                // composite/value resolution and never participate in keyboard press memory.
+                continue;
+            }
+
+            int bindingIndex = action.GetBindingIndexForControl(control);
+            if (bindingIndex < 0 || bindingIndex >= action.bindings.Count)
+            {
+                continue;
+            }
+
+            InputBinding binding = action.bindings[bindingIndex];
+            if (!binding.isPartOfComposite)
+            {
+                continue;
+            }
+
+            int direction = string.Equals(binding.name, "left", StringComparison.OrdinalIgnoreCase)
+                ? -1
+                : string.Equals(binding.name, "right", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            if (direction == 0)
+            {
+                continue;
+            }
+
+            foundDigitalPart = true;
+            if (button.isPressed)
+            {
+                if (direction < 0) leftHeld = true;
+                else rightHeld = true;
+
+                if (button.wasPressedThisFrame)
+                {
+                    newestDirection = direction;
+                }
+            }
+        }
+
+        if (!foundDigitalPart || (!leftHeld && !rightHeld))
+        {
+            lastHorizontalKeyboardDirection = 0;
+            return false;
+        }
+
+        if (leftHeld && rightHeld)
+        {
+            if (newestDirection != 0)
+            {
+                lastHorizontalKeyboardDirection = newestDirection;
+            }
+            else if (lastHorizontalKeyboardDirection == 0)
+            {
+                // Both controls becoming actuated in one input update has no representable
+                // press ordering; choose a stable direction until one control is released.
+                lastHorizontalKeyboardDirection = 1;
+            }
+
+            resolvedHorizontal = lastHorizontalKeyboardDirection;
+            return true;
+        }
+
+        lastHorizontalKeyboardDirection = leftHeld ? -1 : 1;
+        resolvedHorizontal = lastHorizontalKeyboardDirection;
+        return true;
     }
 
     private Vector2 ReadKeyboardMove()

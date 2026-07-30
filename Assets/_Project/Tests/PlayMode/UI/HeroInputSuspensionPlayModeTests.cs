@@ -441,4 +441,134 @@ public sealed class HeroInputSuspensionPlayModeTests
 
         yield return ReleaseMouse(mouse);
     }
+
+    [UnityTest]
+    public IEnumerator BoundKeyboardOppositesUseNewestPressAndRestoreOlderDirection()
+    {
+        yield return PressKey(keyboard, Key.A);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return PressKeys(keyboard, Key.A, Key.D);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.GreaterThan(0f));
+
+        yield return PressKey(keyboard, Key.A);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector, Is.EqualTo(Vector2.zero));
+    }
+
+    [UnityTest]
+    public IEnumerator BoundArrowOppositesUseNewestPressAndRestoreOlderDirection()
+    {
+        yield return PressKey(keyboard, Key.LeftArrow);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return PressKeys(keyboard, Key.LeftArrow, Key.RightArrow);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.GreaterThan(0f));
+
+        yield return PressKey(keyboard, Key.LeftArrow);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return ReleaseAllKeys(keyboard);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector, Is.EqualTo(Vector2.zero));
+    }
+
+    [UnityTest]
+    public IEnumerator CustomKeyboardCompositeRebindUsesTheSameOppositeResolution()
+    {
+        InputActionAsset customAsset = CreateCustomKeyboardMoveAsset();
+        yield return PressKey(keyboard, Key.Q);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return PressKey(keyboard, Key.A);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.Zero, "A removed default binding must not survive through the legacy fallback.");
+
+        yield return PressKeys(keyboard, Key.Q, Key.P);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.GreaterThan(0f));
+
+        yield return PressKey(keyboard, Key.Q);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        UnityEngine.Object.Destroy(customAsset);
+        yield return ReleaseAllKeys(keyboard);
+    }
+
+    [UnityTest]
+    public IEnumerator DpadOppositesUseNewestPressAndAnalogueReversalDoesNotUseDigitalMemory()
+    {
+        yield return QueueGamepad(GamepadButton.DpadLeft);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        yield return QueueGamepad(GamepadButton.DpadLeft, GamepadButton.DpadRight);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.GreaterThan(0f));
+
+        yield return QueueGamepad(GamepadButton.DpadLeft);
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.LessThan(0f));
+
+        GamepadState analogue = new GamepadState { leftStick = Vector2.right };
+        InputSystem.QueueStateEvent(gamepad, analogue);
+        yield return null;
+        Invoke(reader, "Tick");
+        Assert.That(MoveVector.x, Is.GreaterThan(0.5f));
+    }
+
+    private IEnumerator QueueGamepad(params GamepadButton[] buttons)
+    {
+        GamepadState state = new GamepadState();
+        foreach (GamepadButton button in buttons)
+        {
+            state = state.WithButton(button);
+        }
+
+        InputSystem.QueueStateEvent(gamepad, state);
+        yield return null;
+    }
+
+    private InputActionAsset CreateCustomKeyboardMoveAsset()
+    {
+        InputActionAsset source = UnityEditor.AssetDatabase.LoadAssetAtPath<InputActionAsset>(
+            "Assets/_Project/Input/InputSystem_Actions.inputactions");
+        InputActionAsset customAsset = InputActionAsset.FromJson(source.ToJson());
+        InputAction move = customAsset.FindAction("Player/Move", false);
+
+        for (int i = 0; i < move.bindings.Count; i++)
+        {
+            InputBinding binding = move.bindings[i];
+            if (!binding.isPartOfComposite)
+            {
+                continue;
+            }
+
+            if (binding.name.Equals("left", StringComparison.OrdinalIgnoreCase)
+                && binding.path == "<Keyboard>/a")
+            {
+                move.ApplyBindingOverride(i, "<Keyboard>/q");
+            }
+            else if (binding.name.Equals("right", StringComparison.OrdinalIgnoreCase)
+                && binding.path == "<Keyboard>/d")
+            {
+                move.ApplyBindingOverride(i, "<Keyboard>/p");
+            }
+        }
+
+        SetField(reader, "inputActions", customAsset);
+        reader.GetType().GetMethod("Initialize").Invoke(reader, new object[] { config });
+        return customAsset;
+    }
 }

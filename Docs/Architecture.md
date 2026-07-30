@@ -212,15 +212,20 @@ separate unlock. Dash publishes typed, versioned `HeroDashCompletion` snapshots.
 completion may hand off immediately; natural ordinary air completion may create a one-shot
 authorization consumed by the first landing whether entry succeeds or fails.
 
-`HeroSprintAction` keeps its phase, Dash versions, disarm state, captured airborne direction, and
-short ledge-jump buffer private. Only grounded Sprint, jump carry, and direction are mirrored to the
-blackboard. Base Wildstride is resource-free. Ordinary
+`HeroSprintAction` keeps its phase, Dash versions, landing authorisation, disarm state, captured
+airborne direction, and short ledge-jump buffer private. Its `AirborneCarry` phase owns forced
+horizontal carry plus first-landing permission; `AirborneAuthorised` owns ordinary airborne
+movement after carry ends while retaining that permission. Only grounded Sprint, carry presentation,
+and direction are mirrored to the blackboard. Base Wildstride is resource-free. Ordinary
 movement explicitly requests `Walk`; Wildstride requests `Wildstride`. `HeroMotor` owns speed,
 grounded reversal deceleration/acceleration, facing at the turn seam, captured horizontal jump
-carry, post-cancellation air steering/deceleration, and the death stationary request.
+carry, carry termination, post-cancellation air steering/deceleration, and the death stationary
+request.
 While active grounded Wildstride has neutral horizontal input, `HeroSprintAction` retains its last
 valid direction and `HeroActionController` continues that signed Wildstride locomotion request;
-entry still requires a qualifying direction and Dash sequence.
+entry still requires a qualifying direction and Dash sequence. A Wildstride Jump or landing may use
+the remembered sequence direction when current horizontal input is neutral; unrelated airtime and
+held Dash cannot manufacture that direction.
 `HeroActionController.FixedTick` prepares the private ledge-jump buffer before Jump, then reapplies
 locomotion after Dash/landing reconciliation and before `HeroMotor.FixedTick`, avoiding a one-step
 Walk gap. No Wildstride state writes `Rigidbody2D` directly.

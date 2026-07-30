@@ -116,13 +116,24 @@ landing consumes the exact version once even if entry checks fail.
 The action's small phase enum, consumed versions, command rearm, captured carry direction, and
 short ledge-jump buffer remain private. Only `sprinting`, `sprintJumpCarrying`, and direction are
 shared. Base Wildstride never reads or mutates `PlayerResourceState`. Jump carry is horizontal-only:
-`HeroJumpAction` retains the normal `HeroMotor.StartJump` path. Grounded reversal remains
-authorized while `HeroMotor` decelerates through zero and accelerates in the requested direction.
+`HeroJumpAction` retains the normal `HeroMotor.StartJump` path. The private Sprint phase separates
+forced `AirborneCarry` from `AirborneAuthorised`: carry owns the captured `sprintJumpSpeed`, while
+the latter lets ordinary air steering/gravity continue without expiring permission for the first
+landing. Grounded reversal remains authorized while `HeroMotor` decelerates through zero and
+accelerates in the requested direction.
 Active grounded Wildstride retains its last valid direction and continues to request that signed
 movement during neutral horizontal input while Dash remains held and armed. Initial entry still
 requires active direction, so an idle held Dash cannot synthesize Wildstride.
-Airborne carry is directionally captured; opposite input cancels it into motor-owned momentum decay
-and ordinary air steering.
+Airborne carry is directionally captured; normal falling, neutral input, opposite input, residual
+decay, and Double Jump end only the forced carry through `HeroMotor.EndWildstrideCarry()`. The
+sequence authorisation remains until Dash release, hard interruption, or its first landing. A
+Wildstride Jump and landing with neutral movement use the remembered authorised direction; current
+nonzero input takes priority.
+
+The Double Jump policy is intentional Underbrew continuity. The supplied Silksong C# proves that
+Double Jump cancels shuttlecock carry, but the hidden `sprintFSM` was not supplied and therefore does
+not prove its full landing policy. Underbrew preserves an already-established landing authorisation
+after Double Jump; an ordinary Jump plus Double Jump never creates one.
 
 Landing and Dash completion are reconciled in `HeroActionController.FixedTick`, which reapplies
 locomotion intent before `HeroMotor.FixedTick`. The restored Wildstride request and blackboard
@@ -130,9 +141,11 @@ snapshot are therefore visible to physics and LateUpdate animation in the same s
 intermediate Walk request/frame. External cleanup remains typed and idempotent.
 
 The provisional 0.08-second Sprint/ledge Jump buffer begins only when active grounded Wildstride
-leaves the ground. It is prepared before `HeroJumpAction` in the fixed-step order, consumed once by
-a valid Jump, and cleared by the established hard-interruption paths. Normal coyote and Jump-buffer
-tuning are unchanged.
+leaves the ground. It is prepared before `HeroJumpAction` in the fixed-step order, remains valid
+through neutral input, is consumed once by a valid Jump, and is cleared by the established
+hard-interruption paths. Its expiry controls only whether specialised carry may begin; it cannot
+expire an already-established airborne landing authorisation. Normal coyote and Jump-buffer tuning
+are unchanged.
 
 ---
 
