@@ -1,12 +1,13 @@
 # Feature Spec — UI Sandbox
 
-**Last reviewed:** 2026-07-27  
+**Last reviewed:** 2026-07-29
 **Canonical scene path:** `Assets/_Project/Scenes/UISandbox.unity` (relocated out of
 `Scenes/Development/`; the scene GUID was preserved by the move). `UIFoundationValidator` and this
 spec both use the new path.
 
-**Status:** Implemented (Package A1), including a correction pass, and extended in Package A2 with
-the real Gameplay Menu and isolated Gear fixtures. `UISandboxController`, HUD/Pause/modal fixtures, the Options preview
+**Status:** Implemented (Package A1), extended in Package A2, and reshaped as a Package A3 visual
+workbench with the real Gameplay Menu and isolated Gear fixtures. `UISandboxController`,
+HUD/Pause/modal fixtures, the Options preview
 placeholder (`SandboxOptionsPreviewPanel`), the Quit callback status label (`SandboxQuitCallbackStatus`),
 and `UIFoundationValidator`'s Sandbox checks exist and pass. Health/resource fixture presets are now
 deterministic across repeated clicks, and runtime boss-fixture `EnemyConfig` instances are tracked
@@ -18,6 +19,11 @@ Package A2 nested the real production `GameplayMenuScreen.prefab` under the Sand
 tab's production `PlayerAbilityState` and `GearDisplayCatalog` references are cleared on the
 Sandbox instance; `UISandboxController` supplies runtime-created isolated substitutes instead, and
 the validator now fails if either boundary is crossed in either direction.
+
+Package A3 adds `SandboxWorkbenchChrome`: a compact top toolbar, a narrow full-width-control
+fixture drawer, hidden-by-default neutral diagnostics, safe-area and background toggles, F1 drawer
+toggle, and automatic drawer collapse/restore around production root previews. The chrome owns no
+gameplay fixture state and is rejected from production by the validator.
 
 Two pre-existing composition defects in this scene were corrected while adding the A2 fixtures:
 
@@ -281,6 +287,9 @@ Implemented and passing (`UIFoundationValidator`, `Tools/Project/Validate UI Fou
   action references resolving to the expected `UI`-map actions.
 - `UISandboxController`, `SandboxOptionsPreviewPanel`, `SandboxQuitCallbackStatus`, and
   `SandboxDeveloperUtilityLayer` are absent from `_GameCameras.prefab`.
+- `SandboxWorkbenchChrome` is present exactly once in the Sandbox, fully wired, and absent from
+  `_GameCameras.prefab`; diagnostics default hidden.
+- Sandbox text uses assigned TMP fonts and resource/boss fixtures exercise masked fills.
 - Exactly one Sandbox-local `UIFlowController` owns both root prefabs.
 - Sandbox Canvas < Root < Modal < Developer Utility sorting is enforced; Root and Modal override
   nested sorting and each interactive layer retains its `GraphicRaycaster`.
@@ -290,9 +299,8 @@ mutate one health per actual button click and clamp, every resource action updat
 state and displayed current/capacity/fill, repeated fixture configuration/enable cycles do not
 duplicate listeners, and the deterministic presets remain stable.
 
-Not yet covered by the validator (Package A2+ scope, since Gear/Map/notification fixtures do not
-exist yet): fixture-only-tab production-enable prevention, true-new-game Gear fixture lock/empty
-check, missing-definition diagnostic. The boss-fixture `EnemyConfig` tracking/destroy fix has no
+Not covered by the validator: notification fixtures do not exist, and target-device safe-area
+appearance remains a manual visual check. The boss-fixture `EnemyConfig` tracking/destroy fix has no
 dedicated automated leak-detection test (`Destroy()` outside Play Mode logs an error in this Editor,
 making it impractical to assert in an EditMode test) — verified by code inspection only.
 
@@ -332,8 +340,8 @@ unchanged after a Sandbox session.
 
 ## Open decisions
 
-- Final Sandbox scene path/name and fixture-control UI.
-- Final Gear layout selected after prototypes.
+- Final art-review backdrop set and whether the workbench needs a visible scrollbar.
+- Whether approved Gear art direction retains the Package A3 list/details layout.
 - Final shipping aspect-ratio/safe-area targets.
 - Final shared-prefab boundaries and presentation animation approach.
 - Final artwork, typography, glyph, localization, accessibility, and motion direction.
@@ -343,4 +351,5 @@ unchanged after a Sandbox session.
 - `Docs/FeatureSpecs/UIArchitecture.md`
 - `Docs/FeatureSpecs/PauseAndMenuFlow.md`
 - `Docs/FeatureSpecs/Gear.md`
+- `Docs/FeatureSpecs/UIVisualFoundation.md`
 - `Docs/FeatureSpecs/HUD.md`

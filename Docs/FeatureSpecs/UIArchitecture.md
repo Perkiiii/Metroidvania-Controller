@@ -1,6 +1,6 @@
 # Feature Spec — UI Architecture
 
-**Last reviewed:** 2026-07-27  
+**Last reviewed:** 2026-07-29
 **Status:** Authoritative architecture. Package A1 (persistent `MenuRoot`, `UIFlowController`, root
 Pause menu, Sandbox) is implemented and covered by automated EditMode and PlayMode tests, both
 confirmed executing via the real Unity Test Runner, plus a passing `UIFoundationValidator` pass. A
@@ -13,9 +13,10 @@ Sandbox-only Options preview and Quit callback status were live-verified in a re
 session.
 
 Package A2.1 (the five-tab Gameplay Menu and read-only Gear) is implemented and covered by updated
-EditMode and PlayMode test coverage; tests and the validator are pending Sam's validation pass.
-Its cross-tab contract lives in
-`Docs/FeatureSpecs/GameplayMenu.md`. Package B (functional Options) has not been performed.
+EditMode and PlayMode test coverage. Package A3 adds the shared TMP visual foundation, safe-area
+HUD wrapper, masked resource and boss fills, local unscaled presentation motion, and Sandbox
+workbench chrome without changing gameplay ownership. Its contract lives in
+`Docs/FeatureSpecs/UIVisualFoundation.md`. Package B (functional Options) has not been performed.
 Interactive manual validation of the full production Boot path (keyboard/controller/mouse in the
 real gameplay scene, real room transitions, held-input timing) has not been performed — see
 `Docs/ImplementationPlan.md` for exact scope.
@@ -30,6 +31,7 @@ presentation boundaries. Specialized behavior belongs in:
 - `Docs/FeatureSpecs/GameplayMenu.md`
 - `Docs/FeatureSpecs/Gear.md`
 - `Docs/FeatureSpecs/UISandbox.md`
+- `Docs/FeatureSpecs/UIVisualFoundation.md`
 - `Docs/FeatureSpecs/Abilities.md`
 
 ## Goals
@@ -74,6 +76,7 @@ presentation boundaries. Specialized behavior belongs in:
 | Root Pause menu | Implemented (Package A1) | `PauseMenuScreen` + `ConfirmationModal` under `MenuRoot`; Options authored but production-gated non-functional; Quit is a development-gated typed request seam only |
 | Gameplay Menu (five visible tabs) | Implemented (Package A2.1) | `GameplayMenuScreen` under `MenuRoot/RootInterfaceLayer`, registered as the second `IUIFlowRootScreen` |
 | Gear | Implemented (Package A2), read-only | `GearScreen` reading `PlayerAbilityState` + `GearDisplayCatalog` (production catalogue intentionally empty until identities are approved) |
+| Visual foundation | Implemented (Package A3) | Presentation views/prefabs plus `UIVisualFoundation.md`; final art content remains deferred |
 | Combat Loadout / Satchel / Field Notes / Map data | Deferred | Tabs are visible with authored empty states; Field Notes will eventually contain Recipes, Tasks, and Journal sections |
 | Persistent MenuRoot/EventSystem | Implemented (Package A1) | `_GameCameras.prefab` → `MenuRoot` (`EventSystem`, `InputSystemUIInputModule`, `UIFlowController`, `RootInterfaceLayer`, `ModalLayer`) |
 | Notifications | Deferred | Future `NotificationRoot` or equivalent |
@@ -344,6 +347,11 @@ navigation, modal raycast blocking, 1.0-second lockout tuning, and cross-scene H
 validation. Package A2 adds Gear catalogue/definition references, layout, details, empty state, and
 tab registrations.
 
+Package A3 additionally authors the `SafeAreaContent` HUD wrapper, TMP labels, masked resource and
+boss fill hierarchies, selection/focus layers, root transitions, and
+`SandboxWorkbenchChrome`. `Tools/Project/UI/Apply Package A3 Visual Foundation` is the repeatable
+Editor authoring pass; it is not a runtime manager.
+
 Package A1 Unity Editor authoring performed: `System` map added to `InputSystem_Actions.inputactions`;
 `MenuRoot`/`EventSystem`/`InputSystemUIInputModule`/`UIFlowController` authored under
 `_GameCameras.prefab`; shared `PauseMenuScreen.prefab`/`ConfirmationModal.prefab` created and nested;
@@ -367,8 +375,10 @@ available automated runner environment, so no new PlayMode pass is claimed. `UIF
 Foundation`) passed: single persistent EventSystem with a fully-wired `InputSystemUIInputModule`
 (validated to fail when a reference is missing), no competing gameplay-scene EventSystem, Sandbox
 build exclusion, production-asset isolation, Sandbox-only-component production exclusion, Canvas/
-raycaster semantics, hidden-panel raycast safety. Tab filtering, Gear visibility/selection, and
-future stable-ID Map validation remain Package A2+ work.
+raycaster semantics, hidden-panel raycast safety, TMP/font assignment, masked-fill dependencies,
+safe-area composition, decorative HUD raycasts, and Sandbox workbench isolation. Gear
+visibility/selection and fixed five-tab validation are implemented; functional Map data remains
+deferred.
 
 ## Manual validation
 

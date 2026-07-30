@@ -39,6 +39,7 @@ public sealed class UISandboxControllerFixtureTests
         healthDisplay = new GameObject("HealthDisplay Test").AddComponent<HealthDisplay>();
         resourceDisplay = new GameObject("ResourceDisplay Test").AddComponent<ResourceDisplay>();
         resourceBar = new GameObject("ResourceBar Test").AddComponent<ResourceBarView>();
+        resourceBar.ConfigureDurations(0f, 0f, 0f);
         SetPrivate(resourceDisplay, "barView", resourceBar);
         healthDisplay.Configure(healthState);
         resourceDisplay.Configure(resourceState);

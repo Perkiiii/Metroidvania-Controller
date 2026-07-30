@@ -1,13 +1,18 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 public sealed class BossHealthDisplay : MonoBehaviour
 {
+    [Tooltip("Production presentation path. Owns masked fills and local unscaled animation only.")]
+    [SerializeField] private BossHealthBarView presentation;
+
+    [Header("Migration fallback")]
     [SerializeField] private CanvasGroup visibilityGroup;
     [SerializeField] private Image fillImage;
-    [SerializeField] private Text nameLabel;
+    [SerializeField] private TMP_Text nameLabel;
     [SerializeField] private Image iconImage;
 
     private readonly List<EnemyHealthComponent> healthRoster = new List<EnemyHealthComponent>();
@@ -93,19 +98,25 @@ public sealed class BossHealthDisplay : MonoBehaviour
             return;
         }
 
+        string displayName = request.Definition != null ? request.Definition.DisplayName : string.Empty;
+        Sprite icon = request.Definition != null ? request.Definition.DisplayIcon : null;
+
         if (nameLabel != null)
         {
-            nameLabel.text = request.Definition != null ? request.Definition.DisplayName : "";
+            nameLabel.text = displayName;
         }
 
         if (iconImage != null)
         {
-            Sprite icon = request.Definition != null ? request.Definition.DisplayIcon : null;
             iconImage.sprite = icon;
             iconImage.enabled = icon != null;
         }
 
-        RefreshAggregate();
+        RefreshAggregate(initialSnapshot: true);
+        if (presentation != null)
+        {
+            presentation.ShowSnapshot(displayName, icon, FillAmount01);
+        }
         ApplyVisibility(true);
     }
 
@@ -121,10 +132,10 @@ public sealed class BossHealthDisplay : MonoBehaviour
 
     private void HandleHealthChanged(int current, int maximum)
     {
-        RefreshAggregate();
+        RefreshAggregate(initialSnapshot: false);
     }
 
-    private void RefreshAggregate()
+    private void RefreshAggregate(bool initialSnapshot)
     {
         int current = 0;
         int maximum = 0;
@@ -146,6 +157,14 @@ public sealed class BossHealthDisplay : MonoBehaviour
         if (fillImage != null)
         {
             fillImage.fillAmount = FillAmount01;
+        }
+
+        if (!initialSnapshot)
+        {
+            if (presentation != null)
+            {
+                presentation.SetHealth(FillAmount01);
+            }
         }
     }
 
@@ -169,6 +188,10 @@ public sealed class BossHealthDisplay : MonoBehaviour
             fillImage.fillAmount = 0f;
         }
 
+        if (presentation != null)
+        {
+            presentation.HideImmediate();
+        }
         ApplyVisibility(false);
     }
 

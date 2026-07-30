@@ -87,6 +87,9 @@ public sealed class HealthDisplay : MonoBehaviour
     private void ApplySnapshot(int nextCurrent, int nextMaximum, int nextBonus,
         PlayerHealthChangeReason reason, bool gameplayChange)
     {
+        int previousCurrent = currentHealth;
+        int previousBonus = bonusHealth;
+
         maximumHealth = Mathf.Max(0, nextMaximum);
         currentHealth = Mathf.Clamp(nextCurrent, 0, maximumHealth);
         bonusHealth = Mathf.Max(0, nextBonus);
@@ -98,11 +101,27 @@ public sealed class HealthDisplay : MonoBehaviour
 
         RebuildSlots(normalSlots, normalSlotContainer, maximumHealth, HealthSlotVisualState.Empty);
         for (int i = 0; i < normalSlots.Count; i++)
-            normalSlots[i].SetState(i < currentHealth ? HealthSlotVisualState.Filled : HealthSlotVisualState.Empty);
+        {
+            HealthSlotVisualState nextState = i < currentHealth
+                ? HealthSlotVisualState.Filled
+                : HealthSlotVisualState.Empty;
+            HealthSlotFeedback feedback = HealthSlotFeedback.None;
+            if (gameplayChange && (i < previousCurrent) != (i < currentHealth))
+            {
+                feedback = i < currentHealth ? HealthSlotFeedback.Heal : HealthSlotFeedback.Damage;
+            }
+
+            normalSlots[i].SetState(nextState, feedback);
+        }
 
         RebuildSlots(bonusSlots, bonusSlotContainer, bonusHealth, HealthSlotVisualState.Bonus);
         for (int i = 0; i < bonusSlots.Count; i++)
-            bonusSlots[i].SetState(HealthSlotVisualState.Bonus);
+        {
+            HealthSlotFeedback feedback = gameplayChange && i >= previousBonus
+                ? HealthSlotFeedback.Bonus
+                : HealthSlotFeedback.None;
+            bonusSlots[i].SetState(HealthSlotVisualState.Bonus, feedback);
+        }
     }
 
     private void RebuildSlots(List<HealthSlotView> slots, Transform container, int required,

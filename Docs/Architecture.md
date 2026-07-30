@@ -21,7 +21,8 @@ HeroController (MonoBehaviour — coordinator)
 │   ├── HeroDashAction      (plain C# class)
 │   ├── HeroAttackAction    (plain C# class)
 │   ├── HeroWallSlideAction (plain C# class)
-│   └── HeroWallJumpAction  (plain C# class)
+│   ├── HeroWallJumpAction  (plain C# class)
+│   └── HeroLedgeClimbAction (plain C# class)
 ├── HeroAnimationController  Animancer playback driven by blackboard state
 └── HeroSceneEntry        scripted scene-entry motion coordinator (see Scene Transitions)
 ```
@@ -59,7 +60,7 @@ Single source of truth for the hero's runtime state. Written by Sensors, Motor, 
 `PersistentHudRoot` is the implemented presentation composition root under the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `ResourceDisplay` renders one continuous, always-visible bar. `PlayerResourceConfig.partsPerPip` is retained inert configuration and does not control current HUD grouping. `GameCameras` remains camera-only. See `Docs/FeatureSpecs/HUD.md`.
 
 ### HeroAnimationLibrary (ScriptableObject)
-Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, attackSide, attackUp, attackDown, bind) to `AnimationClip` references. Swapping a clip does not require code changes.
+Maps logical animation names (idle, walk, run, jump, fall, dash, wallSlide, ledgeClimb, attackSide, attackUp, attackDown, bind) to `AnimationClip` references. Swapping a clip does not require code changes.
 
 ### HeroAttackHit (readonly struct)
 Value type passed to hit-reaction interfaces. Contains: `Source` (GameObject), `Direction` (HeroAttackDirection), `Damage` (int), `Point` (Vector2), `ForceDirection` (Vector2).
@@ -113,6 +114,14 @@ Attack animation completion is signalled back to `HeroAttackAction.CompleteAttac
 ## Sensor System
 
 `HeroSensors` uses three-point raycasts (left, center, right / bottom, center, top) against `HeroConfig.terrainLayers`. Results are written to the blackboard each `FixedUpdate` before Motor runs. Probe distances and edge inset are tunable in `HeroConfig`.
+
+Strict ledge queries are also sensor-owned. `TryFindLedge` narrows candidates to the dedicated
+Terrain-only `HeroConfig.ledgeSurfaceLayers`, validates top samples, full standing support,
+collider-sized Catch/Crest/Standing clearance, seams, hazards, and `NoLedgeClimbVolume`. Its
+`LedgeProbeResult` stores explicit target-local positions under `TargetFrame`. `HeroLedgeClimbAction`
+resolves them each fixed step; `HeroMotor` owns gravity suspension, scripted position writes, and
+final placement. Entry is evaluated before wall slide, but an established wall slide blocks it.
+See `Docs/FeatureSpecs/LedgeClimb.md`.
 
 ---
 

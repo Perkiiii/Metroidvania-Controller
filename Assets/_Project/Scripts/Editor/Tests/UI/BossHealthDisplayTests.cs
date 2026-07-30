@@ -9,6 +9,9 @@ public sealed class BossHealthDisplayTests
     private BossHealthDisplay display;
     private CanvasGroup canvasGroup;
     private Image fillImage;
+    private BossHealthBarView presentation;
+    private HorizontalMaskedFillView mainFill;
+    private HorizontalMaskedFillView trailingFill;
     private GameObject healthRoot;
     private EnemyConfig[] configs;
 
@@ -18,7 +21,15 @@ public sealed class BossHealthDisplayTests
         displayObject = new GameObject("Boss Health Display Test");
         canvasGroup = displayObject.AddComponent<CanvasGroup>();
         fillImage = displayObject.AddComponent<Image>();
+        presentation = displayObject.AddComponent<BossHealthBarView>();
+        mainFill = CreateMaskedFill("Main Fill");
+        trailingFill = CreateMaskedFill("Trailing Fill");
+        SetPrivateField(presentation, "visibilityGroup", canvasGroup);
+        SetPrivateField(presentation, "mainFill", mainFill);
+        SetPrivateField(presentation, "trailingFill", trailingFill);
+        presentation.ConfigureDurations(0f, 0f, 0f, 0f);
         display = displayObject.AddComponent<BossHealthDisplay>();
+        SetPrivateField(display, "presentation", presentation);
         SetPrivateField(display, "visibilityGroup", canvasGroup);
         SetPrivateField(display, "fillImage", fillImage);
         InvokePrivate(display, "OnEnable");
@@ -63,6 +74,8 @@ public sealed class BossHealthDisplayTests
         Assert.That(display.CurrentHealth, Is.EqualTo(7));
         Assert.That(display.FillAmount01, Is.EqualTo(0.875f).Within(0.0001f));
         Assert.That(fillImage.fillAmount, Is.EqualTo(0.875f).Within(0.0001f));
+        Assert.That(mainFill.FillAmount01, Is.EqualTo(0.875f).Within(0.0001f));
+        Assert.That(trailingFill.FillAmount01, Is.EqualTo(0.875f).Within(0.0001f));
     }
 
     [Test]
@@ -124,6 +137,27 @@ public sealed class BossHealthDisplayTests
         configs[configIndex] = config;
         health.Initialize(config, blackboard, body, null);
         return health;
+    }
+
+    private HorizontalMaskedFillView CreateMaskedFill(string objectName)
+    {
+        GameObject trackObject = new GameObject(objectName + " Track", typeof(RectTransform));
+        trackObject.transform.SetParent(displayObject.transform, false);
+        RectTransform track = (RectTransform)trackObject.transform;
+        track.sizeDelta = new Vector2(200f, 20f);
+
+        GameObject viewportObject = new GameObject(objectName + " Viewport",
+            typeof(RectTransform), typeof(RectMask2D), typeof(HorizontalMaskedFillView));
+        viewportObject.transform.SetParent(track, false);
+        RectTransform viewport = (RectTransform)viewportObject.transform;
+
+        GameObject artworkObject = new GameObject(objectName + " Artwork", typeof(RectTransform));
+        artworkObject.transform.SetParent(viewport, false);
+        RectTransform artwork = (RectTransform)artworkObject.transform;
+
+        HorizontalMaskedFillView view = viewportObject.GetComponent<HorizontalMaskedFillView>();
+        view.Configure(track, viewport, artwork);
+        return view;
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

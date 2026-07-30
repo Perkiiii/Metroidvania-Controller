@@ -195,6 +195,9 @@ Spirit Cast is the first ranged combat ability. A cast fires a forward-travellin
 - Locomotion-modifying abilities (sprint) must route movement changes through the action/motor/config pipeline — they may not write `Rigidbody2D` velocity directly or bypass `HeroMotor`.
 - Combat abilities that spawn entities (spirit cast) must separate cast logic from spawned entity behaviour — the action class is responsible up to and including the spawn request only.
 - Standard wall jump and wall latch are distinct behaviours and must remain so even though both interact with wall-slide state. Do not merge them into a single action class.
+- Ledge climb is always available core movement. Do not add it to `AbilityId` or
+  `PlayerAbilityState`, and do not merge it with the planned Wall Latch ability. Its isolated
+  tuning remains in `HeroConfig`; see `Docs/FeatureSpecs/LedgeClimb.md`.
 
 ## Planned validation
 

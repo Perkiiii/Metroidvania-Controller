@@ -129,7 +129,7 @@ public sealed class HudDisplayTests
     }
 
     [Test]
-    public void ResourceFullCapacityDisplaysFullPipsAndRejectsFurtherGain()
+    public void ResourceFullCapacityDisplaysFullBarAndRejectsFurtherGain()
     {
         resource.Gain(100);
 
@@ -139,7 +139,7 @@ public sealed class HudDisplayTests
     }
 
     [Test]
-    public void ResourceZeroCapacityIsSafeAndHidden()
+    public void ResourceZeroCapacityIsSafeAndKeepsHudFrameVisible()
     {
         resource.SetMaximumParts(0);
 

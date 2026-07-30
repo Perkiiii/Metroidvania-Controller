@@ -1,0 +1,21 @@
+public enum LedgeProbeFailure
+{
+    None,
+    NotInitialized,
+    NoFrontWall,
+    NoTopSurface,
+    UnsupportedLayer,
+    TriggerSurface,
+    UnsupportedRigidbodySurface,
+    HeightOutOfRange,
+    SurfaceTooSteep,
+    SurfaceHeightMismatch,
+    UnsupportedGap,
+    AmbiguousGeometry,
+    CatchBlocked,
+    CrestBlocked,
+    StandingBlocked,
+    CorridorBlocked,
+    RestrictedVolume,
+    TargetInvalid
+}

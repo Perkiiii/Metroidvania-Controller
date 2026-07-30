@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,7 +35,7 @@ public sealed class SandboxDeveloperUtilityLayer : MonoBehaviour
     [SerializeField] private Button forceHideRootsButton;
 
     [Header("Readout")]
-    [SerializeField] private Text statusLabel;
+    [SerializeField] private TMP_Text statusLabel;
 
     private string lastAction = "none yet";
 

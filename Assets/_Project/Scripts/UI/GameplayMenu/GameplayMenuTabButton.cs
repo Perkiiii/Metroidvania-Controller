@@ -1,5 +1,7 @@
 using System;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
@@ -13,10 +15,11 @@ using UnityEngine.UI;
 /// fully editable by the UI/UX partner.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class GameplayMenuTabButton : MonoBehaviour
+public sealed class GameplayMenuTabButton : MonoBehaviour,
+    ISelectHandler, IDeselectHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [SerializeField] private Button button;
-    [SerializeField] private Text label;
+    [SerializeField] private TMP_Text label;
 
     [Tooltip("Underline/marker shown only while this tab is the active one.")]
     [SerializeField] private Graphic activeIndicator;
@@ -24,6 +27,8 @@ public sealed class GameplayMenuTabButton : MonoBehaviour
     [Tooltip("This tab's authored accent glyph. Its colour is authored per tab; only its alpha is " +
         "driven here, so the accent hue is never overwritten by code.")]
     [SerializeField] private Graphic glyph;
+    [Tooltip("Independent focus/hover channel. Active-tab identity never uses this object.")]
+    [SerializeField] private Graphic focusIndicator;
 
     [Tooltip("Drives the cell's width in the strip's HorizontalLayoutGroup.")]
     [SerializeField] private LayoutElement layoutElement;
@@ -55,6 +60,8 @@ public sealed class GameplayMenuTabButton : MonoBehaviour
 
     /// <summary>Width this cell wants when not compact; the strip uses it to decide whether it fits.</summary>
     public float ExpandedWidth => expandedWidth;
+    public bool HasFocus { get; private set; }
+    public bool IsHovered { get; private set; }
 
     private void Awake()
     {
@@ -65,6 +72,7 @@ public sealed class GameplayMenuTabButton : MonoBehaviour
 
         ApplyActivePresentation();
         ApplyCompactPresentation();
+        ApplyFocusPresentation();
     }
 
     private void OnDestroy()
@@ -130,6 +138,38 @@ public sealed class GameplayMenuTabButton : MonoBehaviour
             Color authored = glyph.color;
             authored.a = IsActiveTab ? activeGlyphAlpha : inactiveGlyphAlpha;
             glyph.color = authored;
+        }
+    }
+
+    public void OnSelect(BaseEventData eventData)
+    {
+        HasFocus = true;
+        ApplyFocusPresentation();
+    }
+
+    public void OnDeselect(BaseEventData eventData)
+    {
+        HasFocus = false;
+        ApplyFocusPresentation();
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        IsHovered = true;
+        ApplyFocusPresentation();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        IsHovered = false;
+        ApplyFocusPresentation();
+    }
+
+    private void ApplyFocusPresentation()
+    {
+        if (focusIndicator != null)
+        {
+            focusIndicator.gameObject.SetActive(HasFocus || IsHovered);
         }
     }
 

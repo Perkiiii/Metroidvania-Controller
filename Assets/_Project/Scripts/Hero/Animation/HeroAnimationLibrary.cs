@@ -12,10 +12,11 @@ public sealed class HeroAnimationLibrary : ScriptableObject
     public AnimationClip jump;
     public AnimationClip fall;
 
-    [Header("Future Traversal")]
+    [Header("Traversal")]
     public AnimationClip dash;
     public AnimationClip wallSlide;
     public AnimationClip wallJump;
+    public AnimationClip ledgeClimb;
 
     [Header("Future Combat")]
     public AnimationClip attackSide;

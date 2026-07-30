@@ -1,6 +1,6 @@
 # Feature Spec — HUD
 
-**Last audited:** 2026-07-27
+**Last audited:** 2026-07-29
 
 ## Responsibilities
 
@@ -17,12 +17,14 @@ Implemented and verified under `Assets/_Project/Scripts/UI/`, living under the p
 - `HealthDisplay` subscribes directly to `PlayerHealthState.Changed` and renders dynamic normal/bonus slots.
 - `ResourceDisplay` subscribes directly to `PlayerResourceState.Changed` and renders a single always-visible horizontal fill bar (`ResourceBarView`), fill = `CurrentParts / MaximumParts`, clamped to `[0,1]`, zero when `MaximumParts == 0`.
 - `BossHealthDisplay` is always enabled but hidden by `CanvasGroup` until a stateless `BossHudEventService` show request supplies a source token, display metadata, and explicit initialized `EnemyHealthComponent` roster.
+- Package A3 adds the production safe-area wrapper, layered health-slot states, masked resource
+  artwork, a masked main/trailing boss bar, TMP labels, and restrained unscaled local feedback.
 - The HUD camera (`HUDCamera`) is a URP Overlay camera (`ClearFlags = Nothing`) stacked onto the gameplay `MainCamera` — it does not clear the gameplay view.
 
 `ResourcePipView` (the pre-bar-refactor discrete pip/orb presentation) has been removed; no orb or pip presentation remains anywhere in the project.
 
-The implemented HUD foundation is not a stub. Final artwork, animation, audio, and additional
-feedback remain planned presentation work.
+The implemented HUD foundation is not a stub. Final illustrated sprites, bespoke typography,
+audio, accessibility, and platform-specific safe-area review remain content work.
 
 ## Ownership and lifecycle
 
@@ -49,20 +51,23 @@ UGUI with the existing `HUDCamera` (Overlay, stacked on `MainCamera`):
 _GameCameras (persistent, DontDestroyOnLoad)
 └── HUDRoot (PersistentHudRoot)
     └── HUD Canvas (Screen Space - Camera, HUDCamera, sortingOrder 100)
-        ├── Player HUD
-        │   ├── Health Display (HealthDisplay)
-        │   │   ├── Normal Health Container
-        │   │   └── Bonus Health Container
-        │   └── Resource Display (ResourceDisplay + CanvasGroup)
-        │       └── Frame/Background
-        │           └── Fill (ResourceBarView)
-        └── Boss Health Display (BossHealthDisplay + CanvasGroup)
-            ├── Background
-            │   └── Fill
-            └── Boss Name
+        └── SafeAreaContent (SafeAreaInset)
+            ├── Player HUD
+            │   ├── Health Display (HealthDisplay)
+            │   │   ├── Normal Health Container
+            │   │   └── Bonus Health Container
+            │   └── Resource Display (ResourceDisplay + CanvasGroup)
+            │       └── Frame / Background
+            │           └── Fill (ResourceBarView + HorizontalMaskedFillView)
+            └── Boss Health Display (BossHealthDisplay + BossHealthBarView + CanvasGroup)
+                ├── Background
+                │   ├── TrailingFillViewport (HorizontalMaskedFillView)
+                │   └── Fill (HorizontalMaskedFillView)
+                └── Boss Name
 ```
 
-`FadeCanvas` remains a sibling of `HUDRoot` under `_GameCameras` for transition fades. Final layout groups, placeholder sprites, and feedback polish remain Editor/art work — no visual redesign is in scope for this milestone.
+`FadeCanvas` remains a sibling of `HUDRoot` under `_GameCameras` for transition fades. Palette,
+spacing, TMP, masked-fill, and local-motion rules are defined in `UIVisualFoundation.md`.
 
 ## Health display
 
@@ -82,6 +87,10 @@ The bar's `CanvasGroup` is always forced to `alpha = 1` (`IsVisible` is hardcode
 
 `StateApplied` and `Reset` refresh without gain/spend feedback (`OnResourceChanged` excludes both from `gameplayChange`). `Gain`, `Spend`, `MaximumChanged`, and `Cleared` (fired when resource is forfeited on death) update the display and count toward `GameplayFeedbackCount`.
 
+The production fill is revealed through `HorizontalMaskedFillView` and `RectMask2D`; its artwork
+retains full track width. Gain/spend interpolation and the edge pulse use unscaled time. Clear is
+immediate and quiet. `Image.fillAmount` remains only a migration/test fallback.
+
 `ResourceDisplay.Configure(PlayerResourceState, PlayerResourceConfig)` — the two-argument overload — is retained only for backward compatibility with callers authored before the bar refactor; the `PlayerResourceConfig` argument is ignored by the bar presentation. `PlayerResourceConfig.partsPerPip` itself is retained as inert configuration (still exercised by `HudDisplayTests` fixture setup) but no longer read by any presentation code.
 
 ## Bind affordability
@@ -94,13 +103,16 @@ The encounter controller shows the HUD only after every participant actor has in
 
 A matching hide request clears visibility, source identity, roster references, and subscriptions. A request from any other source is ignored. Completion, failed startup, hero-death interruption, and controller disable/unload all send source-scoped hide requests.
 
+`BossHealthBarView` is presentation-only. It shows the initial aggregate immediately, moves the
+main fill first on damage, delays the trailing fill, and moves both fills together on healing.
+
 ## Rules
 
 - No HUD component calls `GetComponent` or performs scene searches per frame.
 - No HUD component writes `Time.timeScale`, controls, health, resource, or save data.
 - Gameplay-context events remain separate from neutral state display events.
 - State application never appears as damage, healing, resource gain, or resource spending.
-- Boss HUD artwork and animation remain placeholder presentation; per-ordinary-enemy health bars are not implemented.
+- Boss HUD artwork remains provisional; per-ordinary-enemy health bars are not implemented.
 - `HUDRoot` does not own `MenuRoot`, future `NotificationRoot`, Quick Map, or frontend UI.
 - Ability flags and Gear ownership never become combat-HUD state merely to populate presentation.
 
@@ -115,7 +127,7 @@ The following are planned or deferred and must not be described as implemented:
 - Tutorial prompts.
 - Possible equipped consumable/brew slots.
 - Temporary status indicators.
-- Final health/resource/boss visual, animation, and audio feedback.
+- Final illustrated health/resource/boss artwork and audio feedback.
 
 `NotificationRoot` is the future sibling presentation composition for acquisition, area-title,
 save, and tutorial notifications. Its queue/event/content ownership requires a separate approved
@@ -131,16 +143,17 @@ implementation; it is not folded into `PersistentHudRoot` or the planned menu co
 
 ## Unity Editor work
 
-The implemented hierarchy and references already exist on
-`Assets/_Project/Prefabs/Managers/_GameCameras.prefab`. Future HUD presentation work must:
+The Package A3 hierarchy and references are authored on
+`Assets/_Project/Prefabs/Managers/_GameCameras.prefab`. Future HUD content work must:
 
 - Preserve one `PersistentHudRoot`, the dedicated URP Overlay `HUDCamera`, and existing direct state
   references.
-- Author final art/animation/audio without changing gameplay ownership.
+- Replace the documented art seams without changing gameplay ownership or masked-fill structure.
 - Verify menus/future notifications use sibling layering and do not block HUD raycasts while hidden.
 - Validate supported aspect ratios and safe areas once target platforms are approved.
 
-No Unity Editor work was performed by this documentation update.
+Package A3 Editor work added `SafeAreaContent`, the resource/boss masked-fill hierarchies,
+`BossHealthBarView`, TMP labels, and non-raycasting decorative graphics.
 
 ## Automated and manual regression validation
 
@@ -151,9 +164,9 @@ continuous resource fill including zero capacity, and source-scoped aggregate bo
 Manual regression should verify one persistent HUD across Boot-driven room transitions; no feedback
 on save/reset application; health damage/heal/bonus/death presentation; resource gain/spend/clear;
 boss initialization, aggregation, lethal zero, interruption, and unload cleanup; menu visual
-coverage without subscription loss; and common input/aspect-ratio combinations. No Unity
-compilation, tests, Editor validation, visual validation, or playtesting was run for this
-documentation update.
+coverage without subscription loss; and common input/aspect-ratio combinations. Package A3 adds
+focused masked-fill coverage and validator checks; exact executed results are recorded in the
+implementation handoff rather than frozen into this durable contract.
 
 ## Risks
 
@@ -165,7 +178,7 @@ documentation update.
 
 ## Open decisions
 
-- Final health/resource/boss artwork, typography, animation, and audio feedback.
+- Final health/resource/boss artwork, bespoke typography, accessibility, and audio feedback.
 - Which planned prompts, indicators, temporary statuses, and possible consumable/brew slots are
   approved for the combat HUD.
 - Final supported aspect-ratio, safe-area, localization, and accessibility requirements.
@@ -177,4 +190,5 @@ documentation update.
 - `Docs/FeatureSpecs/UIArchitecture.md`
 - `Docs/FeatureSpecs/PauseAndMenuFlow.md`
 - `Docs/FeatureSpecs/Gear.md`
+- `Docs/FeatureSpecs/UIVisualFoundation.md`
 - `Docs/FeatureSpecs/Abilities.md`

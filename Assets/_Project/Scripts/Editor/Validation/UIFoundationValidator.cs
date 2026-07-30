@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -9,9 +10,9 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// UI foundation validator (Packages A1 + A2). Checks the persistent MenuRoot composition, the
+/// UI foundation validator (Packages A1 + A2 + A3). Checks the persistent MenuRoot composition, the
 /// registered pausing roots, the five-tab Gameplay Menu contract, the Gear display catalogue, the
-/// production/Sandbox boundary, and semantic Canvas layering described in
+/// production/Sandbox boundary, presentation foundation, and semantic Canvas layering described in
 /// Docs/FeatureSpecs/UIArchitecture.md, Docs/FeatureSpecs/GameplayMenu.md, and
 /// Docs/FeatureSpecs/UISandbox.md.
 /// </summary>
@@ -184,6 +185,7 @@ public static class UIFoundationValidator
             }
 
             issues += ValidateGameplayMenuScreen(menuRoot);
+            issues += ValidateProductionVisualFoundation(root.transform);
 
             Transform rootLayerT = menuRoot.Find("RootInterfaceLayer");
             Transform modalLayerT = menuRoot.Find("ModalLayer");
@@ -384,6 +386,93 @@ public static class UIFoundationValidator
         }
 
         issues += ValidateGearTab(screen);
+        return issues;
+    }
+
+    private static int ValidateProductionVisualFoundation(Transform root)
+    {
+        int issues = ValidateTextFoundation(root, "_GameCameras.prefab");
+
+        SafeAreaInset[] safeAreas = root.GetComponentsInChildren<SafeAreaInset>(true);
+        if (safeAreas.Length != 1)
+        {
+            Debug.LogError($"[UIFoundationValidator] _GameCameras.prefab must contain exactly one SafeAreaInset around the production HUD; found {safeAreas.Length}.");
+            issues++;
+        }
+
+        ResourceBarView[] resourceBars = root.GetComponentsInChildren<ResourceBarView>(true);
+        if (resourceBars.Length != 1 || !resourceBars[0].UsesMaskedFill)
+        {
+            Debug.LogError($"[UIFoundationValidator] Production HUD must contain exactly one ResourceBarView using HorizontalMaskedFillView; found {resourceBars.Length} bar(s).");
+            issues++;
+        }
+
+        BossHealthBarView[] bossViews = root.GetComponentsInChildren<BossHealthBarView>(true);
+        if (bossViews.Length != 1)
+        {
+            Debug.LogError($"[UIFoundationValidator] Production HUD must contain exactly one BossHealthBarView; found {bossViews.Length}.");
+            issues++;
+        }
+        else
+        {
+            SerializedObject bossSo = new SerializedObject(bossViews[0]);
+            issues += RequireReference(bossSo, "visibilityGroup", "BossHealthBarView.visibilityGroup");
+            issues += RequireReference(bossSo, "nameLabel", "BossHealthBarView.nameLabel");
+            issues += RequireReference(bossSo, "mainFill", "BossHealthBarView.mainFill");
+            issues += RequireReference(bossSo, "trailingFill", "BossHealthBarView.trailingFill");
+        }
+
+        HorizontalMaskedFillView[] maskedFills =
+            root.GetComponentsInChildren<HorizontalMaskedFillView>(true);
+        if (maskedFills.Length != 3)
+        {
+            Debug.LogError($"[UIFoundationValidator] Production HUD must contain three masked fills (resource, boss main, boss trailing); found {maskedFills.Length}.");
+            issues++;
+        }
+        foreach (HorizontalMaskedFillView fill in maskedFills)
+        {
+            if (!fill.HasValidDependencies)
+            {
+                Debug.LogError($"[UIFoundationValidator] Masked fill '{fill.name}' has incomplete track/viewport/artwork references.");
+                issues++;
+            }
+        }
+
+        Transform hud = FindDeep(root, "HUDRoot");
+        if (hud != null)
+        {
+            foreach (Graphic graphic in hud.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic.raycastTarget && graphic.GetComponentInParent<Selectable>() == null)
+                {
+                    Debug.LogError($"[UIFoundationValidator] Decorative HUD graphic '{graphic.name}' still targets raycasts.");
+                    issues++;
+                }
+            }
+        }
+
+        return issues;
+    }
+
+    private static int ValidateTextFoundation(Transform root, string label)
+    {
+        int issues = 0;
+        UnityEngine.UI.Text[] legacyText = root.GetComponentsInChildren<UnityEngine.UI.Text>(true);
+        if (legacyText.Length > 0)
+        {
+            Debug.LogError($"[UIFoundationValidator] {label} contains {legacyText.Length} legacy UnityEngine.UI.Text component(s); Package A3 presentation uses TextMesh Pro.");
+            issues += legacyText.Length;
+        }
+
+        foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text.font == null)
+            {
+                Debug.LogError($"[UIFoundationValidator] TMP label '{text.name}' in {label} has no font asset.");
+                issues++;
+            }
+        }
+
         return issues;
     }
 
@@ -614,6 +703,12 @@ public static class UIFoundationValidator
             issues++;
         }
 
+        if (root.GetComponentInChildren<SandboxWorkbenchChrome>(true) != null)
+        {
+            Debug.LogError("[UIFoundationValidator] _GameCameras.prefab must not contain SandboxWorkbenchChrome; workbench controls are Sandbox-only.");
+            issues++;
+        }
+
         foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
         {
             if (child.name == "DeveloperUtilityLayer")
@@ -768,6 +863,7 @@ public static class UIFoundationValidator
         }
 
         issues += ValidateSandboxRootFlowAndDeveloperLayer(scene, controller);
+        issues += ValidateSandboxVisualFoundation(scene);
 
         // The Sandbox nests the real Gameplay Menu prefab, so its Gear tab must have the production
         // ability state and catalogue cleared — UISandboxController supplies runtime-created
@@ -784,6 +880,61 @@ public static class UIFoundationValidator
                 Debug.LogError("[UIFoundationValidator] Sandbox GearScreen references the production GearDisplayCatalog; Sandbox fixtures must use a runtime-created catalogue.");
                 issues++;
             }
+        }
+
+        return issues;
+    }
+
+    private static int ValidateSandboxVisualFoundation(Scene scene)
+    {
+        int issues = 0;
+        SandboxWorkbenchChrome[] chrome = FindAllInScene<SandboxWorkbenchChrome>(scene);
+        if (chrome.Length != 1)
+        {
+            Debug.LogError($"[UIFoundationValidator] UISandbox.unity must contain exactly one SandboxWorkbenchChrome; found {chrome.Length}.");
+            return 1;
+        }
+
+        SerializedObject chromeSo = new SerializedObject(chrome[0]);
+        string[] requiredChromeReferences =
+        {
+            "uiFlow", "eventSystem", "previewBackground", "safeAreaGuide", "fixtureDrawer",
+            "diagnosticsDrawer", "toolbarStatus", "fixtureToggleButton",
+            "diagnosticsToggleButton", "safeAreaToggleButton", "backgroundToggleButton"
+        };
+        foreach (string field in requiredChromeReferences)
+        {
+            issues += RequireReference(chromeSo, field, $"SandboxWorkbenchChrome.{field}");
+        }
+
+        SerializedProperty diagnosticsProp = chromeSo.FindProperty("diagnosticsDrawer");
+        GameObject diagnostics = diagnosticsProp != null
+            ? diagnosticsProp.objectReferenceValue as GameObject
+            : null;
+        if (diagnostics != null && diagnostics.activeSelf)
+        {
+            Debug.LogError("[UIFoundationValidator] Sandbox diagnostics drawer must be hidden by default.");
+            issues++;
+        }
+
+        HorizontalMaskedFillView[] fills = FindAllInScene<HorizontalMaskedFillView>(scene);
+        if (fills.Length < 3)
+        {
+            Debug.LogError($"[UIFoundationValidator] UISandbox.unity must preview resource, boss main, and boss trailing masked fills; found {fills.Length}.");
+            issues++;
+        }
+        foreach (HorizontalMaskedFillView fill in fills)
+        {
+            if (!fill.HasValidDependencies)
+            {
+                Debug.LogError($"[UIFoundationValidator] Sandbox masked fill '{fill.name}' has incomplete references.");
+                issues++;
+            }
+        }
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            issues += ValidateTextFoundation(root.transform, "UISandbox.unity");
         }
 
         return issues;

@@ -174,6 +174,50 @@ Upward velocity applied to the hero immediately after an airborne downslash hits
 
 ---
 
+## Ledge Climb — HeroConfig
+
+```
+ledgeSurfaceLayers:              Terrain
+ledgeMaxUpwardSpeed:             5
+ledgeMinimumHeightFromFeet:      0.25
+ledgeMaximumHeightFromFeet:      1.35
+ledgeTopProbeExtraHeight:        0.3
+ledgeTopSampleInset:             0.04
+ledgeSurfaceHeightTolerance:     0.08
+ledgeMinimumUpNormal:            0.85
+ledgeSupportGapTolerance:        0.08
+ledgePlacementSkin:              0.02
+ledgeCatchDrop:                  0.1
+ledgeCatchDuration:              0.08
+ledgePullUpDuration:             0.28
+ledgeSettleDuration:             0.05
+```
+
+These values are an isolated first-pass ledge package derived from the current hero collider and
+representative static Terrain geometry. The three phase durations total 0.41 seconds to align with
+the current placeholder presentation, but code timing—not animation—is authoritative. No existing
+movement, dash, wall, combat, hurt, pogo, Bind, or resource value was modified.
+
+The serialized HeroConfig/HeroAbilityConfig values currently differ from values recorded in
+HeroFeelTuning.md. This discrepancy predates ledge-climb work and must be resolved in a dedicated
+feel-baseline reconciliation pass.
+
+### Ledge-specific manual checks
+
+- [ ] Fall toward a valid wall top while pressing toward it; Catch should win before wall slide.
+- [ ] Remain on a tall wall without a valid top; existing wall slide and wall jump feel must remain unchanged.
+- [ ] Confirm an established wall slide never pulls into mantle.
+- [ ] Confirm a ground-initiated dash can mantle only after leaving the ground.
+- [ ] Confirm a grounded dash into a wall base cannot mantle.
+- [ ] Confirm an air dash into a valid ledge stays consumed and keeps its cooldown.
+- [ ] Confirm narrow, low-ceiling, Breakable, hazardous, moving, and authored-excluded candidates reject.
+- [ ] Confirm aligned static seams work and visible unsupported gaps reject.
+- [ ] Interrupt each phase with damage, hazard, death, control lock, and scene transition; gravity and movement must recover.
+- [ ] Remove the ledge clip and repeat; gameplay must still complete.
+- [ ] Rerun every existing Movement, Dash, Wall, Combat, Damage, and Bind/Resource check below.
+
+---
+
 ## WARNING — Do Not Casually Change These Values
 
 The following values are load-bearing for the feel of the entire hero. Changing any of them shifts multiple interacting systems simultaneously:

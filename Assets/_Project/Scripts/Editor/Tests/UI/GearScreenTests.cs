@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,7 +28,7 @@ public sealed class GearScreenTests
     private GearEntryView entryTemplate;
     private GearDetailsPanel detailsPanel;
     private GameObject detailsContent;
-    private Text detailsName;
+    private TMP_Text detailsName;
     private PlayerAbilityState abilityState;
     private GearDisplayCatalog catalog;
 
@@ -51,7 +52,7 @@ public sealed class GearScreenTests
         GameObject detailsGo = Child(populatedRoot, "Details");
         detailsPanel = detailsGo.AddComponent<GearDetailsPanel>();
         detailsContent = Child(detailsGo, "DetailsContent");
-        detailsName = Child(detailsContent, "Name").AddComponent<Text>();
+        detailsName = Child(detailsContent, "Name").AddComponent<TextMeshProUGUI>();
         SetPrivate(detailsPanel, "contentRoot", detailsContent);
         SetPrivate(detailsPanel, "nameLabel", detailsName);
 
@@ -114,7 +115,7 @@ public sealed class GearScreenTests
         Button button = go.AddComponent<Button>();
         GearEntryView view = go.AddComponent<GearEntryView>();
         SetPrivate(view, "button", button);
-        SetPrivate(view, "nameLabel", Child(go, "Name").AddComponent<Text>());
+        SetPrivate(view, "nameLabel", Child(go, "Name").AddComponent<TextMeshProUGUI>());
         return view;
     }
 

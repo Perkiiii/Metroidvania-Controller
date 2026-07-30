@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,11 +14,11 @@ public sealed class GearDetailsPanel : MonoBehaviour
     [SerializeField] private GameObject contentRoot;
 
     [SerializeField] private Image artwork;
-    [SerializeField] private Text nameLabel;
-    [SerializeField] private Text categoryLabel;
-    [SerializeField] private Text descriptionLabel;
-    [SerializeField] private Text controlHintLabel;
-    [SerializeField] private Text flavourLabel;
+    [SerializeField] private TMP_Text nameLabel;
+    [SerializeField] private TMP_Text categoryLabel;
+    [SerializeField] private TMP_Text descriptionLabel;
+    [SerializeField] private TMP_Text controlHintLabel;
+    [SerializeField] private TMP_Text flavourLabel;
 
     public void Show(GearDisplayDefinition definition)
     {

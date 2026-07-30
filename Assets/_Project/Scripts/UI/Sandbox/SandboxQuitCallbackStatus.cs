@@ -1,5 +1,5 @@
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// Sandbox-only visible proof that <see cref="PauseMenuScreen.QuitToMainMenuRequested"/> actually
@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public sealed class SandboxQuitCallbackStatus : MonoBehaviour
 {
     [SerializeField] private PauseMenuScreen pauseMenuScreen;
-    [SerializeField] private Text statusText;
+    [SerializeField] private TMP_Text statusText;
 
     private int firedCount;
 

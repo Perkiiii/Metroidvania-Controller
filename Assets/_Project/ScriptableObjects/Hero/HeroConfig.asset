@@ -58,6 +58,22 @@ MonoBehaviour:
   ceilingProbeDistance: 0.08
   wallProbeDistance: 0.1
   sensorInset: 0.02
+  ledgeSurfaceLayers:
+    serializedVersion: 2
+    m_Bits: 128
+  ledgeMaxUpwardSpeed: 5
+  ledgeMinimumHeightFromFeet: 0.25
+  ledgeMaximumHeightFromFeet: 1.35
+  ledgeTopProbeExtraHeight: 0.3
+  ledgeTopSampleInset: 0.04
+  ledgeSurfaceHeightTolerance: 0.08
+  ledgeMinimumUpNormal: 0.85
+  ledgeSupportGapTolerance: 0.08
+  ledgePlacementSkin: 0.02
+  ledgeCatchDrop: 0.1
+  ledgeCatchDuration: 0.08
+  ledgePullUpDuration: 0.28
+  ledgeSettleDuration: 0.05
   maxHealth: 5
   iFrameDuration: 1.5
   hurtStunDuration: 0.35

@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,8 +23,8 @@ public sealed class GameplayMenuEmptyTabView : MonoBehaviour, IGameplayMenuTab
     [SerializeField] private GameObject contentRoot;
 
     [Header("Authored copy (presentation only)")]
-    [SerializeField] private Text titleLabel;
-    [SerializeField] private Text bodyLabel;
+    [SerializeField] private TMP_Text titleLabel;
+    [SerializeField] private TMP_Text bodyLabel;
 
     [Tooltip("Optional decorative motif. Never a data-bearing icon.")]
     [SerializeField] private Graphic motif;

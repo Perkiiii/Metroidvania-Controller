@@ -46,6 +46,7 @@ Subsystem responsibilities:
 | `dashing` | DashAction | AttackAction, Motor, Animation |
 | `attacking`, `attackDirection` | AttackAction | Animation |
 | `wallSliding` | WallSlideAction | Motor, Animation |
+| `ledgeClimbing` | LedgeClimbAction | ActionController, Motor, Animation |
 | `jumping`, `jumpSustaining` | Motor | JumpAction, Animation |
 | `facingRight`, `FacingDirection` | Motor | AttackAction, Sensors, Motor visuals |
 | `velocity` | Motor | Animation |
@@ -85,6 +86,20 @@ the movement is visible without a late camera correction.
 `HeroMotor` remains the only authority that writes scripted-entry `Rigidbody2D` velocity. Camera
 readiness changes no run acceleration, top speed, entry distance, duration, or supported direction.
 `HeroSceneEntry` retains its own control-lock and guaranteed motor cleanup contract.
+
+---
+
+## Ledge Climb
+
+`HeroLedgeClimbAction` is an always-available plain-C# action. It is evaluated before wall-slide
+entry, but it cannot start from an established wall slide or while grounded. A horizontal dash may
+supply approach intent; a successful candidate ends dash through `HeroDashAction` ownership before
+the ledge motor mode begins.
+
+`HeroSensors` owns strict Terrain-only geometry validation and returns target-local Catch, Crest,
+and Standing positions under an explicit `TargetFrame`. `HeroMotor` alone suppresses normal
+movement, suspends gravity, advances the code-timed phases, and performs exact final placement.
+Animation is optional presentation. See `Docs/FeatureSpecs/LedgeClimb.md`.
 
 ---
 

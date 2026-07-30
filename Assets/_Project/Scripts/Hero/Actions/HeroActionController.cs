@@ -25,6 +25,7 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroStateBlackboard blackboard;
     private HeroInputReader input;
     private HeroMotor motor;
+    private HeroSensors sensors;
     private HeroAudioController heroAudio;
     private PlayerAbilityState abilityState;
     private PlayerResourceConfig resourceConfig;
@@ -37,6 +38,7 @@ public sealed class HeroActionController : MonoBehaviour
     private HeroWallSlideAction wallSlide;
     private HeroWallJumpAction wallJump;
     private HeroBindAction bind;
+    private HeroLedgeClimbAction ledgeClimb;
 
     public int AttackVersion => attack != null ? attack.AttackVersion : 0;
 
@@ -46,6 +48,7 @@ public sealed class HeroActionController : MonoBehaviour
         HeroStateBlackboard stateBlackboard,
         HeroInputReader inputReader,
         HeroMotor heroMotor,
+        HeroSensors heroSensors,
         HeroAudioController heroAudio,
         PlayerAbilityState abilityState,
         PlayerResourceState resourceState,
@@ -57,6 +60,7 @@ public sealed class HeroActionController : MonoBehaviour
         blackboard = stateBlackboard;
         input = inputReader;
         motor = heroMotor;
+        sensors = heroSensors;
         this.heroAudio = heroAudio;
         this.abilityState = abilityState;
         this.healthState = healthState;
@@ -77,6 +81,14 @@ public sealed class HeroActionController : MonoBehaviour
             abilityState,
             () => animations != null && animations.CanPlayBindAnimation,
             () => animations?.StopBindAnimation());
+        ledgeClimb = new HeroLedgeClimbAction(
+            config,
+            blackboard,
+            input,
+            motor,
+            sensors,
+            dash,
+            () => animations?.StopLedgeClimbAnimation());
     }
 
     public void SetAnimationController(HeroAnimationController animationController)
@@ -88,6 +100,13 @@ public sealed class HeroActionController : MonoBehaviour
     {
         if (config == null || blackboard == null || input == null || motor == null)
         {
+            return;
+        }
+
+        if (ledgeClimb != null && ledgeClimb.IsActive)
+        {
+            dash?.TickCooldown(Time.deltaTime);
+            ApplyLocomotionIntent();
             return;
         }
 
@@ -118,6 +137,11 @@ public sealed class HeroActionController : MonoBehaviour
             return;
         }
 
+        if (ledgeClimb != null && ledgeClimb.FixedTick(fixedDeltaTime))
+        {
+            return;
+        }
+
         wallSlide.FixedTick();
         wallJump.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);
@@ -133,6 +157,16 @@ public sealed class HeroActionController : MonoBehaviour
     public void CancelBind()
     {
         bind?.Cancel();
+    }
+
+    public void CancelLedgeClimb()
+    {
+        ledgeClimb?.Cancel();
+    }
+
+    public void CompleteLedgeClimbFromAnimation()
+    {
+        ledgeClimb?.CompleteFromAnimation();
     }
 
     public void CompleteBindFromAnimation()
@@ -165,6 +199,7 @@ public sealed class HeroActionController : MonoBehaviour
         float moveX = blackboard.controlLocked
             || blackboard.inputBlocked
             || blackboard.dashing
+            || blackboard.ledgeClimbing
             || blackboard.binding
             ? 0f
             : input.MoveVector.x;
@@ -175,6 +210,11 @@ public sealed class HeroActionController : MonoBehaviour
         {
             motor.SetFacingDirection(moveX > 0f ? 1 : -1);
         }
+    }
+
+    private void OnDisable()
+    {
+        ledgeClimb?.Cancel(HeroLedgeClimbCancelReason.ComponentDisabled);
     }
 
     private HeroAttackModule[] ResolveAttackModules()

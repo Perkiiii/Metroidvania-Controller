@@ -82,6 +82,7 @@ public class HeroController : MonoBehaviour
         }
 
         actions?.CancelBind();
+        actions?.CancelLedgeClimb();
         controlLocks.Add(source);
         blackboard.controlLocked = controlLocks.Count > 0;
     }
@@ -115,12 +116,14 @@ public class HeroController : MonoBehaviour
     public void BeginSceneEntryPlacement(TransitionPoint destinationGate)
     {
         actions?.CancelBind();
+        actions?.CancelLedgeClimb();
         if (sceneEntry != null) sceneEntry.PrepareSceneEntry(destinationGate);
     }
 
     public void BeginSceneEntryMotion(TransitionPoint destinationGate)
     {
         actions?.CancelBind();
+        actions?.CancelLedgeClimb();
         if (sceneEntry != null) sceneEntry.PlaySceneEntryMotion(destinationGate);
     }
 
@@ -157,6 +160,7 @@ public class HeroController : MonoBehaviour
         inputReader?.ClearTransientInput();
         actions?.CancelAttack();
         actions?.CancelBind();
+        actions?.CancelLedgeClimb();
     }
 
     public void BeginGameplayInputResume() => inputReader?.BeginResumeGameplayInput();
@@ -194,6 +198,7 @@ public class HeroController : MonoBehaviour
 
         actions.CancelAttack();
         actions.CancelBind();
+        actions.CancelLedgeClimb();
         motor.ResetMotion();
         motor.SetNormalMovementSuppressed(false);
         body.bodyType = RigidbodyType2D.Dynamic;
@@ -209,6 +214,7 @@ public class HeroController : MonoBehaviour
         blackboard.downAttacking = false;
         blackboard.wallSliding = false;
         blackboard.wallJumping = false;
+        blackboard.ledgeClimbing = false;
         blackboard.jumping = false;
         blackboard.jumpSustaining = false;
         blackboard.rising = false;
@@ -285,7 +291,7 @@ public class HeroController : MonoBehaviour
         sensors.Initialize(config, blackboard, body, bodyCollider);
         motor.Initialize(config, abilityConfig, blackboard, body, bodyCollider, spriteRenderer, spriteRoot);
         audioController.Initialize(config, blackboard);
-        actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, audioController, abilityState, resourceState, healthState, resourceConfig);
+        actions.Initialize(config, abilityConfig, blackboard, inputReader, motor, sensors, audioController, abilityState, resourceState, healthState, resourceConfig);
         animations.Initialize(config, blackboard, motor, animancer, actions, animationLibrary);
         actions.SetAnimationController(animations);
         health.Initialize(config, healthState);
@@ -300,7 +306,7 @@ public class HeroController : MonoBehaviour
 
     private void CheckLanding()
     {
-        if (blackboard.grounded && !blackboard.wasGrounded)
+        if (blackboard.grounded && !blackboard.wasGrounded && !blackboard.ledgeClimbing)
         {
             audioController.PlayLand();
         }
@@ -312,6 +318,7 @@ public class HeroController : MonoBehaviour
         blackboard.recoiling = true;
         actions.CancelAttack();
         actions.CancelBind();
+        actions.CancelLedgeClimb();
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -330,6 +337,7 @@ public class HeroController : MonoBehaviour
         blackboard.actorState = HeroActorState.Hurt;
         actions.CancelAttack();
         actions.CancelBind();
+        actions.CancelLedgeClimb();
         flasher?.FlashHit();
         audioController.PlayTakeDamage();
         CameraShakeRequester.ShakeHit();
@@ -339,6 +347,7 @@ public class HeroController : MonoBehaviour
     {
         blackboard.actorState = HeroActorState.Dead;
         actions.CancelBind();
+        actions.CancelLedgeClimb();
         AddControlLock(this);
         body.linearVelocity = Vector2.zero;
         body.bodyType = RigidbodyType2D.Kinematic;

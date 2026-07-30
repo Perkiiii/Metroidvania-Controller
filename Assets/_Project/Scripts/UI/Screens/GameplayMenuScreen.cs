@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -48,7 +49,8 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
 
     [Tooltip("Shows the active tab's player-facing name below the strip. This is what keeps the " +
         "active tab named at narrow aspect ratios, where the per-tab titles collapse to glyphs.")]
-    [SerializeField] private Text activeTabTitleLabel;
+    [SerializeField] private TMP_Text activeTabTitleLabel;
+    [SerializeField] private UIVisualTransition visualTransition;
 
     [Header("Top tab strip")]
     [Tooltip("Viewport the horizontal strip is laid out inside. Its width decides whether the " +
@@ -291,6 +293,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
         // UIFlowController applies FirstSelection immediately after Show(), so this must not
         // establish selection itself (doing so would double-select and fight root-level entry).
         ApplyActiveTab(target, SelectionPolicy.None);
+        visualTransition?.PlayShow();
     }
 
     public void Hide()
@@ -313,6 +316,7 @@ public sealed class GameplayMenuScreen : MonoBehaviour, IUIFlowRootScreen
             visualRoot.SetActive(false);
         }
 
+        visualTransition?.SnapVisible();
         isShown = false;
     }
 

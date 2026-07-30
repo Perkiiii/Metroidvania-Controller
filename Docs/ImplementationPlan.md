@@ -23,7 +23,7 @@ This is a living document. Update when milestones complete or priorities shift.
 | Ability unlock system | Done |
 | Save / load system | Done (Milestone 0 foundation + World Persistence Phase 1/2/3; multi-slot UI deferred) |
 | Scene transitions | Done (Milestone 1 — single-scene `LoadSceneAsync`; additive loading and world-state deferred) |
-| UI (HUD, menus) | HUD presentation foundation implemented; Package A1 (Pause menu, MenuRoot, input foundation, Sandbox) and Package A2.1 (five-tab Gameplay Menu, read-only Gear) implemented; tests and validator updated for Sam's validation pass; production Boot-path interactive manual validation pending; Package B not started |
+| UI (HUD, menus) | Package A1 (flow/Sandbox), A2.1 (five-tab Gameplay Menu/read-only Gear), and A3 (visual foundation/HUD presentation/Sandbox workbench) implemented; production Boot-path interactive manual validation and final art remain pending; Package B not started |
 | Audio system | Partial |
 
 ---
@@ -39,6 +39,7 @@ contracts now live in:
 - `Docs/FeatureSpecs/Gear.md`
 - `Docs/FeatureSpecs/UISandbox.md`
 - `Docs/FeatureSpecs/HUD.md`
+- `Docs/FeatureSpecs/UIVisualFoundation.md`
 - `Docs/FeatureSpecs/Abilities.md`
 
 `Docs/ImplementationPlans/UIA2ImplementationPlan.md` is the approved Package A2 planning record and
@@ -52,10 +53,9 @@ entry below for exact scope and what remains unvalidated (interactive manual che
 production Boot path).
 
 Package A2 (Stage 0 ability defaults, the original Gameplay Menu shell, and read-only Gear) was
-implemented at the historical baseline. Package A2.1 now corrects the top-level structure to five
-tabs while retaining read-only Gear. Tests and validator execution are intentionally left to Sam;
-no passing result is claimed here. Package B has not been performed. The implemented persistent HUD foundation is retained as an existing
-dependency, not counted as new menu work.
+implemented at the historical baseline. Package A2.1 corrects the top-level structure to five tabs
+while retaining read-only Gear. Package A3 implements the provisional visual foundation without
+adding deferred gameplay domains. Package B has not been performed.
 
 ### Documentation/design contract
 
@@ -194,13 +194,38 @@ Planning record: `Docs/ImplementationPlans/UIA2ImplementationPlan.md`. Contract:
   `GameplayMenuScreen`.
 - [x] Sandbox nests the real prefab with isolated runtime ability state and fixture catalogue.
 - [x] Validator and EditMode/PlayMode/asset-contract coverage updated for the five-tab contract;
-  Codex did not execute tests or the validator during this pass.
+  the Package A3 pass retains and reruns the focused coverage.
 - [ ] **Production Gear definitions.** The production catalogue is intentionally empty — no
   physical Gear identity, name, artwork, or copy has been approved. Everything else is in place.
 - [ ] Production layout comparison of authored groups vs authored tableau vs list. A list + details
   composition was chosen as a reversible first pass; the alternatives remain open.
 - [ ] Interactive manual validation with real keyboard/controller/mouse devices and the production
   Boot path.
+
+### Package A3 — Visual foundation, HUD presentation, and UI workbench
+
+**Status: Implemented; validator passing, full EditMode 473/473, UI PlayMode 34/34. Production
+Boot-path interactive review and final art content remain pending.**
+
+Contract: `Docs/FeatureSpecs/UIVisualFoundation.md`.
+
+- [x] Shared palette, spacing, hierarchy, TMP typography, selection/focus, and unscaled local
+  transition language applied to the Package A prefabs.
+- [x] Production HUD safe-area wrapper, layered health states, masked continuous resource fill,
+  and source-neutral boss presentation with main/trailing masked fills.
+- [x] Five-tab structure and deferred-domain ownership preserved; no invented Loadout, inventory,
+  Field Notes, Map, notification, settings, or save state.
+- [x] Gear list/details hierarchy refined while preserving read-only ability-backed filtering,
+  stable-key selection, and the intentionally empty production catalogue.
+- [x] Sandbox reshaped into a compact visual workbench with collapsible fixtures,
+  hidden-by-default diagnostics, background/safe-area checks, and automatic root-preview collapse.
+- [x] `UIFoundationValidator` extended for TMP/font assignment, masked-fill wiring, safe-area and
+  decorative-raycast checks, and Sandbox-workbench production exclusion.
+- [x] Focused masked-fill and presentation regression coverage added/updated; the 2026-07-29 Unity
+  Test Runner pass completed 473/473 EditMode and 34/34 UI PlayMode tests.
+- [ ] Approved art sprites, bespoke TMP font/fallbacks, icons/glyphs, localization, accessibility,
+  and target-device safe-area review.
+- [ ] Production Boot-path keyboard/controller/mouse and room-transition validation.
 
 ### Package B — First functional settings integration
 
@@ -224,7 +249,7 @@ Quit to Main Menu remains incomplete until a frontend destination and save polic
   action for the pausing Gameplay Menu Full Map tab. Tab is provisionally reserved for Map on
   keyboard. Map remains outside Package A.
 - Notifications and acquisition presentation.
-- HUD final artwork and feedback.
+- HUD final illustrated artwork, audio, and accessibility review.
 - Complete accessibility, localization, input rebinding, glyph, display, and safe-area support.
 
 ---
@@ -364,6 +389,12 @@ world persistence (timed suppression on scene re-initialization) is implemented 
 - [x] Implement `AbilityGate` MonoBehaviour. (Done — refreshes on enable for loaded state and reacts to `PlayerAbilityState.AbilityChanged` for runtime changes)
 - [x] Implement wall-jump (`HeroWallJumpAction`). (Done)
 - [x] Implement double-jump first pass (`HeroJumpAction`). (Done)
+- [x] Implement always-available static-terrain ledge climb (`HeroLedgeClimbAction`). (Done —
+  airborne-only entry; pre-wall-slide arbitration; dash-to-mantle ownership handoff; strict
+  Terrain/composite/adjacent-seam validation; target-local result data; minimal authored
+  exclusion volume; code-owned Catch/PullUp/Settle completion. Moving platforms, one-way
+  platforms, Wall Latch, and indefinite hanging remain excluded. See
+  `Docs/FeatureSpecs/LedgeClimb.md`.)
 - [ ] Implement wall-latch / aimed wall launch (`HeroWallLatchAction`).
 - [ ] Implement sprint (`HeroSprintAction`).
 - [ ] Author a gate in the test level that requires an unlocked ability to pass.
@@ -450,7 +481,7 @@ validation remain before Phase 2B.
 
 ## Milestone 5 — Polish Pass
 
-- [x] Persistent health and resource HUD — UGUI views subscribe directly to `PlayerHealthState` and `PlayerResourceState`; Canvas hierarchy and Inspector wiring are built into `_GameCameras.prefab` (Milestone 6, verified during Milestone 7). Final art polish remains explicitly out of scope.
+- [x] Persistent health and resource HUD — UGUI views subscribe directly to `PlayerHealthState` and `PlayerResourceState`; Canvas hierarchy and Inspector wiring are built into `_GameCameras.prefab` (Milestone 6, verified during Milestone 7). Package A3 adds the visual foundation; final illustrated art remains a content pass.
 - [ ] Pause menu wired through `GameManager.Pause()` / `Unpause()`.
 - [ ] Main menu scene — loaded from boot on fresh start; "New Game" calls `SaveManager.CreateFreshSave(0)` and `BeginSceneTransition(firstScene)`; "Continue" calls `SaveManager.LoadOrCreate(0)` and `BeginSceneTransition(SaveManager.GetStartupScene(firstScene))`.
 - [ ] Save slot UI — show `SaveStats` (scene, play time, ability count) per slot; `SaveManager.GetSaveStats(slot)` for read-only previews.
@@ -462,13 +493,13 @@ validation remain before Phase 2B.
 
 ## Milestone 6 — Persistent Health and Resource HUD
 
-**Status:** Implemented and verified (Milestone 7 pass confirmed exactly one HUD instance, Overlay camera configuration, and no duplicate subscriptions). Placeholder artwork remains Editor/art work, out of scope.
+**Status:** Implemented and verified (Milestone 7 pass confirmed exactly one HUD instance, Overlay camera configuration, and no duplicate subscriptions). Package A3 adds masked-fill/TMP/safe-area presentation; final illustrated artwork remains an art pass.
 
 - [x] Add `PersistentHudRoot`, `HealthDisplay`, and `ResourceDisplay` under `Assets/_Project/Scripts/UI/`.
 - [x] Render dynamic normal/bonus health slots and a single always-visible horizontal resource fill bar (`ResourceBarView`) — the earlier discrete pip/orb presentation (`ResourcePipView`) was removed as obsolete in Milestone 7.
 - [x] Subscribe directly to persistent state change events with explicit initial refresh and neutral save/reset handling.
 - [x] Create the persistent HUD Canvas hierarchy and Inspector assignments on `_GameCameras.prefab`, including the `HUDCamera` Overlay/stack configuration.
-- [x] Automated coverage of persistence, gain/spend, damage/heal, zero-capacity, and duplicate-subscription behavior (`HudDisplayTests`). Placeholder artwork and full in-Editor Play Mode visual validation remain manual/Editor work.
+- [x] Automated coverage of persistence, gain/spend, damage/heal, zero-capacity, masked-fill behavior, and duplicate subscriptions (`HudDisplayTests`, `HorizontalMaskedFillViewTests`). Final art and production-path interactive review remain manual work.
 
 ---
 
@@ -535,7 +566,7 @@ validation remain before Phase 2B.
 
 - ~~**`AbilityPickup` world-state gap.**~~ Resolved in World Persistence Phase 2 — collection now records `WorldStateRegistry.MarkPickupCollected` alongside `PlayerAbilityState.Unlock`, and initialization reconciles the two in favor of `PlayerAbilityState`.
 
-- **HUD placeholder artwork remains Editor/art work.** `PersistentHudRoot`, `HealthDisplay`, and `ResourceDisplay` provide direct persistent-state subscriptions and neutral initial/state-applied refreshes; the `_GameCameras` Canvas hierarchy and Inspector assignments are already built and verified (Milestone 7). Only final visual artwork/animation polish remains, and it is explicitly out of scope.
+- **HUD final illustrated artwork remains art work.** `PersistentHudRoot`, state subscriptions, Package A3 masked-fill/TMP presentation, safe-area hierarchy, and local unscaled feedback are built and validated. Approved sprites, bespoke type, audio, accessibility, and device review remain.
 
 - **Prefab / Inspector wiring.** `Bootstrap` requires five prefab references (`GameManager`, `SaveManager`, `AudioManager`, `GameCameras`, `InteractManager`) and one string field (`firstScene`). `SaveManager` prefab requires its ordered target list to contain `PlayerAbilityState`, `PlayerHealthState`, and `PlayerResourceState`. The Hero prefab's `HeroController.healthState` field must reference the same `PlayerHealthState.asset`. Verify all in-editor after any prefab refactor.
 

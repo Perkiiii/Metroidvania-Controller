@@ -20,6 +20,7 @@ MonoBehaviour:
   dash: {fileID: 7400000, guid: f89fc89cb67f49a408c6ea2713fb69b2, type: 2}
   wallSlide: {fileID: 7400000, guid: 0c3d62c30a3cb384d9a944dba1abd4a8, type: 2}
   wallJump: {fileID: 7400000, guid: cc893bc6c59c129418cdbc2abd7c6938, type: 2}
+  ledgeClimb: {fileID: 7400000, guid: ede855230f907e74eba90c0a1915ad0f, type: 2}
   attackSide: {fileID: 7400000, guid: 54c5306d4773d38499210eb648b71185, type: 2}
   attackUp: {fileID: 7400000, guid: 54c5306d4773d38499210eb648b71185, type: 2}
   attackDown: {fileID: 7400000, guid: 54c5306d4773d38499210eb648b71185, type: 2}

@@ -1,7 +1,8 @@
 # Feature Spec — Gear
 
 **Last reviewed:** 2026-07-27  
-**Status:** Authoritative player-facing Gear contract. Implemented in Package A2: `GearScreen`,
+**Status:** Authoritative player-facing Gear contract. Implemented in Package A2 and visually
+founded in Package A3: `GearScreen`,
 `GearDisplayDefinition`, `GearDisplayCatalog`, `GearEntryView`, `GearDetailsPanel`, the `GearTab`
 and `GearEntryView` prefabs, EditMode/PlayMode coverage, and validator rules.
 
@@ -205,10 +206,11 @@ Prototype in the UI Sandbox:
 | Authored collection/tableau | Acquired keys appear in authored zones without mystery framing | Strong physical-possession identity | More aspect-ratio and navigation work |
 | Simple list/grid fallback | Visible entries in stable order beside details | Fastest and easiest to validate | May read as a generic inventory |
 
-Recommended direction is a bespoke physical-progression presentation using authored groups or an
-authored collection, subject to UI/UX review. The list/grid remains the functional comparator and
-fallback. The chosen layout must support zero entries without appearing broken and must not encode
-coordinates in display definitions.
+Package A3 retains the reversible list/details composition and gives it a deliberate 38/62 split,
+selected-row accent independent of EventSystem focus, framed details hierarchy, and a large
+replaceable art seam. A bespoke physical-progression tableau remains a future art-direction option.
+Any replacement must support zero entries without appearing broken and must not encode coordinates
+in display definitions.
 
 ## Refresh and feedback
 
@@ -287,6 +289,8 @@ Still required, pending approval:
 - Author approved `GearDisplayDefinition` assets — physical identity, name, category, artwork,
   functional description, flavour text, and optional control hint — one per approved ability.
   Nothing else is blocking a populated Gear screen.
+- Replace the provisional detail-art frame and list motifs with approved project art while
+  preserving the current view fields and stable-key selection.
 
 ## Provisional decisions to review
 
@@ -320,7 +324,8 @@ Still required, pending approval:
 
 ## Open decisions
 
-- Final layout after Sandbox prototypes.
+- Whether approved art direction keeps the Package A3 list/details composition or replaces it with
+  a bespoke tableau.
 - Final empty-state copy and artwork.
 - Final physical names, categories, artwork, and flavour text, especially Double Jump.
 - Approved physical identities/content for Dash, Wall Cling, and other ability flags.

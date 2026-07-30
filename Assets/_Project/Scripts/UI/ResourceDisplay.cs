@@ -105,6 +105,18 @@ public sealed class ResourceDisplay : MonoBehaviour
         }
 
         if (barView != null)
-            barView.SetFill(fillAmount01);
+        {
+            ResourceBarChangePresentation presentation = ResourceBarChangePresentation.Snap;
+            if (gameplayChange)
+            {
+                presentation = reason == PlayerResourceChangeReason.Gain
+                    ? ResourceBarChangePresentation.Gain
+                    : reason == PlayerResourceChangeReason.Cleared
+                        ? ResourceBarChangePresentation.Cleared
+                        : ResourceBarChangePresentation.Spend;
+            }
+
+            barView.SetFill(fillAmount01, presentation);
+        }
     }
 }

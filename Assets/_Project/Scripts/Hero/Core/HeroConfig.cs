@@ -58,6 +58,23 @@ public sealed class HeroConfig : ScriptableObject
     public float wallProbeDistance = 0.1f;
     public float sensorInset = 0.02f;
 
+    [Header("Ledge Climb")]
+    [Tooltip("Static surface layers eligible to become a ledge. Keep this narrower than terrainLayers.")]
+    public LayerMask ledgeSurfaceLayers = 1 << 7;
+    [Min(0f)] public float ledgeMaxUpwardSpeed = 5f;
+    [Min(0f)] public float ledgeMinimumHeightFromFeet = 0.25f;
+    [Min(0f)] public float ledgeMaximumHeightFromFeet = 1.35f;
+    [Min(0f)] public float ledgeTopProbeExtraHeight = 0.3f;
+    [Min(0f)] public float ledgeTopSampleInset = 0.04f;
+    [Min(0f)] public float ledgeSurfaceHeightTolerance = 0.08f;
+    [Range(0f, 1f)] public float ledgeMinimumUpNormal = 0.85f;
+    [Min(0f)] public float ledgeSupportGapTolerance = 0.08f;
+    [Min(0f)] public float ledgePlacementSkin = 0.02f;
+    [Min(0f)] public float ledgeCatchDrop = 0.1f;
+    [Min(0.01f)] public float ledgeCatchDuration = 0.08f;
+    [Min(0.01f)] public float ledgePullUpDuration = 0.28f;
+    [Min(0.01f)] public float ledgeSettleDuration = 0.05f;
+
     [Header("Health")]
     [Tooltip("Legacy serialized value. PlayerHealthState is the authoritative maximum-health owner.")]
     [System.Obsolete("Use PlayerHealthState.MaximumHealth. This field remains serialized for migration safety.")]

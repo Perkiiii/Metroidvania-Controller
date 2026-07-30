@@ -35,10 +35,7 @@ public sealed class HeroDashAction
 
     public void Tick(float deltaTime)
     {
-        if (cooldownTimer > 0f)
-        {
-            cooldownTimer -= deltaTime;
-        }
+        TickCooldown(deltaTime);
 
         if (blackboard.grounded)
         {
@@ -49,6 +46,31 @@ public sealed class HeroDashAction
         {
             StartDash();
         }
+    }
+
+    public void TickCooldown(float deltaTime)
+    {
+        if (cooldownTimer > 0f)
+        {
+            cooldownTimer -= deltaTime;
+        }
+    }
+
+    public bool IsApproachingWall(int wallDirection)
+    {
+        return blackboard.dashing
+            && dashDirection == (wallDirection >= 0 ? 1 : -1);
+    }
+
+    public void CancelForLedgeClimb()
+    {
+        if (!blackboard.dashing)
+        {
+            return;
+        }
+
+        StopDash();
+        motor.HoldStationary();
     }
 
     public void FixedTick(float fixedDeltaTime)

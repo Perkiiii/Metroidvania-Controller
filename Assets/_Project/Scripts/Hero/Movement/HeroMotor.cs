@@ -20,12 +20,14 @@ public sealed class HeroMotor : MonoBehaviour
     private bool gravitySuspended;
     private float savedGravityScale;
     private float wallSlideInitialTimer;
+    private bool ledgeClimbActive;
 
     private bool scriptedEntryActive;
     private Vector2 scriptedVelocityTarget;
     private bool scriptedLockY;
 
     public Vector2 Velocity => body != null ? body.linearVelocity : Vector2.zero;
+    public Vector2 Position => body != null ? body.position : (Vector2)transform.position;
 
     public void Initialize(
         HeroConfig heroConfig,
@@ -322,6 +324,7 @@ public sealed class HeroMotor : MonoBehaviour
 
     public void ResetMotion()
     {
+        ledgeClimbActive = false;
         ResetJumpRuntime();
         EndWallSlide();
         SetGravitySuspended(false);
@@ -346,6 +349,37 @@ public sealed class HeroMotor : MonoBehaviour
         }
 
         body.linearVelocity = new Vector2(direction * abilityConfig.dashSpeed, 0f);
+    }
+
+    public void BeginLedgeClimb()
+    {
+        ledgeClimbActive = true;
+        EndWallSlide();
+        ResetJumpRuntime();
+        SetNormalMovementSuppressed(true);
+        SetGravitySuspended(true);
+        HoldStationary();
+    }
+
+    public void SetLedgeClimbPosition(Vector2 position)
+    {
+        if (ledgeClimbActive)
+        {
+            SetScriptedPosition(position);
+        }
+    }
+
+    public void EndLedgeClimb(bool placeAtTarget, Vector2 targetPosition)
+    {
+        if (placeAtTarget && body != null)
+        {
+            SetScriptedPosition(targetPosition);
+        }
+
+        ledgeClimbActive = false;
+        HoldStationary();
+        SetGravitySuspended(false);
+        SetNormalMovementSuppressed(false);
     }
 
     public void ApplyDownslashBounce()
@@ -445,6 +479,12 @@ public sealed class HeroMotor : MonoBehaviour
         }
 
         if (blackboard.binding)
+        {
+            HoldStationary();
+            return;
+        }
+
+        if (ledgeClimbActive)
         {
             HoldStationary();
             return;
@@ -595,6 +635,23 @@ public sealed class HeroMotor : MonoBehaviour
     private void SetVerticalVelocity(float velocityY)
     {
         body.linearVelocity = new Vector2(body.linearVelocity.x, velocityY);
+    }
+
+    private void SetScriptedPosition(Vector2 position)
+    {
+        if (body == null)
+        {
+            transform.position = new Vector3(position.x, position.y, transform.position.z);
+            return;
+        }
+
+        body.linearVelocity = Vector2.zero;
+        body.position = position;
+        transform.position = new Vector3(position.x, position.y, transform.position.z);
+        if (blackboard != null)
+        {
+            blackboard.velocity = Vector2.zero;
+        }
     }
 
     private float GetTargetSpeed()

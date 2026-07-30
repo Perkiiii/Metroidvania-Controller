@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -8,12 +9,14 @@ using UnityEngine.UI;
 /// display metadata and reports selection/activation. It never reads or writes ownership.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class GearEntryView : MonoBehaviour, ISelectHandler
+public sealed class GearEntryView : MonoBehaviour, ISelectHandler, IDeselectHandler
 {
     [SerializeField] private Button button;
     [SerializeField] private Image icon;
-    [SerializeField] private Text nameLabel;
-    [SerializeField] private Text categoryLabel;
+    [SerializeField] private TMP_Text nameLabel;
+    [SerializeField] private TMP_Text categoryLabel;
+    [SerializeField] private Graphic selectedIndicator;
+    [SerializeField] private Graphic focusIndicator;
 
     /// <summary>Raised with this entry's stable key when the entry is selected or activated.</summary>
     public event Action<string> Activated;
@@ -24,6 +27,8 @@ public sealed class GearEntryView : MonoBehaviour, ISelectHandler
 
     /// <summary>Stable key of the bound definition. Used for selection restoration across rebuilds.</summary>
     public string StableKey { get; private set; }
+    public bool IsSelected { get; private set; }
+    public bool HasFocus { get; private set; }
 
     private void Awake()
     {
@@ -66,13 +71,40 @@ public sealed class GearEntryView : MonoBehaviour, ISelectHandler
     /// </summary>
     public void OnSelect(BaseEventData eventData)
     {
+        HasFocus = true;
+        ApplyStatePresentation();
         HandleActivated();
+    }
+
+    public void OnDeselect(BaseEventData eventData)
+    {
+        HasFocus = false;
+        ApplyStatePresentation();
     }
 
     /// <summary>Programmatic/test seam equivalent to focus landing on this entry.</summary>
     public void NotifySelected()
     {
         HandleActivated();
+    }
+
+    public void SetSelected(bool value)
+    {
+        IsSelected = value;
+        ApplyStatePresentation();
+    }
+
+    private void ApplyStatePresentation()
+    {
+        if (selectedIndicator != null)
+        {
+            selectedIndicator.gameObject.SetActive(IsSelected);
+        }
+
+        if (focusIndicator != null)
+        {
+            focusIndicator.gameObject.SetActive(HasFocus);
+        }
     }
 
     private void HandleActivated()

@@ -1,6 +1,6 @@
 # Gameplay Menu
 
-**Status:** Implemented (Package A2.1). Five visible top-level tabs; Gear is the only
+**Status:** Implemented (Package A2.1), with Package A3 visual foundation. Five visible top-level tabs; Gear is the only
 data-backed tab. The four sibling tabs present authored empty states until their domain owners
 exist.
 
@@ -111,11 +111,12 @@ The production strip and content host both use this sibling order:
 Gear, CombatLoadout, Satchel, FieldNotes, Map
 ```
 
-The top-centred horizontal strip, spacing, reserved width, cell dimensions, active accent
-behaviour, compact-title behaviour, hints, Close control, and runtime navigation architecture are
-unchanged. At narrow widths every glyph remains visible; per-cell titles collapse and the selected
-title remains visible separately. Existing `UnityEngine.UI.Text` and flat authored motifs remain
-in use; final art and animation are deferred.
+The top-centred horizontal strip, spacing, reserved width, cell dimensions, compact-title
+behaviour, hints, Close control, and runtime navigation architecture remain unchanged. At narrow
+widths every glyph remains visible; per-cell titles collapse and the selected title remains visible
+separately. Package A3 migrates the presentation to TMP, separates persistent active-tab accents
+from transient focus/hover surfaces, and adds the shared dark-frame/brass-accent hierarchy and
+unscaled root transition. Final bespoke font, icon, and illustrated motif content is deferred.
 
 ## Empty-state copy
 
@@ -147,7 +148,7 @@ markers remain deferred.
 `Tools/Project/Validate UI Foundation` validates the persistent root composition, inactive visual
 root, five serialized registrations in fixed order, unique and defined IDs, visible/interactable
 buttons, valid presenters, empty-state copy, Gear production references, action references,
-presentation-only ownership, and Sandbox isolation. Serialized enum values are read through their
+presentation-only ownership, TMP/font assignment, and Sandbox isolation. Serialized enum values are read through their
 underlying integer so stale values such as the former Map value `6` are diagnosed clearly.
 
 Coverage is maintained in `GameplayMenuScreenTests`, `GameplayMenuProductionAssetTests`, and
@@ -155,3 +156,6 @@ Coverage is maintained in `GameplayMenuScreenTests`, `GameplayMenuProductionAsse
 interactability, one active content root, default Gear, cycling and wraparound, selection and
 runtime memory, Back/close routing, production wiring, Sandbox isolation, obsolete asset cleanup,
 and presenter ownership boundaries.
+
+Visual anatomy and art-replacement seams are specified in
+`Docs/FeatureSpecs/UIVisualFoundation.md`.

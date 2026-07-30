@@ -344,6 +344,12 @@ public sealed class GearScreen : MonoBehaviour, IGameplayMenuTab, IGameplayMenuT
     private void ShowDetailsFor(string stableKey)
     {
         selectedStableKey = stableKey;
+        for (int i = 0; i < activeEntries.Count; i++)
+        {
+            GearEntryView entry = activeEntries[i];
+            entry?.SetSelected(entry.StableKey == selectedStableKey);
+        }
+
         detailsPanel?.Show(catalog != null ? catalog.FindByStableKey(stableKey) : null);
     }
 }

@@ -15,6 +15,7 @@ public sealed class HeroAnimationController : MonoBehaviour
         WallSlide,
         WallJump,
         Dash,
+        LedgeClimb,
         Attack,
         Bind,
         Hurt,
@@ -33,6 +34,7 @@ public sealed class HeroAnimationController : MonoBehaviour
     private LinearMixerState locomotionMixer;
     private AnimancerState activeAttackState;
     private AnimancerState activeBindState;
+    private AnimancerState activeLedgeClimbState;
     private VisualState currentVisualState;
     private int playedAttackVersion = -1;
 
@@ -76,6 +78,10 @@ public sealed class HeroAnimationController : MonoBehaviour
         else if (blackboard.actorState == HeroActorState.Hurt)
         {
             PlayActionClip(animationLibrary.hurt, VisualState.Hurt);
+        }
+        else if (blackboard.ledgeClimbing)
+        {
+            PlayLedgeClimbClip();
         }
         else if (blackboard.binding)
         {
@@ -226,6 +232,60 @@ public sealed class HeroAnimationController : MonoBehaviour
         }
 
         if (currentVisualState == VisualState.Bind && animancer != null)
+        {
+            animancer.Stop();
+            currentVisualState = VisualState.None;
+        }
+    }
+
+    private void PlayLedgeClimbClip()
+    {
+        if (currentVisualState == VisualState.LedgeClimb)
+        {
+            return;
+        }
+
+        if (animationLibrary.ledgeClimb == null)
+        {
+            animancer.Stop();
+            currentVisualState = VisualState.LedgeClimb;
+            return;
+        }
+
+        activeLedgeClimbState = animancer.Play(
+            animationLibrary.ledgeClimb,
+            config.actionFadeDuration,
+            FadeMode.FromStart);
+        float gameplayDuration = config.ledgeCatchDuration
+            + config.ledgePullUpDuration
+            + config.ledgeSettleDuration;
+        if (gameplayDuration > Mathf.Epsilon && activeLedgeClimbState.Duration > Mathf.Epsilon)
+        {
+            activeLedgeClimbState.Speed = activeLedgeClimbState.Duration / gameplayDuration;
+        }
+
+        activeLedgeClimbState.Events(this).OnEnd = () =>
+        {
+            if (activeLedgeClimbState != null)
+            {
+                activeLedgeClimbState.Events(this).OnEnd = null;
+                activeLedgeClimbState = null;
+            }
+
+            actions?.CompleteLedgeClimbFromAnimation();
+        };
+        currentVisualState = VisualState.LedgeClimb;
+    }
+
+    public void StopLedgeClimbAnimation()
+    {
+        if (activeLedgeClimbState != null)
+        {
+            activeLedgeClimbState.Events(this).OnEnd = null;
+            activeLedgeClimbState = null;
+        }
+
+        if (currentVisualState == VisualState.LedgeClimb && animancer != null)
         {
             animancer.Stop();
             currentVisualState = VisualState.None;
