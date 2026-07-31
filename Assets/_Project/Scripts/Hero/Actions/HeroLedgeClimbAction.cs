@@ -123,6 +123,11 @@ public sealed class HeroLedgeClimbAction
 
     public bool FixedTick(float fixedDeltaTime)
     {
+        return FixedTick(fixedDeltaTime, input != null ? input.MoveVector.x : 0f);
+    }
+
+    public bool FixedTick(float fixedDeltaTime, float effectiveMoveX)
+    {
         if (active)
         {
             TickActive(fixedDeltaTime);
@@ -131,10 +136,10 @@ public sealed class HeroLedgeClimbAction
 
         if (preCatchReservationActive)
         {
-            return TickPreCatchReservation(fixedDeltaTime);
+            return TickPreCatchReservation(fixedDeltaTime, effectiveMoveX);
         }
 
-        return TryStart(fixedDeltaTime);
+        return TryStart(fixedDeltaTime, effectiveMoveX);
     }
 
     public void CompleteFromAnimation()
@@ -154,14 +159,14 @@ public sealed class HeroLedgeClimbAction
         Cleanup(false);
     }
 
-    private bool TryStart(float fixedDeltaTime)
+    private bool TryStart(float fixedDeltaTime, float moveX)
     {
         if (!CanEvaluateEntry())
         {
             return false;
         }
 
-        if (!TryGetApproachDirection(out int direction))
+        if (!TryGetApproachDirection(moveX, out int direction))
         {
             return false;
         }
@@ -199,10 +204,10 @@ public sealed class HeroLedgeClimbAction
             && motor.Velocity.y < config.ledgeMaxUpwardSpeed;
     }
 
-    private bool TickPreCatchReservation(float fixedDeltaTime)
+    private bool TickPreCatchReservation(float fixedDeltaTime, float moveX)
     {
         if (!CanEvaluateEntry()
-            || !TryGetApproachDirection(out int direction)
+            || !TryGetApproachDirection(moveX, out int direction)
             || preCatchReservationRemaining <= 0f)
         {
             ClearPreCatchReservation();
@@ -231,7 +236,7 @@ public sealed class HeroLedgeClimbAction
         return true;
     }
 
-    private bool TryGetApproachDirection(out int direction)
+    private bool TryGetApproachDirection(float moveX, out int direction)
     {
         if (dash != null && dash.IsApproachingWall())
         {
@@ -239,7 +244,6 @@ public sealed class HeroLedgeClimbAction
             return true;
         }
 
-        float moveX = input.MoveVector.x;
         if (Mathf.Abs(moveX) <= config.horizontalInputDeadZone)
         {
             direction = 0;

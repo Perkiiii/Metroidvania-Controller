@@ -282,6 +282,97 @@ public sealed class HeroLedgeClimbTests
     }
 
     [Test]
+    public void LedgeAction_UsesSuppliedEffectiveDirectionWhenRawInputIsNeutral()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        SetMoveInput(0f);
+        blackboard.grounded = false;
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+
+        Assert.That(action.FixedTick(0.02f, 1f), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(blackboard.ledgeClimbing, Is.True);
+    }
+
+    [Test]
+    public void LedgeAction_PreCatchReservationRetainsSuppliedEffectiveDirection()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        SetMoveInput(0f);
+        blackboard.grounded = false;
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+
+        Assert.That(action.FixedTick(0.02f, 1f), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.True);
+
+        hero.transform.position = new Vector3(0f, 1.7f, 0f);
+        Physics2D.SyncTransforms();
+
+        Assert.That(action.FixedTick(0.02f, 1f), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(blackboard.ledgeClimbing, Is.True);
+    }
+
+    [Test]
+    public void AirDashCompletionDirection_KeepsNeutralPreCatchReservationAlive()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        SetMoveInput(0f);
+        SetInput("DashHeld", true);
+        SetInput("DashPressedThisFrame", true);
+        blackboard.grounded = false;
+        Physics2D.SyncTransforms();
+
+        abilityState = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        abilityState.dashUnlocked = true;
+        abilityState.sprintUnlocked = true;
+        created.Add(abilityState);
+
+        HeroDashAction dash = new HeroDashAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            null,
+            abilityState);
+        HeroSprintAction sprint = new HeroSprintAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            abilityState,
+            dash);
+
+        dash.Tick(0f);
+        SetInput("DashPressedThisFrame", false);
+        dash.FixedTick(abilityConfig.dashDuration + 0.01f);
+        sprint.Tick();
+
+        Assert.That(sprint.HasPendingAirDashLanding, Is.True);
+        HeroLedgeClimbAction action = CreateLedgeAction(out _, dash);
+
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        Assert.That(action.FixedTick(0.02f, sprint.ResolveGroundedMoveInput(0f)), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.True);
+
+        hero.transform.position = new Vector3(0f, 1.7f, 0f);
+        Physics2D.SyncTransforms();
+
+        Assert.That(action.FixedTick(0.02f, sprint.ResolveGroundedMoveInput(0f)), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(blackboard.ledgeClimbing, Is.True);
+    }
+
+    [Test]
     public void LedgeAction_TallWallDoesNotReserveAndWallSlideEntersImmediately()
     {
         CreateHeroAndSensors();
@@ -309,6 +400,36 @@ public sealed class HeroLedgeClimbTests
         Assert.That(action.IsPreCatchReservingWallSlide, Is.False);
         wallSlide.FixedTick(false);
         Assert.That(blackboard.wallSliding, Is.True);
+    }
+
+    [Test]
+    public void WallSlideAction_UsesSuppliedEffectiveDirectionAndHonorsAwayInput()
+    {
+        CreateHeroAndSensors();
+        SetMoveInput(0f);
+        blackboard.grounded = false;
+        blackboard.falling = true;
+        blackboard.touchingWallFront = true;
+        blackboard.facingRight = true;
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        abilityState = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        abilityState.wallClingUnlocked = true;
+        created.Add(abilityState);
+
+        HeroWallSlideAction wallSlide = new HeroWallSlideAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            null,
+            abilityState);
+
+        wallSlide.FixedTick(false, 1f);
+        Assert.That(blackboard.wallSliding, Is.True);
+
+        wallSlide.FixedTick(false, -1f);
+        Assert.That(blackboard.wallSliding, Is.False);
     }
 
     [Test]
@@ -665,6 +786,14 @@ public sealed class HeroLedgeClimbTests
             nameof(HeroInputReader.MoveVector),
             BindingFlags.Instance | BindingFlags.Public);
         property.SetValue(input, new Vector2(x, 0f));
+    }
+
+    private void SetInput(string propertyName, object value)
+    {
+        PropertyInfo property = typeof(HeroInputReader).GetProperty(
+            propertyName,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        property.SetValue(input, value);
     }
 
     private static void SetPrivateField<T>(object target, string fieldName, T value)

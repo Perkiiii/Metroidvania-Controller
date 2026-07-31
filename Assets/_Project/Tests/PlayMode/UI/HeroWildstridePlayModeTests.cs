@@ -497,7 +497,7 @@ public sealed class HeroWildstridePlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator SuccessfulLedgeClimb_SuspendsAndResumesWildstride()
+    public IEnumerator NeutralWildstrideLedgeClimb_SuspendsAndResumesWildstride()
     {
         yield return BeginGroundedWildstride(Key.D);
 
@@ -513,7 +513,7 @@ public sealed class HeroWildstridePlayModeTests
         SetField(blackboard, "grounded", false);
         SetField(blackboard, "actorState", Enum.Parse(GameType("HeroActorState"), "Airborne"));
         body.linearVelocity = new Vector2(0f, -0.5f);
-        yield return AdvanceHero(0.02f, Key.D, Key.X);
+        yield return AdvanceHero(0.02f, Key.X);
 
         Assert.That(
             (bool)GetField(blackboard, "ledgeClimbing"),
@@ -536,6 +536,41 @@ public sealed class HeroWildstridePlayModeTests
         Assert.That((bool)GetProperty(sprintAction, "IsLedgeClimbSuspended"), Is.False);
         Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f));
         Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator NeutralWildstrideWallContact_StartsWallSlideAndDisarmsWildstride()
+    {
+        SetField(abilityState, "wallClingUnlocked", true);
+        yield return BeginGroundedWildstride(Key.D);
+
+        SetField(blackboard, "wasGrounded", true);
+        SetField(blackboard, "grounded", false);
+        SetField(blackboard, "falling", true);
+        SetField(blackboard, "touchingWallFront", true);
+        SetField(blackboard, "facingRight", true);
+        body.linearVelocity = new Vector2(0f, -1f);
+
+        yield return AdvanceHero(0.02f, Key.X);
+
+        Assert.That((bool)GetField(blackboard, "wallSliding"), Is.True);
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
+        Assert.That((bool)GetProperty(input, "DashCommandArmed"), Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator NeutralAirborneWallContactWithoutWildstride_DoesNotStartWallSlide()
+    {
+        SetField(abilityState, "wallClingUnlocked", true);
+        SetField(blackboard, "grounded", false);
+        SetField(blackboard, "falling", true);
+        SetField(blackboard, "touchingWallFront", true);
+        SetField(blackboard, "facingRight", true);
+        body.linearVelocity = new Vector2(0f, -1f);
+
+        yield return AdvanceHero(0.02f);
+
+        Assert.That((bool)GetField(blackboard, "wallSliding"), Is.False);
     }
 
     [UnityTest]

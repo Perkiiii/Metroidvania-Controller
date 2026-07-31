@@ -31,9 +31,14 @@ public sealed class HeroWallSlideAction
 
     public void FixedTick(bool suppressNewEntry = false)
     {
+        FixedTick(suppressNewEntry, input != null ? input.MoveVector.x : 0f);
+    }
+
+    public void FixedTick(bool suppressNewEntry, float effectiveMoveX)
+    {
         bool shouldSlide = blackboard.wallSliding
-            ? CanContinueWallSlide()
-            : !suppressNewEntry && CanEnterWallSlide();
+            ? CanContinueWallSlide(effectiveMoveX)
+            : !suppressNewEntry && CanEnterWallSlide(effectiveMoveX);
 
         if (shouldSlide && !wasWallSliding)
         {
@@ -55,7 +60,7 @@ public sealed class HeroWallSlideAction
         }
     }
 
-    private bool CanEnterWallSlide()
+    private bool CanEnterWallSlide(float moveX)
     {
         if (abilityState == null || !abilityState.wallClingUnlocked)
             return false;
@@ -63,12 +68,12 @@ public sealed class HeroWallSlideAction
         if (abilityConfig == null)
             return false;
 
-        return HasWallSlidePhysicalConditions() && IsPressingIntoWall();
+        return HasWallSlidePhysicalConditions() && IsPressingIntoWall(moveX);
     }
 
-    private bool CanContinueWallSlide()
+    private bool CanContinueWallSlide(float moveX)
     {
-        return HasWallSlidePhysicalConditions() && !IsPressingAwayFromWall();
+        return HasWallSlidePhysicalConditions() && !IsPressingAwayFromWall(moveX);
     }
 
     private bool HasWallSlidePhysicalConditions()
@@ -82,16 +87,14 @@ public sealed class HeroWallSlideAction
             && (blackboard.falling || motor.Velocity.y <= 0f);
     }
 
-    private bool IsPressingIntoWall()
+    private bool IsPressingIntoWall(float moveX)
     {
-        float moveX = input.MoveVector.x;
         return Mathf.Abs(moveX) >= abilityConfig.wallSlideInputThreshold
             && Mathf.Sign(moveX) == blackboard.FacingDirection;
     }
 
-    private bool IsPressingAwayFromWall()
+    private bool IsPressingAwayFromWall(float moveX)
     {
-        float moveX = input.MoveVector.x;
         return Mathf.Abs(moveX) >= abilityConfig.wallSlideInputThreshold
             && Mathf.Sign(moveX) == -blackboard.FacingDirection;
     }

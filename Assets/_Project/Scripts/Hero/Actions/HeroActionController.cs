@@ -162,7 +162,8 @@ public sealed class HeroActionController : MonoBehaviour
             return;
         }
 
-        if (ledgeClimb != null && ledgeClimb.FixedTick(fixedDeltaTime))
+        float effectiveMoveX = ResolveEffectiveMoveInput();
+        if (ledgeClimb != null && ledgeClimb.FixedTick(fixedDeltaTime, effectiveMoveX))
         {
             if (!ledgeClimb.IsActive)
             {
@@ -173,7 +174,9 @@ public sealed class HeroActionController : MonoBehaviour
             return;
         }
 
-        wallSlide.FixedTick(ledgeClimb != null && ledgeClimb.IsPreCatchReservingWallSlide);
+        wallSlide.FixedTick(
+            ledgeClimb != null && ledgeClimb.IsPreCatchReservingWallSlide,
+            effectiveMoveX);
         wallJump.FixedTick(fixedDeltaTime);
         sprint.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);
@@ -243,17 +246,7 @@ public sealed class HeroActionController : MonoBehaviour
 
     private void ApplyLocomotionIntent()
     {
-        float moveX = blackboard.controlLocked
-            || blackboard.inputBlocked
-            || blackboard.dashing
-            || blackboard.ledgeClimbing
-            || blackboard.binding
-            ? 0f
-            : input.MoveVector.x;
-        if (sprint != null)
-        {
-            moveX = sprint.ResolveGroundedMoveInput(moveX);
-        }
+        float moveX = ResolveEffectiveMoveInput();
 
         HeroLocomotionSpeed speedMode = sprint != null
             ? sprint.RequestedSpeed
@@ -266,6 +259,23 @@ public sealed class HeroActionController : MonoBehaviour
         {
             motor.SetFacingDirection(moveX > 0f ? 1 : -1);
         }
+    }
+
+    private float ResolveEffectiveMoveInput()
+    {
+        float moveX = blackboard.controlLocked
+            || blackboard.inputBlocked
+            || blackboard.dashing
+            || blackboard.ledgeClimbing
+            || blackboard.binding
+            ? 0f
+            : input.MoveVector.x;
+        if (sprint != null)
+        {
+            moveX = sprint.ResolveGroundedMoveInput(moveX);
+        }
+
+        return moveX;
     }
 
     private void OnDisable()
