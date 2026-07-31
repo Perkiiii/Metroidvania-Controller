@@ -337,7 +337,6 @@ public sealed class HeroSprintActionTests
 
     [TestCase(HeroSprintCancelReason.DownslashBounce)]
     [TestCase(HeroSprintCancelReason.WallState)]
-    [TestCase(HeroSprintCancelReason.LedgeClimb)]
     public void CarryTraversalInterruptions_CancelAndDisarm(HeroSprintCancelReason reason)
     {
         BeginCarry();
@@ -352,10 +351,6 @@ public sealed class HeroSprintActionTests
                 blackboard.wallSliding = true;
                 sprint.Tick();
                 break;
-            case HeroSprintCancelReason.LedgeClimb:
-                blackboard.ledgeClimbing = true;
-                sprint.Tick();
-                break;
         }
 
         Assert.That(blackboard.sprintJumpCarrying, Is.False);
@@ -363,21 +358,22 @@ public sealed class HeroSprintActionTests
     }
 
     [Test]
-    public void DoubleJumpEndsCarryButPreservesLandingAuthorisationAndDashArming()
+    public void DoubleJumpCancelsCarryLandingAuthorisationAndDashArming()
     {
         BeginCarry();
         sprint.NotifyDoubleJump();
 
         Assert.That(blackboard.sprintJumpCarrying, Is.False);
-        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
-        Assert.That(input.DashCommandArmed, Is.True);
-        Assert.That(blackboard.sprintDirection, Is.EqualTo(1));
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(sprint.HasLedgeJumpBuffer, Is.False);
+        Assert.That(input.DashCommandArmed, Is.False);
+        Assert.That(blackboard.sprintDirection, Is.Zero);
 
         blackboard.wasGrounded = false;
         blackboard.grounded = true;
         sprint.FixedTick(0.02f);
 
-        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprinting, Is.False);
         Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
     }
 
@@ -594,7 +590,6 @@ public sealed class HeroSprintActionTests
     [TestCase("bind")]
     [TestCase("doubleJump")]
     [TestCase("wall")]
-    [TestCase("ledge")]
     [TestCase("control")]
     public void PendingAirDash_HardInterruptionsCancelAuthorisation(string interruption)
     {
@@ -607,7 +602,6 @@ public sealed class HeroSprintActionTests
         if (interruption == "bind") blackboard.binding = true;
         if (interruption == "doubleJump") sprint.NotifyDoubleJump();
         if (interruption == "wall") blackboard.wallSliding = true;
-        if (interruption == "ledge") blackboard.ledgeClimbing = true;
         if (interruption == "control") blackboard.controlLocked = true;
         sprint.Tick();
 
@@ -694,8 +688,137 @@ public sealed class HeroSprintActionTests
         sprint.FixedTick(abilityConfig.sprintLedgeJumpBufferTime);
 
         Assert.That(sprint.HasLedgeJumpBuffer, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
         Assert.That(sprint.TryBeginJumpCarry(), Is.False);
         Assert.That(blackboard.lastSprintCancelReason, Is.EqualTo(HeroSprintCancelReason.LedgeJumpBufferExpired));
+    }
+
+    [Test]
+    public void ShortWalkOffLandingBeforeBufferExpiry_ResumesWildstrideAndConsumesSequence()
+    {
+        BeginLedgeJumpBuffer();
+        int dashSequence = dash.SequenceVersion;
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(sprint.HasLedgeJumpBuffer, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(dash.SequenceVersion, Is.EqualTo(dashSequence));
+
+        sprint.Cancel(HeroSprintCancelReason.InputReleased, false);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void LongWalkOffLandingAfterBufferExpiry_ResumesUsingRememberedDirection()
+    {
+        BeginLedgeJumpBuffer();
+        sprint.FixedTick(abilityConfig.sprintLedgeJumpBufferTime);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
+
+        SetInput("MoveVector", Vector2.zero);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(1));
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+    }
+
+    [Test]
+    public void OppositeSteeringDuringOrdinaryFall_ChangesLandingDirectionWithoutCancelling()
+    {
+        BeginLedgeJumpBuffer();
+        sprint.FixedTick(abilityConfig.sprintLedgeJumpBufferTime);
+        SetInput("MoveVector", Vector2.left);
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(-1));
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+    }
+
+    [Test]
+    public void DoubleJumpDuringLedgeJumpBuffer_ClearsBufferAndPreventsLandingResumption()
+    {
+        BeginLedgeJumpBuffer();
+        sprint.NotifyDoubleJump();
+
+        Assert.That(sprint.HasLedgeJumpBuffer, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(input.DashCommandArmed, Is.False);
+
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void LedgeClimbSuspendsAuthorisedCarryAndResumesOnceWithCurrentDirection()
+    {
+        BeginCarry();
+        int dashSequence = dash.SequenceVersion;
+        sprint.NotifyLedgeClimbStarted();
+
+        Assert.That(sprint.IsLedgeClimbSuspended, Is.True);
+        Assert.That(blackboard.sprintJumpCarrying, Is.False);
+        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(input.DashCommandArmed, Is.True);
+
+        SetInput("MoveVector", Vector2.left);
+        blackboard.ledgeClimbing = false;
+        blackboard.grounded = true;
+        sprint.NotifyLedgeClimbEnded(true, HeroLedgeClimbCancelReason.None);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(-1));
+        Assert.That(dash.SequenceVersion, Is.EqualTo(dashSequence));
+        Assert.That(sprint.IsLedgeClimbSuspended, Is.False);
+
+        sprint.NotifyLedgeClimbEnded(true, HeroLedgeClimbCancelReason.None);
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(dash.SequenceVersion, Is.EqualTo(dashSequence));
+    }
+
+    [Test]
+    public void DashReleaseDuringLedgeClimbConsumesSuspensionWithoutDisarmingFreshInput()
+    {
+        BeginAndEnterSprint();
+        sprint.NotifyLedgeClimbStarted();
+        blackboard.ledgeClimbing = true;
+        SetInput("DashHeld", false);
+        SetInput("DashReleasedThisFrame", true);
+        sprint.Tick();
+
+        Assert.That(sprint.IsLedgeClimbSuspended, Is.False);
+        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(sprint.HasAirborneLandingAuthorisation, Is.False);
+        Assert.That(input.DashCommandArmed, Is.True);
+
+        blackboard.ledgeClimbing = false;
+        sprint.NotifyLedgeClimbEnded(true, HeroLedgeClimbCancelReason.None);
+        Assert.That(blackboard.sprinting, Is.False);
+    }
+
+    [Test]
+    public void UnauthorisedLedgeClimbNotificationsCannotCreateWildstride()
+    {
+        sprint.NotifyLedgeClimbStarted();
+        sprint.NotifyLedgeClimbEnded(true, HeroLedgeClimbCancelReason.None);
+
+        Assert.That(blackboard.sprinting, Is.False);
+        Assert.That(input.DashCommandArmed, Is.False);
     }
 
     [Test]
@@ -733,7 +856,6 @@ public sealed class HeroSprintActionTests
     [TestCase("hurt")]
     [TestCase("death")]
     [TestCase("wall")]
-    [TestCase("ledge")]
     [TestCase("pogo")]
     [TestCase("unlock")]
     public void LedgeJumpBuffer_HardInterruptionsClearAndCannotBeConsumed(string interruption)
@@ -748,7 +870,6 @@ public sealed class HeroSprintActionTests
         if (interruption == "hurt") blackboard.actorState = HeroActorState.Hurt;
         if (interruption == "death") blackboard.actorState = HeroActorState.Dead;
         if (interruption == "wall") blackboard.wallSliding = true;
-        if (interruption == "ledge") blackboard.ledgeClimbing = true;
         if (interruption == "pogo") motor.ApplyDownslashBounce();
         if (interruption == "unlock") abilityState.sprintUnlocked = false;
         sprint.Tick();

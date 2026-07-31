@@ -31,7 +31,7 @@ Excluded:
 
 | Owner | Responsibility |
 |---|---|
-| `HeroActionController` | Evaluates ledge ownership before wall slide and prevents same-step action overwrites |
+| `HeroActionController` | Evaluates ledge ownership before wall slide, prevents same-step action overwrites, and wires typed Wildstride start/end handoffs |
 | `HeroLedgeClimbAction` | Entry rules, phases, timers, retained target, revalidation, cancellation, diagnostics |
 | `HeroSensors` | Broad wall candidate and strict ledge geometry queries |
 | `HeroMotor` | Gravity suspension, movement suppression, scripted positions, exact final placement |
@@ -72,10 +72,26 @@ a wall remains a dash. A successful dash handoff calls typed
 `HeroDashAction.Cancel(HeroDashEndReason.LedgeClimb)`;
 cooldown and `airDashUsed` are preserved. Invalid geometry never alters dash state.
 
-A Wildstride jump carry may supply ordinary horizontal approach intent. Successful ledge entry
-cancels Dash, grounded Wildstride, and jump carry and disarms the shared Dash/Wildstride command
-until physical release. Completing a mantle while Dash remains held cannot begin Wildstride;
-release and a later fresh qualifying Dash are required.
+A Wildstride jump carry may supply ordinary horizontal approach intent. When a validated ledge entry
+begins from an authorized Wildstride sequence, `HeroActionController` notifies
+`HeroSprintAction` once. The sprint action preserves the private Dash sequence version and
+remembered direction, ends forced carry through `HeroMotor`, clears Wildstride locomotion and
+presentation, and enters a private suspended phase. The climb owns movement; it never displays
+Wildstride locomotion or applies Wildstride velocity. A non-authorized climb cannot create
+Wildstride authorization. Dash itself is still handed off and cancelled as described above, but
+the shared Dash/Wildstride command is not disarmed for an authorized suspension.
+
+On successful completion, a typed end notification resumes grounded Wildstride when Sprint remains
+unlocked and Dash remains held and armed. Current nonzero horizontal input determines the resumed
+direction; neutral input falls back to the preserved remembered direction. The handoff occurs in the
+same simulation step where practical and does not replay another Dash completion. Releasing Dash
+during the climb consumes the preserved authorization and prevents resumption. Hurt, death, hazard,
+control lock, input suspension, scene/scripted motion, unlock loss, wall states, Bind, or component
+disable consume the authorization and follow the existing hard-cancellation/disarming contract.
+
+While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
+direction. Horizontal input steers or changes that remembered direction but does not need to remain
+held.
 
 ## Geometry contract
 
@@ -124,6 +140,8 @@ Gameplay timing comes from `HeroConfig`:
 
 `HeroMotor` suppresses normal movement, suspends gravity, and moves deterministically between the
 resolved targets. Completion performs one final path/placement validation.
+- The climb itself owns movement and presentation for its full active interval; Wildstride is
+  suspended rather than ticked as a locomotion owner during Catch, PullUp, and Settle.
 
 `HeroLedge.anim` is a non-looping presentation clip assigned to
 `HeroAnimationLibrary.ledgeClimb`. Playback speed is aligned with the configured total duration.
@@ -143,8 +161,10 @@ scene transitions, target invalidation or movement, component disable, and hero 
 - never resets wall-jump state.
 
 Dash and Wildstride are not cancelled, and the Dash/Wildstride command is not disarmed, when a
-pre-catch reservation is created, refreshed, rejected, or timed out. Those actions are cancelled
-only from the successful ledge `Begin` handoff.
+pre-catch reservation is created, refreshed, rejected, or timed out. A successful ledge `Begin`
+still cancels the active Dash handoff and calls the one-time Wildstride suspension notification.
+Typed completion/cancellation then decides whether the preserved authorization resumes or is
+consumed. This does not alter pre-catch geometry validation or reservation timing.
 
 ## Authored exclusion
 

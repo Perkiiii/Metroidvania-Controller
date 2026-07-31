@@ -35,12 +35,12 @@ value.
 Base Wildstride is resource-free. The 0.08-second Sprint/ledge Jump buffer is provisional and
 unvalidated, chosen near the existing 0.08-second coyote-time scale. It does not change normal
 `coyoteTime` or `jumpBufferTime`. Airborne Wildstride Jump captures launch direction; normal falling,
-neutral/opposite input, residual decay, and Double Jump end only the forced carry into ordinary
-motor-owned air steering. The private landing authorisation persists through arbitrary ordinary
-airtime and is consumed on the first landing, with current nonzero input preferred over remembered
-sequence direction. This is an intentional Underbrew continuity decision after Double Jump. The
-supplied Silksong C# proves carry cancellation, but its hidden `sprintFSM` does not prove the full
-landing policy.
+neutral/opposite input, and residual decay end only the forced carry into ordinary motor-owned air
+steering while first-landing authorization remains. Ordinary walk-offs preserve that authorization
+through short and long falls, and the first landing consumes it exactly once. Double Jump is the
+intentional exception: it hard-cancels the Wildstride sequence, removes landing authorization, and
+requires Dash release plus a fresh press before another sequence can begin. Successful authorized
+ledge climbs temporarily suspend Wildstride and resume it only when Dash remains held and armed.
 
 Digital overlap resolution now reads named `left`/`right` digital parts from the bound `Move`
 action's composites and handles its directly bound Gamepad `DpadControl`. This includes custom
@@ -259,6 +259,15 @@ feel-baseline reconciliation pass.
 - [ ] Confirm a ground-initiated dash can mantle only after leaving the ground.
 - [ ] Confirm a grounded dash into a wall base cannot mantle.
 - [ ] Confirm an air dash into a valid ledge stays consumed and keeps its cooldown.
+- [ ] Hold Dash after a Wildstride Dash, release all movement keys, and confirm automatic movement
+      continues in the remembered direction; tap the opposite direction and release it, confirming
+      the new direction remains active without a Walk frame.
+- [ ] Run off short and tall platforms while holding Dash; confirm the first valid landing resumes
+      Wildstride, while releasing Dash during the fall prevents resumption.
+- [ ] Enter a valid ledge climb from Wildstride, hold Dash through completion, and confirm it
+      resumes; release Dash during the climb and confirm it does not resume.
+- [ ] Double Jump during Wildstride, keep Dash held through landing, and confirm Wildstride does
+      not resume until Dash is released and freshly pressed.
 - [ ] Confirm narrow, low-ceiling, Breakable, hazardous, moving, and authored-excluded candidates reject.
 - [ ] Confirm aligned static seams work and visible unsupported gaps reject.
 - [ ] Interrupt each phase with damage, hazard, death, control lock, and scene transition; gravity and movement must recover.

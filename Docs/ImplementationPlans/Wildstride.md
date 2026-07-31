@@ -2,8 +2,9 @@
 
 **Player-facing name:** Wildstride  
 **Internal identity:** Sprint (`AbilityId.Sprint`, `PlayerAbilityState.sprintUnlocked`)  
-**Status:** corrected Swift Step-style movement loop implemented and airborne continuity hardened;
-attack, final presentation, and human feel approval remain outstanding.
+**Status:** corrected Swift Step-style movement loop implemented, ordinary-fall and ledge-climb
+continuity hardened, and Double Jump hard cancellation implemented; attack, final presentation,
+and human feel approval remain outstanding.
 
 ## Implemented correction
 
@@ -32,6 +33,7 @@ Grounded
 LedgeJumpBuffered
 AirborneCarry
 AirborneAuthorised
+LedgeClimbSuspended
 DisarmedUntilRelease
 ```
 
@@ -39,8 +41,8 @@ DisarmedUntilRelease
 landing authorisation. `AirborneAuthorised` means forced carry has ended, ordinary airborne
 movement/gravity owns the hero, and that same sequence still owns permission for its first landing.
 Dash sequence versions, pending landing authorization, captured carry direction, the short
-ledge-jump timer, and disarm state remain private. Only grounded Sprint, active carry, carry
-presentation, and the current signed direction are mirrored to `HeroStateBlackboard`.
+ledge-jump timer, suspension state, and disarm state remain private. Only grounded Sprint, active
+carry, carry presentation, and the current signed direction are mirrored to `HeroStateBlackboard`.
 
 `HeroDashAction` publishes a typed, versioned `HeroDashCompletion` with ground/air origin,
 direction, and typed end reason. Natural grounded completion may enter Wildstride in the same fixed
@@ -70,6 +72,10 @@ turn. Most-recent digital direction wins while both sides overlap. Dash release 
 sequence immediately, and an idle held Dash without a qualifying Dash/Wildstride sequence cannot
 create one.
 
+While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
+direction. Horizontal input steers or changes that remembered direction but does not need to remain
+held.
+
 Digital movement overlap is resolved from the currently enabled `Move` action's named composite
 parts (`left`/`right`) when they are digital `ButtonControl`s, plus a directly bound
 `DpadControl`. This covers default A/D, arrow keys, custom keyboard composite rebindings, and the
@@ -87,8 +93,11 @@ direction. Same-direction input maintains `sprintJumpSpeed`. Opposite-direction 
 ends only the forced carry; `HeroMotor.EndWildstrideCarry()` then lets ordinary air steering and
 gravity take over. The phase becomes `AirborneAuthorised`, so the same sequence can still resume
 Wildstride on its first landing. Normal falling ends forced carry automatically; the carry does not
-apply `sprintJumpSpeed` through an arbitrarily long descent. Double Jump uses the same soft carry
-end and intentionally preserves landing authorisation for Underbrew continuity.
+apply `sprintJumpSpeed` through an arbitrarily long descent. A normal Wildstride Jump therefore
+preserves first-landing authorization after forced carry ends. Double Jump is different: it hard
+cancels the current Wildstride sequence, clears landing authorization and the jump buffer, ends
+carry through `HeroMotor`, and disarms Dash until physical release. Double Jump vertical speed and
+the normal Double Jump path remain unchanged.
 
 ## Sprint/ledge Jump buffer
 
@@ -101,16 +110,35 @@ sprintLedgeJumpBufferTime: 0.08 seconds
 
 A normal Jump that begins before expiry consumes the buffer and starts captured Wildstride Jump
 carry. Neutral input does not erase the valid buffer; launch still falls back to its remembered
-direction. The buffer does not start grounded Wildstride, create another Dash, or authorize a later
-landing by itself. Ordinary falls, Walk ledge exits, cancelled Dashes, and stale sequences do not
-create it. Dash release, Attack, Bind, hurt/recoil, death, hazard/respawn flow, control/input loss,
-wall states, ledge climb, pogo, scene/scripted motion, component disable, and Sprint unlock loss
-clear it.
+direction. Landing before expiry resumes grounded Wildstride and consumes the sequence once. If the
+buffer expires without Jump, only the specialized Jump opportunity expires: the phase becomes
+`AirborneAuthorised`, ordinary airborne movement and gravity take over, and the first valid landing
+still resumes Wildstride. Current nonzero input may update the landing direction; neutral input uses
+the remembered direction. The buffer does not start grounded Wildstride or create another Dash.
+Dash release, Attack, Bind, hurt/recoil, death, hazard/respawn flow, control/input loss, wall
+states, pogo, scene/scripted motion, component disable, and Sprint unlock loss clear authorization
+and any buffer. Ordinary walk-offs create the buffer only when leaving active grounded Wildstride.
 
 The Sprint buffer is separate from and does not change normal `HeroConfig.coyoteTime` or
 `jumpBufferTime`. `HeroActionController.FixedTick` prepares the Wildstride buffer after wall
 arbitration and before `HeroJumpAction`, then performs the existing post-Dash/landing reconciliation
 before `HeroMotor.FixedTick`.
+
+## Ledge-climb suspension
+
+When an authorized Wildstride sequence enters a validated ledge climb, `HeroActionController` hands
+off once to `HeroSprintAction`. The sprint action preserves its private Dash sequence version and
+remembered direction, ends forced carry through `HeroMotor`, clears Wildstride locomotion and
+presentation, and enters `LedgeClimbSuspended`. The climb owns movement and never displays or applies
+Wildstride locomotion. A climb with no authorization cannot create one.
+
+On successful completion, the typed ledge end notification resumes grounded Wildstride in the same
+simulation handoff when Sprint remains unlocked and Dash is still held and armed. Current horizontal
+input wins when nonzero; otherwise the preserved remembered direction is used. No new Dash
+completion is started. Releasing Dash during the climb consumes the preserved authorization and
+prevents resumption. Hurt, death, hazards, control lock, input suspension, scene/scripted motion,
+unlock loss, wall states, Bind, and component disable remain hard cancellations and disarm where
+the existing interruption contract requires it.
 
 ## Deferred optional Gear modifier
 
@@ -134,10 +162,11 @@ The full feature is not complete. Still deferred:
 - optional resource-draining enhanced-speed Gear;
 - final distance/timing tuning and human Play Mode feel approval.
 
-Automated tests cover resource independence, both grounded reversal directions, grounded neutral
-direction retention, captured carry versus persistent landing authorisation, natural falling, long
-airtime, Double Jump continuity, neutral remembered direction, opposite-air-input continuation,
-the short ledge-jump buffer, typed Dash handoffs, same-step landing reconciliation, default and
-rebound digital input, D-pad/analogue separation, input safety, production asset wiring, and the
-real action/motor/animation PlayMode order. Automated correctness does not replace hands-on feel
+Automated tests cover resource independence, grounded automatic movement and steering, captured
+carry versus persistent landing authorisation, ordinary short and long walk-offs, natural falling,
+normal Wildstride Jump continuity, Double Jump hard cancellation, neutral remembered direction,
+opposite-air-input continuation, the short ledge-jump buffer, typed Dash handoffs, temporary
+ledge-climb suspension/resumption, same-step landing reconciliation, default and rebound digital
+input, D-pad/analogue separation, input safety, production asset wiring, and the real
+action/motor/animation PlayMode order. Automated correctness does not replace hands-on feel
 validation.

@@ -109,7 +109,8 @@ public sealed class HeroActionController : MonoBehaviour
             sensors,
             dash,
             () => animations?.StopLedgeClimbAnimation(),
-            () => sprint?.Cancel(HeroSprintCancelReason.LedgeClimb, true));
+            () => sprint?.NotifyLedgeClimbStarted(),
+            (completed, reason) => sprint?.NotifyLedgeClimbEnded(completed, reason));
     }
 
     public void SetAnimationController(HeroAnimationController animationController)
@@ -126,7 +127,7 @@ public sealed class HeroActionController : MonoBehaviour
 
         if (ledgeClimb != null && ledgeClimb.IsActive)
         {
-            sprint?.Cancel(HeroSprintCancelReason.LedgeClimb, true);
+            sprint?.Tick();
             dash?.TickCooldown(Time.deltaTime);
             ApplyLocomotionIntent();
             return;
@@ -163,6 +164,12 @@ public sealed class HeroActionController : MonoBehaviour
 
         if (ledgeClimb != null && ledgeClimb.FixedTick(fixedDeltaTime))
         {
+            if (!ledgeClimb.IsActive)
+            {
+                sprint?.Tick();
+                ApplyLocomotionIntent();
+            }
+
             return;
         }
 

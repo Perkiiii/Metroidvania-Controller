@@ -130,7 +130,8 @@ direction for an established Wildstride landing), and no incompatible owner.
 cancelled Dashes, and unrelated landings cannot begin Wildstride.
 
 `HeroSprintAction` owns a small internal phase model, authorization, landing consumption, captured
-carry direction, a short ledge-jump buffer, typed cancellation, and disarm-until-release. Only grounded
+carry direction, a short ledge-jump buffer, typed cancellation, and disarm-until-release. The private
+model includes `LedgeClimbSuspended` for temporary authorized ledge ownership. Only grounded
 Wildstride, jump carry, and direction are mirrored to the blackboard. Ordinary movement explicitly
 requests `Walk`; grounded Wildstride requests `Wildstride`. `HeroMotor` remains the sole velocity
 writer.
@@ -138,8 +139,9 @@ writer.
 Jump uses the unchanged normal vertical path plus motor-owned horizontal carry. The private phase
 model distinguishes `AirborneCarry` (forced `sprintJumpSpeed` plus first-landing authorisation) from
 `AirborneAuthorised` (forced carry ended; ordinary airborne steering/gravity active; first-landing
-authorisation retained). Carry ends at normal falling, neutral/opposite airborne input, Double Jump,
-or residual carry cleanup without ending the sequence. Landing consumes that authorisation exactly
+authorisation retained). Carry ends at normal falling, neutral/opposite airborne input, or residual
+carry cleanup without ending the sequence. Double Jump is the hard-cancel exception and removes the
+sequence and its landing authorization. Landing consumes that authorisation exactly
 once and reconciles directly to grounded Wildstride in the same fixed step. There is no airborne
 timer, apex expiry, sustaining-state expiry, or generic-not-carrying expiry. Grounded direction
 reversal preserves authorization: the motor decelerates toward zero, changes facing at the turn
@@ -147,14 +149,27 @@ seam, and accelerates in the new direction. Once grounded Wildstride is active, 
 input retains the last valid direction and continues Wildstride while Dash remains held and armed;
 a later opposite input uses the same turn path. Dash release ends the sequence.
 
-Double Jump cancels forced carry, leaves the existing normal Double Jump vertical path and tuning
-untouched, keeps Dash armed, and preserves an existing Wildstride landing authorisation. This is an
-intentional Underbrew continuity decision: the supplied Silksong C# proves that Double Jump cancels
-shuttlecock carry, but the hidden `sprintFSM` was not supplied, so its complete landing policy is
-not proven by the reference. Underbrew deliberately preserves landing Wildstride authorisation
-after Double Jump for continuity and game feel. An ordinary Jump plus Double Jump cannot create
-authorisation. Wall/ledge/pogo, Attack/Bind, hurt/death, control/input loss, scene lifecycle, and
-runtime unlock loss remain genuine hard cancellations.
+While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
+direction. Horizontal input steers or changes that remembered direction but does not need to remain
+held. An ordinary walk-off creates the short specialized Jump opportunity; landing before it expires
+resumes Wildstride, while expiry transitions to `AirborneAuthorised` so normal airborne movement can
+continue and the first valid landing can still resume the sequence. The landing authorization is
+consumed exactly once.
+
+Double Jump hard-cancels the current Wildstride sequence. It ends forced carry, clears
+`AirborneAuthorised`, `LedgeJumpBuffered`, and any pending landing authorization, clears captured
+carry state, ends carry through `HeroMotor`, and disarms Dash until physical release. The existing
+normal Double Jump vertical path and tuning remain unchanged. Holding Dash through Double Jump does
+not restart Wildstride; a physical release and fresh Dash press are required. An unrelated Double
+Jump without Wildstride authorization cannot create or alter Wildstride state. Wall/ledge/pogo,
+Attack/Bind, hurt/death, control/input loss, scene lifecycle, and runtime unlock loss remain genuine
+hard cancellations.
+
+An authorized ledge climb enters private `LedgeClimbSuspended` through a controller-wired typed
+handoff. It preserves the sequence version and remembered direction, ends carry, and suppresses
+Wildstride locomotion/presentation while the climb owns movement. Successful completion resumes
+grounded Wildstride if Dash remains held and armed, preferring current nonzero input and otherwise
+the remembered direction. Releasing Dash or a hard interruption consumes the authorization.
 
 Base Wildstride, Dash, jump carry, and landing resumption never read or mutate
 `PlayerResourceState`. A provisional `sprintLedgeJumpBufferTime` (0.08 seconds) lets a Jump started

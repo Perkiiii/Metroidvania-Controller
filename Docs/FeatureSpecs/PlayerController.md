@@ -113,9 +113,10 @@ typed `HeroDashCompletion` snapshots with sequence versions. Natural ground comp
 immediately; natural ordinary air completion may authorize the first subsequent landing. That
 landing consumes the exact version once even if entry checks fail.
 
-The action's small phase enum, consumed versions, command rearm, captured carry direction, and
-short ledge-jump buffer remain private. Only `sprinting`, `sprintJumpCarrying`, and direction are
-shared. Base Wildstride never reads or mutates `PlayerResourceState`. Jump carry is horizontal-only:
+The action's small phase enum, consumed versions, command rearm, captured carry direction, short
+ledge-jump buffer, and temporary `LedgeClimbSuspended` phase remain private. Only `sprinting`,
+`sprintJumpCarrying`, and direction are shared. Base Wildstride never reads or mutates
+`PlayerResourceState`. Jump carry is horizontal-only:
 `HeroJumpAction` retains the normal `HeroMotor.StartJump` path. The private Sprint phase separates
 forced `AirborneCarry` from `AirborneAuthorised`: carry owns the captured `sprintJumpSpeed`, while
 the latter lets ordinary air steering/gravity continue without expiring permission for the first
@@ -124,16 +125,19 @@ accelerates in the requested direction.
 Active grounded Wildstride retains its last valid direction and continues to request that signed
 movement during neutral horizontal input while Dash remains held and armed. Initial entry still
 requires active direction, so an idle held Dash cannot synthesize Wildstride.
-Airborne carry is directionally captured; normal falling, neutral input, opposite input, residual
-decay, and Double Jump end only the forced carry through `HeroMotor.EndWildstrideCarry()`. The
-sequence authorisation remains until Dash release, hard interruption, or its first landing. A
-Wildstride Jump and landing with neutral movement use the remembered authorised direction; current
-nonzero input takes priority.
+Airborne carry is directionally captured; normal falling, neutral input, opposite input, and
+residual decay end only the forced carry through `HeroMotor.EndWildstrideCarry()`. The sequence
+authorisation remains until Dash release, hard interruption, or its first landing. A Wildstride
+Jump and landing with neutral movement use the remembered authorised direction; current nonzero
+input takes priority. Double Jump is the hard-cancel exception: it ends the current Wildstride
+sequence and removes landing-resumption authorization while leaving the normal Double Jump vertical
+path and tuning unchanged. Dash must be physically released before a new sequence can begin.
 
-The Double Jump policy is intentional Underbrew continuity. The supplied Silksong C# proves that
-Double Jump cancels shuttlecock carry, but the hidden `sprintFSM` was not supplied and therefore does
-not prove its full landing policy. Underbrew preserves an already-established landing authorisation
-after Double Jump; an ordinary Jump plus Double Jump never creates one.
+While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
+direction. Horizontal input steers or changes that remembered direction but does not need to remain
+held. An authorized ledge climb temporarily suspends this movement and presentation; successful
+completion resumes it when Dash remains held and armed, using current nonzero input or otherwise the
+remembered direction. Releasing Dash or a hard interruption consumes the authorization.
 
 Landing and Dash completion are reconciled in `HeroActionController.FixedTick`, which reapplies
 locomotion intent before `HeroMotor.FixedTick`. The restored Wildstride request and blackboard

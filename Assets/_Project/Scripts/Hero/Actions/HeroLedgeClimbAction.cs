@@ -32,6 +32,7 @@ public sealed class HeroLedgeClimbAction
     private readonly HeroDashAction dash;
     private readonly Action onBegin;
     private readonly Action stopAnimation;
+    private readonly Action<bool, HeroLedgeClimbCancelReason> onEnded;
 
     private LedgeProbeResult target;
     private HeroLedgeClimbPhase phase;
@@ -71,6 +72,7 @@ public sealed class HeroLedgeClimbAction
             heroSensors,
             dashAction,
             stopLedgeAnimation,
+            null,
             null)
     {
     }
@@ -84,6 +86,29 @@ public sealed class HeroLedgeClimbAction
         HeroDashAction dashAction,
         Action stopLedgeAnimation,
         Action onLedgeBegin)
+        : this(
+            heroConfig,
+            stateBlackboard,
+            inputReader,
+            heroMotor,
+            heroSensors,
+            dashAction,
+            stopLedgeAnimation,
+            onLedgeBegin,
+            null)
+    {
+    }
+
+    public HeroLedgeClimbAction(
+        HeroConfig heroConfig,
+        HeroStateBlackboard stateBlackboard,
+        HeroInputReader inputReader,
+        HeroMotor heroMotor,
+        HeroSensors heroSensors,
+        HeroDashAction dashAction,
+        Action stopLedgeAnimation,
+        Action onLedgeBegin,
+        Action<bool, HeroLedgeClimbCancelReason> onLedgeEnded)
     {
         config = heroConfig;
         blackboard = stateBlackboard;
@@ -93,6 +118,7 @@ public sealed class HeroLedgeClimbAction
         dash = dashAction;
         stopAnimation = stopLedgeAnimation;
         onBegin = onLedgeBegin;
+        onEnded = onLedgeEnded;
     }
 
     public bool FixedTick(float fixedDeltaTime)
@@ -249,7 +275,6 @@ public sealed class HeroLedgeClimbAction
     {
         ClearPreCatchReservation();
         dash?.Cancel(HeroDashEndReason.LedgeClimb);
-        onBegin?.Invoke();
 
         target = result;
         active = true;
@@ -268,6 +293,7 @@ public sealed class HeroLedgeClimbAction
         initialTargetScale = frame.lossyScale;
 
         motor.BeginLedgeClimb();
+        onBegin?.Invoke();
         BeginPhase(HeroLedgeClimbPhase.Catch);
     }
 
@@ -398,6 +424,12 @@ public sealed class HeroLedgeClimbAction
             ? target.ResolveStandingPosition()
             : motor.Position;
         motor.EndLedgeClimb(completed, finalPosition);
+        if (completed)
+        {
+            // The final validated placement is the standing handoff; sensors will confirm it on
+            // the next fixed step without inserting a transient airborne locomotion state.
+            blackboard.grounded = true;
+        }
         blackboard.ledgeClimbing = false;
         if (blackboard.actorState != HeroActorState.Hurt
             && blackboard.actorState != HeroActorState.Dead
@@ -413,5 +445,6 @@ public sealed class HeroLedgeClimbAction
         phase = HeroLedgeClimbPhase.None;
         phaseElapsed = 0f;
         target = default;
+        onEnded?.Invoke(completed, completed ? HeroLedgeClimbCancelReason.None : LastCancelReason);
     }
 }

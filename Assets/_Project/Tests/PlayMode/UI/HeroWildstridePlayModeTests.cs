@@ -24,8 +24,10 @@ public sealed class HeroWildstridePlayModeTests
     private Component blackboard;
     private Component input;
     private Component motor;
+    private Component sensors;
     private Component actions;
     private Component animations;
+    private GameObject ledge;
 
     private static Type GameType(string name)
     {
@@ -98,6 +100,22 @@ public sealed class HeroWildstridePlayModeTests
         SetField(config, "airAcceleration", 8f);
         SetField(config, "airDeceleration", 6f);
         SetField(config, "baseGravityScale", 0f);
+        SetField(config, "terrainLayers", (LayerMask)1);
+        SetField(config, "ledgeSurfaceLayers", (LayerMask)1);
+        SetField(config, "wallProbeDistance", 0.1f);
+        SetField(config, "sensorInset", 0.02f);
+        SetField(config, "ledgeMinimumHeightFromFeet", 0.25f);
+        SetField(config, "ledgeMaximumHeightFromFeet", 1.35f);
+        SetField(config, "ledgeTopProbeExtraHeight", 0.3f);
+        SetField(config, "ledgeTopSampleInset", 0.04f);
+        SetField(config, "ledgeSurfaceHeightTolerance", 0.08f);
+        SetField(config, "ledgeMinimumUpNormal", 0.85f);
+        SetField(config, "ledgeSupportGapTolerance", 0.08f);
+        SetField(config, "ledgePlacementSkin", 0.02f);
+        SetField(config, "ledgeCatchDrop", 0.1f);
+        SetField(config, "ledgeCatchDuration", 0.08f);
+        SetField(config, "ledgePullUpDuration", 0.28f);
+        SetField(config, "ledgeSettleDuration", 0.05f);
 
         abilityConfig = ScriptableObject.CreateInstance(GameType("HeroAbilityConfig"));
         SetField(abilityConfig, "dashSpeed", 18f);
@@ -115,9 +133,11 @@ public sealed class HeroWildstridePlayModeTests
         resourceConfig = ScriptableObject.CreateInstance(GameType("PlayerResourceConfig"));
 
         hero = new GameObject("Wildstride PlayMode Integration Hero");
+        hero.layer = LayerMask.NameToLayer("Player");
         body = hero.AddComponent<Rigidbody2D>();
         body.gravityScale = 0f;
         BoxCollider2D collider = hero.AddComponent<BoxCollider2D>();
+        collider.size = new Vector2(0.36f, 0.9f);
         SpriteRenderer renderer = hero.AddComponent<SpriteRenderer>();
         Animator animator = hero.AddComponent<Animator>();
 
@@ -125,7 +145,7 @@ public sealed class HeroWildstridePlayModeTests
         input = hero.AddComponent(GameType("HeroInputReader"));
         motor = hero.AddComponent(GameType("HeroMotor"));
         Component audio = hero.AddComponent(GameType("HeroAudioController"));
-        Component sensors = hero.AddComponent(GameType("HeroSensors"));
+        sensors = hero.AddComponent(GameType("HeroSensors"));
         actions = hero.AddComponent(GameType("HeroActionController"));
         animations = hero.AddComponent(GameType("HeroAnimationController"));
 
@@ -165,6 +185,7 @@ public sealed class HeroWildstridePlayModeTests
     [UnityTearDown]
     public IEnumerator TearDown()
     {
+        UnityEngine.Object.Destroy(ledge);
         UnityEngine.Object.Destroy(hero);
         UnityEngine.Object.Destroy(config);
         UnityEngine.Object.Destroy(abilityConfig);
@@ -400,7 +421,79 @@ public sealed class HeroWildstridePlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator WildstrideDoubleJump_PreservesLandingContinuityWithoutWalkFrame()
+    public IEnumerator OrdinaryWalkOff_ExpiresSpecialJumpWindowButResumesOnFirstLanding()
+    {
+        yield return BeginGroundedWildstride(Key.D);
+
+        SetField(blackboard, "wasGrounded", true);
+        SetField(blackboard, "grounded", false);
+        body.linearVelocity = Vector2.zero;
+        yield return AdvanceHero(0.02f, Key.X);
+
+        for (int i = 0; i < 8; i++)
+        {
+            SetField(blackboard, "wasGrounded", false);
+            SetField(blackboard, "grounded", false);
+            SimulateHeroStep(0.02f);
+        }
+
+        object sprintAction = GetField(actions, "sprint");
+        Assert.That((bool)GetProperty(sprintAction, "HasAirborneLandingAuthorisation"), Is.True);
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
+
+        SetField(blackboard, "wasGrounded", false);
+        SetField(blackboard, "grounded", true);
+        SimulateHeroStep(0.02f);
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f));
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator SuccessfulLedgeClimb_SuspendsAndResumesWildstride()
+    {
+        yield return BeginGroundedWildstride(Key.D);
+
+        ledge = new GameObject("Wildstride PlayMode Ledge");
+        ledge.layer = 0;
+        ledge.transform.position = new Vector3(body.position.x + 1.135f, body.position.y - 0.25f, 0f);
+        BoxCollider2D ledgeCollider = ledge.AddComponent<BoxCollider2D>();
+        ledgeCollider.size = new Vector2(1.73f, 1.5f);
+        Physics2D.SyncTransforms();
+        Invoke(sensors, "Initialize", config, blackboard, body, hero.GetComponent<Collider2D>());
+
+        SetField(blackboard, "wasGrounded", true);
+        SetField(blackboard, "grounded", false);
+        SetField(blackboard, "actorState", Enum.Parse(GameType("HeroActorState"), "Airborne"));
+        body.linearVelocity = new Vector2(0f, -0.5f);
+        yield return AdvanceHero(0.02f, Key.D, Key.X);
+
+        Assert.That(
+            (bool)GetField(blackboard, "ledgeClimbing"),
+            Is.True,
+            $"Ledge did not start: failure={GetProperty(sensors, "LastLedgeFailure")}, position={body.position}, move={GetProperty(input, "MoveVector")}");
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
+        Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.False);
+        object sprintAction = GetField(actions, "sprint");
+        Assert.That((bool)GetProperty(sprintAction, "IsLedgeClimbSuspended"), Is.True);
+
+        float deadline = Time.realtimeSinceStartup + 1f;
+        while ((bool)GetField(blackboard, "ledgeClimbing"))
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            SimulateHeroStep(0.02f);
+            yield return new WaitForFixedUpdate();
+        }
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That((bool)GetProperty(sprintAction, "IsLedgeClimbSuspended"), Is.False);
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f));
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator WildstrideDoubleJump_CancelsSequenceAndDoesNotResumeOnLanding()
     {
         SetField(abilityState, "doubleJumpUnlocked", true);
         yield return BeginGroundedWildstride(Key.D);
@@ -414,8 +507,7 @@ public sealed class HeroWildstridePlayModeTests
         yield return AdvanceHero(0.02f, Key.D, Key.X);
 
         Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.False, "Double Jump must end forced carry");
-        Assert.That((bool)GetProperty(input, "DashCommandArmed"), Is.True, "Double Jump must keep Dash armed");
-        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f), "Ordinary air steering must resume after Double Jump.");
+        Assert.That((bool)GetProperty(input, "DashCommandArmed"), Is.False, "Double Jump must disarm Dash until release");
 
         for (int i = 0; i < 240; i++)
         {
@@ -432,9 +524,9 @@ public sealed class HeroWildstridePlayModeTests
         object sprintAction = GetField(actions, "sprint");
         Assert.That(
             (bool)GetField(blackboard, "sprinting"),
-            Is.True,
-            $"Landing must resume Wildstride after Double Jump (authorised={GetProperty(sprintAction, "HasAirborneLandingAuthorisation")}, phaseCarry={GetProperty(sprintAction, "IsJumpCarrying")}, reason={GetField(blackboard, "lastSprintCancelReason")}, grounded={GetField(blackboard, "grounded")}, dash={GetProperty(input, "DashHeld")})");
-        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+            Is.False,
+            $"Landing must not resume Wildstride after Double Jump (authorised={GetProperty(sprintAction, "HasAirborneLandingAuthorisation")}, phaseCarry={GetProperty(sprintAction, "IsJumpCarrying")}, reason={GetField(blackboard, "lastSprintCancelReason")}, grounded={GetField(blackboard, "grounded")}, dash={GetProperty(input, "DashHeld")})");
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.Not.EqualTo("Wildstride"));
     }
 
     private IEnumerator BeginGroundedWildstride(Key direction)
