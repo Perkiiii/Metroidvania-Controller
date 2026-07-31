@@ -228,6 +228,7 @@ ledgeMinimumUpNormal:            0.85
 ledgeSupportGapTolerance:        0.08
 ledgePlacementSkin:              0.02
 ledgeCatchDrop:                  0.1
+ledgePreCatchGraceDuration:      0.13
 ledgeCatchDuration:              0.08
 ledgePullUpDuration:             0.28
 ledgeSettleDuration:             0.05
@@ -238,6 +239,12 @@ representative static Terrain geometry. The three phase durations total 0.41 sec
 the current placeholder presentation, but code timing—not animation—is authoritative. No existing
 movement, dash, wall, combat, hurt, pogo, Bind, or resource value was modified.
 
+`ledgePreCatchGraceDuration` is a ledge-specific arbitration reservation, not a movement grace
+window. At 0.13 seconds it covers the short fall from just below the minimum catch height while
+normal gravity continues. It suppresses only new wall-slide entry for a still-valid candidate;
+invalid geometry and an established wall slide are unaffected. Keep this value small enough that a
+tall wall still enters wall slide immediately.
+
 The serialized HeroConfig/HeroAbilityConfig values currently differ from values recorded in
 HeroFeelTuning.md. This discrepancy predates ledge-climb work and must be resolved in a dedicated
 feel-baseline reconciliation pass.
@@ -245,6 +252,8 @@ feel-baseline reconciliation pass.
 ### Ledge-specific manual checks
 
 - [ ] Fall toward a valid wall top while pressing toward it; Catch should win before wall slide.
+- [ ] Walk off a platform, reverse toward its wall, and confirm pre-catch reservation lasts only
+      until the minimum catch height is reached or the 0.13 second grace expires.
 - [ ] Remain on a tall wall without a valid top; existing wall slide and wall jump feel must remain unchanged.
 - [ ] Confirm an established wall slide never pulls into mantle.
 - [ ] Confirm a ground-initiated dash can mantle only after leaving the ground.

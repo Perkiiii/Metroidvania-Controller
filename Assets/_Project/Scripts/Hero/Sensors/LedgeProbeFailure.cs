@@ -8,6 +8,7 @@ public enum LedgeProbeFailure
     TriggerSurface,
     UnsupportedRigidbodySurface,
     HeightOutOfRange,
+    PreCatchHeight,
     SurfaceTooSteep,
     SurfaceHeightMismatch,
     UnsupportedGap,

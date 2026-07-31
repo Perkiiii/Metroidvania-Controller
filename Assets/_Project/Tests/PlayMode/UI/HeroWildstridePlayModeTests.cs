@@ -124,6 +124,7 @@ public sealed class HeroWildstridePlayModeTests
         blackboard = hero.AddComponent(GameType("HeroStateBlackboard"));
         input = hero.AddComponent(GameType("HeroInputReader"));
         motor = hero.AddComponent(GameType("HeroMotor"));
+        Component audio = hero.AddComponent(GameType("HeroAudioController"));
         Component sensors = hero.AddComponent(GameType("HeroSensors"));
         actions = hero.AddComponent(GameType("HeroActionController"));
         animations = hero.AddComponent(GameType("HeroAnimationController"));
@@ -133,6 +134,7 @@ public sealed class HeroWildstridePlayModeTests
         animancerType.GetProperty("Animator")?.SetValue(animancer, animator);
 
         Invoke(input, "Initialize", config);
+        Invoke(audio, "Initialize", config, blackboard);
         Invoke(motor, "Initialize", config, abilityConfig, blackboard, body, collider, renderer, hero.transform);
         Invoke(
             actions,

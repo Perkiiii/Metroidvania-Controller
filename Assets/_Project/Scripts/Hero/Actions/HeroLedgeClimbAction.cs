@@ -43,8 +43,11 @@ public sealed class HeroLedgeClimbAction
     private bool active;
     private bool cleanedUp = true;
     private bool animationCompleted;
+    private bool preCatchReservationActive;
+    private float preCatchReservationRemaining;
 
     public bool IsActive => active;
+    public bool IsPreCatchReservingWallSlide => preCatchReservationActive;
     public HeroLedgeClimbPhase Phase => phase;
     public HeroLedgeClimbCancelReason LastCancelReason { get; private set; }
     public LedgeProbeFailure LastProbeFailure => sensors != null
@@ -100,7 +103,12 @@ public sealed class HeroLedgeClimbAction
             return true;
         }
 
-        return TryStart();
+        if (preCatchReservationActive)
+        {
+            return TickPreCatchReservation(fixedDeltaTime);
+        }
+
+        return TryStart(fixedDeltaTime);
     }
 
     public void CompleteFromAnimation()
@@ -112,6 +120,7 @@ public sealed class HeroLedgeClimbAction
     {
         if (!active && cleanedUp)
         {
+            ClearPreCatchReservation();
             return;
         }
 
@@ -119,24 +128,25 @@ public sealed class HeroLedgeClimbAction
         Cleanup(false);
     }
 
-    private bool TryStart()
+    private bool TryStart(float fixedDeltaTime)
     {
         if (!CanEvaluateEntry())
         {
             return false;
         }
 
-        int direction = blackboard.FacingDirection;
-        bool inputIntent = Mathf.Abs(input.MoveVector.x) > config.horizontalInputDeadZone
-            && Mathf.Sign(input.MoveVector.x) == direction;
-        bool dashIntent = dash != null && dash.IsApproachingWall(direction);
-        if (!inputIntent && !dashIntent)
+        if (!TryGetApproachDirection(out int direction))
         {
             return false;
         }
 
         if (!sensors.TryFindLedge(direction, out LedgeProbeResult result))
         {
+            if (IsValidPreCatchResult(result))
+            {
+                BeginPreCatchReservation(fixedDeltaTime);
+            }
+
             return false;
         }
 
@@ -160,12 +170,84 @@ public sealed class HeroLedgeClimbAction
             && !blackboard.recoiling
             && !blackboard.controlLocked
             && !blackboard.inputBlocked
-            && blackboard.touchingWallFront
             && motor.Velocity.y < config.ledgeMaxUpwardSpeed;
+    }
+
+    private bool TickPreCatchReservation(float fixedDeltaTime)
+    {
+        if (!CanEvaluateEntry()
+            || !TryGetApproachDirection(out int direction)
+            || preCatchReservationRemaining <= 0f)
+        {
+            ClearPreCatchReservation();
+            return false;
+        }
+
+        if (!sensors.TryFindLedge(direction, out LedgeProbeResult result))
+        {
+            if (!IsValidPreCatchResult(result))
+            {
+                ClearPreCatchReservation();
+                return false;
+            }
+
+            preCatchReservationRemaining -= Mathf.Max(0f, fixedDeltaTime);
+            if (preCatchReservationRemaining <= 0f)
+            {
+                ClearPreCatchReservation();
+            }
+
+            return false;
+        }
+
+        ClearPreCatchReservation();
+        Begin(result);
+        return true;
+    }
+
+    private bool TryGetApproachDirection(out int direction)
+    {
+        if (dash != null && dash.IsApproachingWall())
+        {
+            direction = dash.Direction;
+            return true;
+        }
+
+        float moveX = input.MoveVector.x;
+        if (Mathf.Abs(moveX) <= config.horizontalInputDeadZone)
+        {
+            direction = 0;
+            return false;
+        }
+
+        direction = moveX > 0f ? 1 : -1;
+        return true;
+    }
+
+    private bool IsValidPreCatchResult(in LedgeProbeResult result)
+    {
+        return sensors.LastLedgeFailure == LedgeProbeFailure.PreCatchHeight
+            && result.IsPreCatch
+            && result.HasUsableTarget();
+    }
+
+    private void BeginPreCatchReservation(float fixedDeltaTime)
+    {
+        preCatchReservationRemaining = Mathf.Max(
+            0f,
+            config.ledgePreCatchGraceDuration - Mathf.Max(0f, fixedDeltaTime));
+        preCatchReservationActive = preCatchReservationRemaining > 0f;
+    }
+
+    private void ClearPreCatchReservation()
+    {
+        preCatchReservationActive = false;
+        preCatchReservationRemaining = 0f;
     }
 
     private void Begin(in LedgeProbeResult result)
     {
+        ClearPreCatchReservation();
         dash?.Cancel(HeroDashEndReason.LedgeClimb);
         onBegin?.Invoke();
 
@@ -311,6 +393,7 @@ public sealed class HeroLedgeClimbAction
         }
 
         cleanedUp = true;
+        ClearPreCatchReservation();
         Vector2 finalPosition = target.TargetFrame != null
             ? target.ResolveStandingPosition()
             : motor.Position;

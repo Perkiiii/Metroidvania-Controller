@@ -166,7 +166,7 @@ public sealed class HeroActionController : MonoBehaviour
             return;
         }
 
-        wallSlide.FixedTick();
+        wallSlide.FixedTick(ledgeClimb != null && ledgeClimb.IsPreCatchReservingWallSlide);
         wallJump.FixedTick(fixedDeltaTime);
         sprint.FixedTick(fixedDeltaTime);
         jump.FixedTick(fixedDeltaTime);

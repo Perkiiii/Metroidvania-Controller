@@ -37,6 +37,7 @@ public sealed class HeroLedgeClimbAssetTests
 
         Assert.That(config, Is.Not.Null);
         Assert.That(config.ledgeSurfaceLayers.value, Is.EqualTo(1 << LayerMask.NameToLayer("Terrain")));
+        Assert.That(config.ledgePreCatchGraceDuration, Is.EqualTo(0.13f));
         Assert.That(config.ledgeCatchDuration, Is.EqualTo(0.08f));
         Assert.That(config.ledgePullUpDuration, Is.EqualTo(0.28f));
         Assert.That(config.ledgeSettleDuration, Is.EqualTo(0.05f));

@@ -71,6 +71,7 @@ public sealed class HeroConfig : ScriptableObject
     [Min(0f)] public float ledgeSupportGapTolerance = 0.08f;
     [Min(0f)] public float ledgePlacementSkin = 0.02f;
     [Min(0f)] public float ledgeCatchDrop = 0.1f;
+    [Min(0f)] public float ledgePreCatchGraceDuration = 0.13f;
     [Min(0.01f)] public float ledgeCatchDuration = 0.08f;
     [Min(0.01f)] public float ledgePullUpDuration = 0.28f;
     [Min(0.01f)] public float ledgeSettleDuration = 0.05f;

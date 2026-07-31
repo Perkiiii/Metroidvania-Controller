@@ -11,6 +11,7 @@ public readonly struct LedgeProbeResult
     public Vector2 LocalCrestPosition { get; }
     public Vector2 LocalStandingPosition { get; }
     public int Direction { get; }
+    public bool IsPreCatch { get; }
 
     public bool HasSecondarySupport => SecondarySupportCollider != null;
 
@@ -23,7 +24,8 @@ public readonly struct LedgeProbeResult
         Vector2 catchPosition,
         Vector2 crestPosition,
         Vector2 standingPosition,
-        int direction)
+        int direction,
+        bool isPreCatch = false)
     {
         PrimaryCollider = primaryCollider;
         SecondarySupportCollider = secondarySupportCollider;
@@ -34,6 +36,7 @@ public readonly struct LedgeProbeResult
         LocalCrestPosition = ToLocal(targetFrame, crestPosition);
         LocalStandingPosition = ToLocal(targetFrame, standingPosition);
         Direction = direction >= 0 ? 1 : -1;
+        IsPreCatch = isPreCatch;
     }
 
     public Vector2 ResolveSurfacePoint() => ToWorld(TargetFrame, LocalSurfacePoint);

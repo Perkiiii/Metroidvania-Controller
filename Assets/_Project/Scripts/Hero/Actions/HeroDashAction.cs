@@ -66,8 +66,13 @@ public sealed class HeroDashAction
 
     public bool IsApproachingWall(int wallDirection)
     {
-        return blackboard.dashing
+        return IsApproachingWall()
             && dashDirection == (wallDirection >= 0 ? 1 : -1);
+    }
+
+    public bool IsApproachingWall()
+    {
+        return blackboard.dashing;
     }
 
     public void Cancel(HeroDashEndReason reason)

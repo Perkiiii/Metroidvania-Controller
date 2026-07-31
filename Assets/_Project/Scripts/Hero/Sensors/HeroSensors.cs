@@ -140,8 +140,8 @@ public sealed class HeroSensors : MonoBehaviour
 
         float surfaceY = (nearHit.point.y + farHit.point.y) * 0.5f;
         float ledgeHeight = surfaceY - feetY;
-        if (ledgeHeight < config.ledgeMinimumHeightFromFeet
-            || ledgeHeight > config.ledgeMaximumHeightFromFeet)
+        bool preCatchHeight = ledgeHeight < config.ledgeMinimumHeightFromFeet;
+        if (ledgeHeight > config.ledgeMaximumHeightFromFeet)
         {
             return Fail(LedgeProbeFailure.HeightOutOfRange);
         }
@@ -234,7 +234,15 @@ public sealed class HeroSensors : MonoBehaviour
             catchPosition,
             crestPosition,
             standingPosition,
-            direction);
+            direction,
+            preCatchHeight);
+
+        if (preCatchHeight)
+        {
+            LastLedgeFailure = LedgeProbeFailure.PreCatchHeight;
+            return false;
+        }
+
         return true;
     }
 

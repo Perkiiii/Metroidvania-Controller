@@ -71,6 +71,7 @@ MonoBehaviour:
   ledgeSupportGapTolerance: 0.08
   ledgePlacementSkin: 0.02
   ledgeCatchDrop: 0.1
+  ledgePreCatchGraceDuration: 0.13
   ledgeCatchDuration: 0.08
   ledgePullUpDuration: 0.28
   ledgeSettleDuration: 0.05

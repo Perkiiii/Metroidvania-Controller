@@ -13,6 +13,7 @@ public sealed class HeroLedgeClimbTests
     private HeroMotor motor;
     private HeroInputReader input;
     private HeroAbilityConfig abilityConfig;
+    private PlayerAbilityState abilityState;
 
     [TearDown]
     public void TearDown()
@@ -45,6 +46,26 @@ public sealed class HeroLedgeClimbTests
         Physics2D.SyncTransforms();
 
         Assert.That(result.ResolveStandingPosition(), Is.EqualTo(originalStanding + new Vector2(2f, 3f)));
+    }
+
+    [Test]
+    public void TryFindLedge_BelowMinimumHeightReturnsUsablePreCatchResult()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        Physics2D.SyncTransforms();
+
+        Assert.That(sensors.TryFindLedge(1, out LedgeProbeResult result), Is.False);
+        Assert.That(sensors.LastLedgeFailure, Is.EqualTo(LedgeProbeFailure.PreCatchHeight));
+        Assert.That(result.IsPreCatch, Is.True);
+        Assert.That(result.HasUsableTarget(), Is.True);
+
+        hero.transform.position = new Vector3(0f, 1.7f, 0f);
+        Physics2D.SyncTransforms();
+
+        Assert.That(sensors.TryFindLedge(1, out result), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(result.IsPreCatch, Is.False);
     }
 
     [Test]
@@ -203,6 +224,173 @@ public sealed class HeroLedgeClimbTests
         blackboard.wallSliding = true;
         Assert.That(action.FixedTick(0.02f), Is.False);
         Assert.That(blackboard.ledgeClimbing, Is.False);
+    }
+
+    [Test]
+    public void LedgeAction_PreCatchReservesWallSlideUntilGravityReachesCatchHeight()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        SetMoveInput(1f);
+        blackboard.grounded = false;
+        blackboard.touchingWallFront = true;
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        abilityState = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        abilityState.wallClingUnlocked = true;
+        created.Add(abilityState);
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+        HeroWallSlideAction wallSlide = new HeroWallSlideAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            null,
+            abilityState);
+
+        Assert.That(action.FixedTick(0.02f), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.True);
+        wallSlide.FixedTick(action.IsPreCatchReservingWallSlide);
+        Assert.That(blackboard.wallSliding, Is.False);
+
+        hero.transform.position = new Vector3(0f, 1.7f, 0f);
+        Physics2D.SyncTransforms();
+
+        Assert.That(action.FixedTick(0.02f), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(blackboard.ledgeClimbing, Is.True);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.False);
+    }
+
+    [Test]
+    public void LedgeAction_UsesCurrentInputDirectionWhenFacingIsStale()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        SetMoveInput(1f);
+        blackboard.facingRight = false;
+        blackboard.grounded = false;
+        blackboard.touchingWallFront = false;
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+
+        Assert.That(action.FixedTick(0.02f), Is.True, sensors.LastLedgeFailure.ToString());
+        Assert.That(blackboard.ledgeClimbing, Is.True);
+    }
+
+    [Test]
+    public void LedgeAction_TallWallDoesNotReserveAndWallSlideEntersImmediately()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Tall Wall", new Vector2(0.37f, 2f), new Vector2(0.2f, 4f));
+        SetMoveInput(1f);
+        blackboard.grounded = false;
+        blackboard.touchingWallFront = true;
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        abilityState = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        abilityState.wallClingUnlocked = true;
+        created.Add(abilityState);
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+        HeroWallSlideAction wallSlide = new HeroWallSlideAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            null,
+            abilityState);
+
+        Assert.That(action.FixedTick(0.02f), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.False);
+        wallSlide.FixedTick(false);
+        Assert.That(blackboard.wallSliding, Is.True);
+    }
+
+    [Test]
+    public void LedgeAction_PreCatchReservationTimesOutWithoutStartingClimb()
+    {
+        CreateHeroAndSensors();
+        config.ledgePreCatchGraceDuration = 0.04f;
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        SetMoveInput(1f);
+        blackboard.grounded = false;
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+
+        Assert.That(action.FixedTick(0.02f), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.True);
+        Assert.That(action.FixedTick(0.02f), Is.False);
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.False);
+        Assert.That(blackboard.ledgeClimbing, Is.False);
+    }
+
+    [Test]
+    public void LedgeAction_InvalidHazardousCandidateDoesNotReserve()
+    {
+        CreateHeroAndSensors();
+        CreateBox("Wide Terrain", new Vector2(1.135f, 0.75f), new Vector2(1.73f, 1.5f));
+        hero.transform.position = new Vector3(0f, 1.8f, 0f);
+        SetMoveInput(1f);
+        blackboard.grounded = false;
+
+        GameObject hazardObject = new GameObject("Hazard");
+        created.Add(hazardObject);
+        hazardObject.transform.position = new Vector3(0.07f, 0.95f, 0f);
+        BoxCollider2D hazardCollider = hazardObject.AddComponent<BoxCollider2D>();
+        hazardCollider.size = new Vector2(0.4f, 0.3f);
+        hazardCollider.isTrigger = true;
+        hazardObject.AddComponent<HazardZone>();
+        Physics2D.SyncTransforms();
+
+        HeroLedgeClimbAction action = CreateLedgeAction(out _);
+
+        Assert.That(action.FixedTick(0.02f), Is.False);
+        Assert.That(sensors.LastLedgeFailure, Is.EqualTo(LedgeProbeFailure.RestrictedVolume));
+        Assert.That(action.IsPreCatchReservingWallSlide, Is.False);
+    }
+
+    [Test]
+    public void WallSlide_PreCatchSuppressionDoesNotPlayWallSlideAudio()
+    {
+        CreateHeroAndSensors();
+        SetMoveInput(1f);
+        blackboard.grounded = false;
+        blackboard.touchingWallFront = true;
+        hero.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(0f, -0.5f);
+        abilityState = ScriptableObject.CreateInstance<PlayerAbilityState>();
+        abilityState.wallClingUnlocked = true;
+        created.Add(abilityState);
+
+        HeroAudioController audio = hero.AddComponent<HeroAudioController>();
+        AudioSource wallSlideSource = hero.AddComponent<AudioSource>();
+        AudioClip clip = AudioClip.Create("Wall Slide", 32, 1, 8000, false);
+        created.Add(clip);
+        wallSlideSource.clip = clip;
+        typeof(HeroAudioController)
+            .GetField("wallSlide", BindingFlags.Instance | BindingFlags.NonPublic)
+            .SetValue(audio, wallSlideSource);
+        audio.Initialize(config, blackboard);
+
+        HeroWallSlideAction wallSlide = new HeroWallSlideAction(
+            config,
+            abilityConfig,
+            blackboard,
+            input,
+            motor,
+            audio,
+            abilityState);
+
+        wallSlide.FixedTick(true);
+
+        Assert.That(blackboard.wallSliding, Is.False);
+        Assert.That(wallSlideSource.isPlaying, Is.False);
     }
 
     [TestCase("attacking")]

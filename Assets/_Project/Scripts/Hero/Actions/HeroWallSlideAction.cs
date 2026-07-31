@@ -29,9 +29,11 @@ public sealed class HeroWallSlideAction
         this.abilityState = abilityState;
     }
 
-    public void FixedTick()
+    public void FixedTick(bool suppressNewEntry = false)
     {
-        bool shouldSlide = blackboard.wallSliding ? CanContinueWallSlide() : CanEnterWallSlide();
+        bool shouldSlide = blackboard.wallSliding
+            ? CanContinueWallSlide()
+            : !suppressNewEntry && CanEnterWallSlide();
 
         if (shouldSlide && !wasWallSliding)
         {

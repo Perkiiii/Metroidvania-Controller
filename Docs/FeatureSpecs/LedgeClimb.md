@@ -8,6 +8,8 @@ action, not an unlock flag and not part of Wall Latch.
 Included:
 
 - automatic airborne entry while deliberately approaching a valid ledge;
+- a short pre-catch reservation when an otherwise-valid ledge is just below the minimum catch
+  height;
 - Catch → PullUp → Settle → Complete;
 - pre-wall-slide arbitration;
 - ground-initiated and airborne dash-to-mantle handoff, provided the hero is airborne at entry;
@@ -46,13 +48,24 @@ Entry requires:
 - `wallSliding` and `wallJumping` are false;
 - attack, Bind, recoil, control lock, and input block are inactive;
 - vertical velocity is below `HeroConfig.ledgeMaxUpwardSpeed`;
-- a front-wall contact exists;
+- the directional ledge query finds a front-wall contact;
 - horizontal input points toward the wall, or the active dash owns that direction;
 - `HeroSensors.TryFindLedge` succeeds.
 
 The fixed-step order is ledge query → wall slide → wall jump → jump → dash → attack. When ledge
-ownership is accepted, the controller returns immediately. An established wall slide is never
-queried for automatic mantle.
+ownership is accepted, the controller returns immediately. If the directional query has validated
+all ledge geometry but the top is still below `ledgeMinimumHeightFromFeet`, it reports
+`LedgeProbeFailure.PreCatchHeight` with a usable `LedgeProbeResult`. `HeroLedgeClimbAction` then
+reserves the ledge for `HeroConfig.ledgePreCatchGraceDuration` while live approach input (or the
+captured dash direction) continues. During that reservation `HeroActionController` suppresses only
+new wall-slide entry; gravity and ordinary movement continue, and the strict query is retried every
+fixed step. A valid catch begins as soon as the minimum height is reached. Invalid geometry,
+unsupported surfaces, hazards, restrictions, and expired reservations do not receive this
+protection. An established wall slide is never interrupted or queried for automatic mantle.
+
+Ordinary approach direction comes from the current horizontal input. It is not required to match a
+stale `FacingDirection`; the sensor query owns the authoritative wall direction. Dash approach uses
+the dash action's captured `Direction`.
 
 A dash may have started on the ground, but ledge entry is still airborne-only. A grounded dash into
 a wall remains a dash. A successful dash handoff calls typed
@@ -75,6 +88,10 @@ The strict query uses `HeroConfig.ledgeSurfaceLayers`, serialized as Terrain onl
 - catch, crest, standing, and interpolated corridor body clearance;
 - a collision-valid final standing placement;
 - absence of enabled `NoLedgeClimbVolume` and hazard markers.
+
+The pre-catch result is only produced after the same surface, support, clearance, corridor, target,
+restriction, and hazard checks pass. It is a reservation diagnostic, not an alternate acceptance
+path: the normal strict minimum-height query must succeed before Catch begins.
 
 The support may be one collider, one CompositeCollider2D, or two aligned adjacent static Terrain
 colliders. A seam is accepted only when bounded samples across the standing footprint remain
@@ -124,6 +141,10 @@ scene transitions, target invalidation or movement, component disable, and hero 
 - stops the ledge presentation;
 - never resumes or refunds an interrupted dash;
 - never resets wall-jump state.
+
+Dash and Wildstride are not cancelled, and the Dash/Wildstride command is not disarmed, when a
+pre-catch reservation is created, refreshed, rejected, or timed out. Those actions are cancelled
+only from the successful ledge `Begin` handoff.
 
 ## Authored exclusion
 
