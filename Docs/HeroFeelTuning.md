@@ -34,13 +34,17 @@ value.
 
 Base Wildstride is resource-free. The 0.08-second Sprint/ledge Jump buffer is provisional and
 unvalidated, chosen near the existing 0.08-second coyote-time scale. It does not change normal
-`coyoteTime` or `jumpBufferTime`. Airborne Wildstride Jump captures launch direction; normal falling,
-neutral/opposite input, and residual decay end only the forced carry into ordinary motor-owned air
-steering while first-landing authorization remains. Ordinary walk-offs preserve that authorization
-through short and long falls, and the first landing consumes it exactly once. Double Jump is the
-intentional exception: it hard-cancels the Wildstride sequence, removes landing authorization, and
-requires Dash release plus a fresh press before another sequence can begin. Successful authorized
-ledge climbs temporarily suspend Wildstride and resume it only when Dash remains held and armed.
+`coyoteTime` or `jumpBufferTime`. A natural grounded Dash completion uses its captured facing
+direction when horizontal input is neutral; a natural air-Dash retains that direction through its
+one-shot landing authorization. Airborne Wildstride Jump captures launch direction; neutral input
+while Dash remains held preserves the forced carry, while normal falling, opposite input, and
+residual decay end only the forced carry into ordinary motor-owned air steering. Authorized neutral
+air steering continues in the remembered direction at normal air speed while first-landing
+authorization remains. Ordinary walk-offs preserve that authorization through short and long
+falls, and the first landing consumes it exactly once. Double Jump is the intentional exception: it
+hard-cancels the Wildstride sequence, removes landing authorization, and requires Dash release plus
+a fresh press before another sequence can begin. Successful authorized ledge climbs temporarily
+suspend Wildstride and resume it only when Dash remains held and armed.
 
 Digital overlap resolution now reads named `left`/`right` digital parts from the bound `Move`
 action's composites and handles its directly bound Gamepad `DpadControl`. This includes custom

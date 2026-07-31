@@ -101,6 +101,29 @@ public sealed class HeroSprintActionTests
         Assert.That(blackboard.completedGroundDashVersion, Is.EqualTo(completion));
     }
 
+    [TestCase(true, 1)]
+    [TestCase(false, -1)]
+    public void NaturalGroundDashNeutral_UsesDashCompletionDirection(bool facingRight, int expectedDirection)
+    {
+        blackboard.facingRight = facingRight;
+        BeginDash(true, Vector2.zero);
+        CompleteDash();
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(expectedDirection));
+    }
+
+    [Test]
+    public void GroundDashCompletion_CurrentSteeringOverridesDashDirection()
+    {
+        BeginDash(true, Vector2.right);
+        SetInput("MoveVector", Vector2.left);
+        CompleteDash();
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(-1));
+    }
+
     [Test]
     public void ReleaseBeforeCompletion_PreventsWildstride()
     {
@@ -384,12 +407,14 @@ public sealed class HeroSprintActionTests
     {
         BeginCarry();
         body.linearVelocity = new Vector2(abilityConfig.sprintJumpSpeed, -1f);
+        SetInput("MoveVector", Vector2.zero);
         blackboard.falling = true;
         sprint.FixedTick(0.02f);
 
         Assert.That(blackboard.sprintJumpCarrying, Is.False);
         Assert.That(sprint.HasAirborneLandingAuthorisation, Is.True);
         Assert.That(sprint.RequestedSpeed, Is.EqualTo(HeroLocomotionSpeed.Walk));
+        Assert.That(sprint.ResolveGroundedMoveInput(0f), Is.EqualTo(1f));
 
         for (int i = 0; i < airborneFixedSteps; i++)
         {
@@ -486,6 +511,15 @@ public sealed class HeroSprintActionTests
 
         Assert.That(sprint.TryBeginJumpCarry(), Is.True);
         Assert.That(sprint.CapturedJumpCarryDirection, Is.EqualTo(1));
+
+        motor.StartJump();
+        sprint.Tick();
+        Assert.That(blackboard.sprintJumpCarrying, Is.True);
+        Assert.That(sprint.ResolveGroundedMoveInput(0f), Is.EqualTo(1f));
+
+        motor.SetDesiredMove(sprint.ResolveGroundedMoveInput(0f), sprint.RequestedSpeed);
+        motor.FixedTick(0.02f);
+        Assert.That(blackboard.sprintJumpCarrying, Is.True);
     }
 
     [Test]
@@ -565,6 +599,25 @@ public sealed class HeroSprintActionTests
         Assert.That(blackboard.sprinting, Is.False, "The consumed air-Dash sequence cannot authorise a later landing.");
     }
 
+    [TestCase(true, 1)]
+    [TestCase(false, -1)]
+    public void NaturalAirDash_NeutralFirstLandingUsesCompletionDirection(bool facingRight, int expectedDirection)
+    {
+        blackboard.facingRight = facingRight;
+        BeginDash(false, Vector2.zero);
+        CompleteDash();
+        Assert.That(sprint.HasPendingAirDashLanding, Is.True);
+
+        SetInput("MoveVector", Vector2.zero);
+        blackboard.wasGrounded = false;
+        blackboard.grounded = true;
+        sprint.FixedTick(0.02f);
+
+        Assert.That(blackboard.sprinting, Is.True);
+        Assert.That(blackboard.sprintDirection, Is.EqualTo(expectedDirection));
+        Assert.That(sprint.HasPendingAirDashLanding, Is.False);
+    }
+
     [Test]
     public void AirDashLandingAuthorisation_IsConsumedWhenFirstLandingFails()
     {
@@ -574,8 +627,8 @@ public sealed class HeroSprintActionTests
 
         SetInput("MoveVector", Vector2.zero);
         blackboard.wasGrounded = false;
-        blackboard.grounded = true;
-        sprint.Tick();
+        blackboard.grounded = false;
+        sprint.NotifyLanded();
         Assert.That(sprint.HasPendingAirDashLanding, Is.False);
         Assert.That(blackboard.sprinting, Is.False);
 
@@ -946,9 +999,14 @@ public sealed class HeroSprintActionTests
 
     private void BeginDash(bool grounded)
     {
+        BeginDash(grounded, Vector2.right);
+    }
+
+    private void BeginDash(bool grounded, Vector2 move)
+    {
         blackboard.grounded = grounded;
         blackboard.wasGrounded = grounded;
-        SetInput("MoveVector", Vector2.right);
+        SetInput("MoveVector", move);
         SetInput("DashHeld", true);
         SetInput("DashPressedThisFrame", true);
         dash.Tick(0f);

@@ -2,9 +2,9 @@
 
 **Player-facing name:** Wildstride  
 **Internal identity:** Sprint (`AbilityId.Sprint`, `PlayerAbilityState.sprintUnlocked`)  
-**Status:** corrected Swift Step-style movement loop implemented, ordinary-fall and ledge-climb
-continuity hardened, and Double Jump hard cancellation implemented; attack, final presentation,
-and human feel approval remain outstanding.
+**Status:** corrected Swift Step-style movement loop implemented, neutral Dash/carry direction
+continuity hardened, ordinary-fall and ledge-climb continuity hardened, and Double Jump hard
+cancellation implemented; attack, final presentation, and human feel approval remain outstanding.
 
 ## Implemented correction
 
@@ -21,6 +21,15 @@ was the explicit shared neutral-input cancellation in `HeroSprintAction`, follow
 `HeroActionController` forwarding raw zero movement to the motor. Active grounded Wildstride now
 keeps its last valid signed direction while held and armed Dash preserves the authorization, and
 the controller resolves grounded neutral movement to that remembered direction.
+
+The authorized sequence owns its remembered direction. A natural grounded Dash completion uses
+current nonzero steering when available and otherwise uses the direction captured by the Dash;
+therefore a neutral Dash can continue into Wildstride without allowing a held Dash to manufacture a
+new sequence. A natural air-Dash stores its completion direction with its one-shot landing
+authorization and uses it when landing input is neutral. While Dash remains held, neutral input
+does not cancel `AirborneCarry`; only opposite steering, normal falling, or an approved hard
+interruption ends forced carry. After forced carry ends, authorized airborne phases resolve neutral
+horizontal intent to the remembered direction at ordinary air-steering speed.
 
 ## Runtime model and ownership
 
@@ -40,7 +49,7 @@ DisarmedUntilRelease
 `AirborneCarry` means forced horizontal Wildstride carry is active and the current sequence retains
 landing authorisation. `AirborneAuthorised` means forced carry has ended, ordinary airborne
 movement/gravity owns the hero, and that same sequence still owns permission for its first landing.
-Dash sequence versions, pending landing authorization, captured carry direction, the short
+Dash sequence versions, pending landing authorization and its captured direction, captured carry direction, the short
 ledge-jump timer, suspension state, and disarm state remain private. Only grounded Sprint, active
 carry, carry presentation, and the current signed direction are mirrored to `HeroStateBlackboard`.
 
@@ -65,12 +74,12 @@ preserved; `blackboard.sprinting` stays true; Wildstride speed and animation rem
 facing at the established zero/sign seam, then accelerates toward `sprintSpeed` in the new
 direction. No Walk/Run request or animation frame is inserted.
 
-Grounded horizontal input is required for initial Wildstride entry, but not for maintenance.
-Releasing movement while Dash remains held and armed preserves `Grounded` and continues at
-Wildstride speed in the last valid direction. A later opposite input enters the same motor-owned
-turn. Most-recent digital direction wins while both sides overlap. Dash release still ends the
-sequence immediately, and an idle held Dash without a qualifying Dash/Wildstride sequence cannot
-create one.
+Initial grounded Wildstride entry uses current nonzero steering when available and otherwise the
+direction captured by the natural Dash completion. Releasing movement while Dash remains held and
+armed preserves `Grounded` and continues at Wildstride speed in the last valid direction. A later
+opposite input enters the same motor-owned turn. Most-recent digital direction wins while both
+sides overlap. Dash release still ends the sequence immediately, and an idle held Dash without a
+qualifying Dash/Wildstride sequence cannot create one.
 
 While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
 direction. Horizontal input steers or changes that remembered direction but does not need to remain
@@ -89,15 +98,16 @@ than fragile generic reflection; the raw keyboard fallback is limited to the leg
 
 Wildstride Jump uses the unchanged normal vertical Jump path. At launch, it captures one signed
 horizontal carry direction from current nonzero input, falling back to the remembered authorised
-direction. Same-direction input maintains `sprintJumpSpeed`. Opposite-direction or neutral input
-ends only the forced carry; `HeroMotor.EndWildstrideCarry()` then lets ordinary air steering and
-gravity take over. The phase becomes `AirborneAuthorised`, so the same sequence can still resume
-Wildstride on its first landing. Normal falling ends forced carry automatically; the carry does not
-apply `sprintJumpSpeed` through an arbitrarily long descent. A normal Wildstride Jump therefore
-preserves first-landing authorization after forced carry ends. Double Jump is different: it hard
-cancels the current Wildstride sequence, clears landing authorization and the jump buffer, ends
-carry through `HeroMotor`, and disarms Dash until physical release. Double Jump vertical speed and
-the normal Double Jump path remain unchanged.
+direction. Same-direction or neutral input while Dash remains held maintains `sprintJumpSpeed`.
+Opposite-direction input ends only the forced carry; `HeroMotor.EndWildstrideCarry()` then lets
+ordinary air steering and gravity take over. The phase becomes `AirborneAuthorised`, so the same
+sequence can still resume Wildstride on its first landing. Neutral input in that ordinary
+authorized phase resolves to the remembered direction at walk/air-steering speed. Normal falling
+ends forced carry automatically; the carry does not apply `sprintJumpSpeed` through an arbitrarily
+long descent. A normal Wildstride Jump therefore preserves first-landing authorization after
+forced carry ends. Double Jump is different: it hard cancels the current Wildstride sequence,
+clears landing authorization and the jump buffer, ends carry through `HeroMotor`, and disarms Dash
+until physical release. Double Jump vertical speed and the normal Double Jump path remain unchanged.
 
 ## Sprint/ledge Jump buffer
 

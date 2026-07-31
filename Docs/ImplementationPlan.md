@@ -398,16 +398,19 @@ world persistence (timed suppression on scene re-initialization) is implemented 
 - [ ] Implement wall-latch / aimed wall launch (`HeroWallLatchAction`).
 - [x] Correct and harden Wildstride Pass 1/2 movement (`HeroSprintAction`). Ordinary movement now
   explicitly uses Walk/HeroWalk; grounded Wildstride explicitly uses sprintSpeed/the Sprint slot.
-  Natural grounded Dash hands off immediately, while a natural ordinary air Dash creates a
-  typed/versioned authorization consumed exactly once by the first landing. Grounded direction
-  changes preserve authorization through motor-owned turning and same-step locomotion restoration;
-  active grounded neutral input retains the last valid Sprint direction while Dash remains held and
-  armed, without allowing an idle Dash hold to synthesize Wildstride.
-  Airborne carry captures its launch direction as a private `AirborneCarry` phase. Normal falling,
-  neutral/opposite air input, and residual decay end only forced carry through the motor;
-  `AirborneAuthorised` keeps first-landing permission through arbitrary ordinary airtime. Landing
-  consumes it once and restores grounded Wildstride in the same fixed step, using current input
-  before the remembered sequence direction. Base Wildstride is resource-free. A provisional
+  Natural grounded Dash hands off immediately, using current steering or the typed Dash direction
+  when steering is neutral, while a natural ordinary air Dash creates a typed/versioned
+  authorization and retains its direction for the first landing. Grounded direction changes
+  preserve authorization through motor-owned turning and same-step locomotion restoration; active
+  grounded neutral input retains the last valid Sprint direction while Dash remains held and armed,
+  without allowing an idle Dash hold to synthesize Wildstride.
+  Airborne carry captures its launch direction as a private `AirborneCarry` phase. Neutral input
+  while Dash remains held preserves forced carry; normal falling, opposite air input, and residual
+  decay end only forced carry through the motor. `AirborneAuthorised` keeps first-landing
+  permission through arbitrary ordinary airtime and resolves neutral input to remembered-direction
+  air steering. Landing consumes it once and restores grounded Wildstride in the same fixed step,
+  using current input before the remembered sequence direction. Base Wildstride is resource-free.
+  A provisional
   0.08-second private ledge-jump buffer preserves the specialized Jump opportunity when Jump begins
   just after running off a ledge; buffer expiry transitions to ordinary airborne authorization,
   without changing normal coyote or Jump-buffer tuning. Authorized ledge climbs temporarily suspend

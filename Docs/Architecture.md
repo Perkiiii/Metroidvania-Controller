@@ -222,10 +222,15 @@ grounded reversal deceleration/acceleration, facing at the turn seam, captured h
 carry, carry termination, post-cancellation air steering/deceleration, and the death stationary
 request.
 While active grounded Wildstride has neutral horizontal input, `HeroSprintAction` retains its last
-valid direction and `HeroActionController` continues that signed Wildstride locomotion request;
-entry still requires a qualifying direction and Dash sequence. A Wildstride Jump or landing may use
-the remembered sequence direction when current horizontal input is neutral; unrelated airtime and
-held Dash cannot manufacture that direction.
+valid direction and `HeroActionController` continues that signed Wildstride locomotion request.
+Natural grounded Dash handoff uses current nonzero steering or the typed completion direction, so a
+neutral Dash can continue while an idle held Dash still cannot manufacture a sequence. Natural air
+Dash landing authorization retains its typed completion direction and uses it when landing input is
+neutral. A Wildstride Jump uses the remembered sequence direction when current horizontal input is
+neutral; unrelated airtime and held Dash cannot manufacture that direction.
+While Dash remains held, neutral input does not cancel `AirborneCarry`; opposite steering or normal
+falling ends only forced carry. `AirborneAuthorised` and other authorized ordinary airborne phases
+resolve neutral horizontal intent to the remembered direction at normal air-steering speed.
 While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
 direction. Horizontal input steers or changes that remembered direction but does not need to remain
 held. Double Jump hard-cancels the sequence and removes landing-resumption authorization; it leaves

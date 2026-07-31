@@ -27,6 +27,7 @@ public sealed class HeroSprintAction
     private int lastHandledDashSequenceVersion;
     private int authorisedDashSequenceVersion;
     private int pendingAirDashSequenceVersion;
+    private int pendingAirDashDirection;
     private int lastDownslashBounceVersion;
     private int capturedJumpCarryDirection;
     private float ledgeJumpBufferRemaining;
@@ -43,17 +44,26 @@ public sealed class HeroSprintAction
         ? HeroLocomotionSpeed.Wildstride
         : HeroLocomotionSpeed.Walk;
 
+    // The controller calls this for every locomotion phase. Only an already-authorized phase may
+    // turn neutral input into remembered movement; idle Dash holds remain unable to create motion.
     public float ResolveGroundedMoveInput(float moveX)
     {
-        if (!IsSprinting)
+        float deadZone = config != null ? config.horizontalInputDeadZone : 0.1f;
+        if (Mathf.Abs(moveX) > deadZone)
         {
             return moveX;
         }
 
-        float deadZone = config != null ? config.horizontalInputDeadZone : 0.1f;
-        return Mathf.Abs(moveX) > deadZone
-            ? moveX
-            : blackboard.sprintDirection;
+        if (phase != WildstridePhase.Grounded
+            && phase != WildstridePhase.PendingAirDashLanding
+            && phase != WildstridePhase.LedgeJumpBuffered
+            && phase != WildstridePhase.AirborneCarry
+            && phase != WildstridePhase.AirborneAuthorised)
+        {
+            return moveX;
+        }
+
+        return GetRememberedDirection();
     }
 
     public HeroSprintAction(
@@ -225,6 +235,7 @@ public sealed class HeroSprintAction
             : WildstridePhase.None;
         authorisedDashSequenceVersion = 0;
         pendingAirDashSequenceVersion = 0;
+        pendingAirDashDirection = 0;
         capturedJumpCarryDirection = 0;
         ledgeJumpBufferRemaining = 0f;
         motor?.EndWildstrideCarry();
@@ -344,15 +355,10 @@ public sealed class HeroSprintAction
         if (IsJumpCarrying)
         {
             int inputDirection = GetInputDirection();
-            if (inputDirection == 0)
-            {
-                EndAirborneCarry(HeroSprintCancelReason.NeutralInput, true);
-            }
-            else if (inputDirection != capturedJumpCarryDirection)
+            if (inputDirection != 0 && inputDirection != capturedJumpCarryDirection)
             {
                 EndAirborneCarry(HeroSprintCancelReason.DirectionReversed, true);
             }
-
         }
 
         if (IsJumpCarrying && blackboard.falling)
@@ -360,9 +366,11 @@ public sealed class HeroSprintAction
             EndAirborneCarry(HeroSprintCancelReason.JumpCarryEnded, true);
         }
 
-        if (IsSprinting)
+        if (IsSprinting
+            || phase == WildstridePhase.LedgeJumpBuffered
+            || phase == WildstridePhase.AirborneAuthorised)
         {
-            UpdateGroundedDirection(GetInputDirection());
+            UpdateRememberedDirection(GetInputDirection());
         }
 
         bool beganLedgeJumpBuffer = false;
@@ -459,13 +467,17 @@ public sealed class HeroSprintAction
 
         if (completion.StartedGrounded)
         {
-            TryBeginGroundedWildstride(completion.SequenceVersion, GetInputDirection());
+            TryBeginGroundedWildstride(
+                completion.SequenceVersion,
+                ResolveDirection(completion.Direction));
             return;
         }
 
         pendingAirDashSequenceVersion = completion.SequenceVersion;
+        pendingAirDashDirection = completion.Direction;
         authorisedDashSequenceVersion = completion.SequenceVersion;
         phase = WildstridePhase.PendingAirDashLanding;
+        blackboard.sprintDirection = pendingAirDashDirection;
         blackboard.lastSprintCancelReason = HeroSprintCancelReason.None;
         SyncBlackboard();
 
@@ -483,22 +495,20 @@ public sealed class HeroSprintAction
         }
 
         int landingSequenceVersion = pendingAirDashSequenceVersion;
+        int landingDirection = ResolveDirection(pendingAirDashDirection);
         pendingAirDashSequenceVersion = 0;
+        pendingAirDashDirection = 0;
         phase = WildstridePhase.None;
         SyncBlackboard();
 
         // The first landing consumes this exact Dash sequence regardless of entry success.
-        TryBeginGroundedWildstride(landingSequenceVersion, GetInputDirection());
+        TryBeginGroundedWildstride(landingSequenceVersion, landingDirection);
     }
 
     private void ConsumeAuthorisedLanding()
     {
         int landingSequenceVersion = authorisedDashSequenceVersion;
-        int landingDirection = GetInputDirection();
-        if (landingDirection == 0)
-        {
-            landingDirection = blackboard.sprintDirection;
-        }
+        int landingDirection = ResolveDirection(blackboard.sprintDirection);
 
         // The first landing consumes this sequence before entry is validated. A later landing
         // cannot replay it even if the current input or ability state is no longer eligible.
@@ -535,10 +545,11 @@ public sealed class HeroSprintAction
     private void BeginGroundedWildstride(int dashSequenceVersion, int direction)
     {
         authorisedDashSequenceVersion = dashSequenceVersion;
+        pendingAirDashDirection = 0;
         capturedJumpCarryDirection = 0;
         ledgeJumpBufferRemaining = 0f;
         phase = WildstridePhase.Grounded;
-        UpdateGroundedDirection(direction);
+        UpdateRememberedDirection(direction);
         blackboard.lastSprintCancelReason = HeroSprintCancelReason.None;
         SyncBlackboard();
     }
@@ -578,7 +589,7 @@ public sealed class HeroSprintAction
             || blackboard.actorState == HeroActorState.Dead;
     }
 
-    private void UpdateGroundedDirection(int direction)
+    private void UpdateRememberedDirection(int direction)
     {
         if (direction != 0)
         {
@@ -617,6 +628,25 @@ public sealed class HeroSprintAction
         }
 
         return moveX > 0f ? 1 : -1;
+    }
+
+    private int ResolveDirection(int fallbackDirection)
+    {
+        int inputDirection = GetInputDirection();
+        return inputDirection != 0 ? inputDirection : fallbackDirection;
+    }
+
+    private int GetRememberedDirection()
+    {
+        switch (phase)
+        {
+            case WildstridePhase.PendingAirDashLanding:
+                return pendingAirDashDirection;
+            case WildstridePhase.AirborneCarry:
+                return capturedJumpCarryDirection;
+            default:
+                return blackboard != null ? blackboard.sprintDirection : 0;
+        }
     }
 
     private static HeroSprintCancelReason MapLedgeClimbCancelReason(HeroLedgeClimbCancelReason reason)

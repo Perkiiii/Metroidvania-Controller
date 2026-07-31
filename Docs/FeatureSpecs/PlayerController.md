@@ -123,15 +123,19 @@ the latter lets ordinary air steering/gravity continue without expiring permissi
 landing. Grounded reversal remains authorized while `HeroMotor` decelerates through zero and
 accelerates in the requested direction.
 Active grounded Wildstride retains its last valid direction and continues to request that signed
-movement during neutral horizontal input while Dash remains held and armed. Initial entry still
-requires active direction, so an idle held Dash cannot synthesize Wildstride.
-Airborne carry is directionally captured; normal falling, neutral input, opposite input, and
-residual decay end only the forced carry through `HeroMotor.EndWildstrideCarry()`. The sequence
-authorisation remains until Dash release, hard interruption, or its first landing. A Wildstride
-Jump and landing with neutral movement use the remembered authorised direction; current nonzero
-input takes priority. Double Jump is the hard-cancel exception: it ends the current Wildstride
-sequence and removes landing-resumption authorization while leaving the normal Double Jump vertical
-path and tuning unchanged. Dash must be physically released before a new sequence can begin.
+movement during neutral horizontal input while Dash remains held and armed. Initial grounded entry
+uses current nonzero steering or, when neutral, the direction captured by the natural Dash
+completion, so a neutral Dash can continue without allowing an idle held Dash to synthesize a new
+sequence. A natural air-Dash stores its captured direction for the one-shot landing authorization;
+current nonzero input takes priority when that landing is consumed.
+Airborne carry is directionally captured; neutral input while Dash remains held preserves the
+forced carry, while normal falling, opposite input, and residual decay end only the forced carry
+through `HeroMotor.EndWildstrideCarry()`. The sequence authorisation remains until Dash release,
+hard interruption, or its first landing. After carry ends, authorized ordinary airborne phases
+resolve neutral input to the remembered direction at normal air-steering speed. Double Jump is the
+hard-cancel exception: it ends the current Wildstride sequence and removes landing-resumption
+authorization while leaving the normal Double Jump vertical path and tuning unchanged. Dash must
+be physically released before a new sequence can begin.
 
 While Wildstride is authorized, holding Dash maintains automatic grounded movement in the remembered
 direction. Horizontal input steers or changes that remembered direction but does not need to remain

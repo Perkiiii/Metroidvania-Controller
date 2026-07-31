@@ -358,18 +358,64 @@ public sealed class HeroWildstridePlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator OrdinaryIdle_HoldingDashWithoutQualifyingDirection_DoesNotBeginWildstride()
+    public IEnumerator NeutralGroundedDash_UsesFacingDirectionWhenFacingRight()
     {
+        SetField(blackboard, "facingRight", true);
         yield return AdvanceHero(0.11f, Key.X);
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That((int)GetField(blackboard, "sprintDirection"), Is.EqualTo(1));
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator NeutralGroundedDash_UsesFacingDirectionWhenFacingLeft()
+    {
+        SetField(blackboard, "facingRight", false);
+        yield return AdvanceHero(0.11f, Key.X);
+
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.True);
+        Assert.That((int)GetField(blackboard, "sprintDirection"), Is.EqualTo(-1));
+        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator HeldDashAfterUnsuccessfulCompletionCannotCreateWildstride()
+    {
+        yield return AdvanceHero(0.02f, Key.X);
+        yield return AdvanceHero(0.02f);
+        yield return AdvanceHero(0.11f);
+
         Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
-        for (int i = 1; i < 30; i++)
+
+        // This is a new held input while the previous Dash is still on cooldown, not a new
+        // qualifying completion. It must not replay the stale completion.
+        yield return AdvanceHero(0.02f, Key.X);
+        for (int i = 0; i < 30; i++)
         {
             SimulateHeroStep(0.02f);
-            Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
         }
 
+        Assert.That((bool)GetField(blackboard, "sprinting"), Is.False);
         Assert.That((int)GetField(blackboard, "sprintDirection"), Is.Zero);
-        Assert.That(GetField(animations, "currentVisualState").ToString(), Is.Not.EqualTo("Wildstride"));
+    }
+
+    [UnityTest]
+    public IEnumerator NeutralWildstrideJump_DashOnlyPreservesCarryThroughActionAndMotor()
+    {
+        yield return BeginGroundedWildstride(Key.D);
+        yield return AdvanceHero(0.02f, Key.X, Key.Space);
+
+        Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.True);
+        Assert.That((float)GetField(motor, "desiredMoveX"), Is.EqualTo(1f));
+
+        for (int i = 0; i < 80; i++)
+        {
+            SimulateHeroStep(0.02f);
+        }
+
+        Assert.That((bool)GetField(blackboard, "sprintJumpCarrying"), Is.True);
+        Assert.That(body.linearVelocity.x, Is.EqualTo(10f).Within(0.01f));
     }
 
     [UnityTest]

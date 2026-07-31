@@ -121,11 +121,12 @@ Wildstride shares the Dash command. A fresh press attempts Dash immediately; the
 threshold and no standalone Sprint action. A typed `HeroDashCompletion` identifies one Dash
 sequence/version, its ground/air origin, direction, and typed end reason.
 
-A natural grounded completion may enter Wildstride immediately. A natural ordinary air-Dash
-completion may instead create one pending landing authorization. The first landing consumes that
-exact version whether entry succeeds or fails. Both entry paths require `sprintUnlocked`, held and
-armed Dash, a valid direction (current input for initial entry/air-Dash landing, remembered sequence
-direction for an established Wildstride landing), and no incompatible owner.
+A natural grounded completion may enter Wildstride immediately, using current nonzero steering or
+the direction captured by that Dash when steering is neutral. A natural ordinary air-Dash
+completion may instead create one pending landing authorization and retain its captured direction.
+The first landing consumes that exact version whether entry succeeds or fails. Both entry paths
+require `sprintUnlocked`, held and armed Dash, a valid direction (current input first, then the
+authorized completion/sequence direction), and no incompatible owner.
   Zero resource does not block either path. Idle holds, cooldown holds, stale completions,
 cancelled Dashes, and unrelated landings cannot begin Wildstride.
 
@@ -139,9 +140,11 @@ writer.
 Jump uses the unchanged normal vertical path plus motor-owned horizontal carry. The private phase
 model distinguishes `AirborneCarry` (forced `sprintJumpSpeed` plus first-landing authorisation) from
 `AirborneAuthorised` (forced carry ended; ordinary airborne steering/gravity active; first-landing
-authorisation retained). Carry ends at normal falling, neutral/opposite airborne input, or residual
-carry cleanup without ending the sequence. Double Jump is the hard-cancel exception and removes the
-sequence and its landing authorization. Landing consumes that authorisation exactly
+authorisation retained). While Dash remains held, neutral input keeps `AirborneCarry` active;
+opposite airborne input, normal falling, or residual carry cleanup ends only the forced carry
+without ending the sequence. Authorized ordinary airborne phases resolve neutral input to the
+remembered direction at normal air-steering speed. Double Jump is the hard-cancel exception and
+removes the sequence and its landing authorization. Landing consumes that authorisation exactly
 once and reconciles directly to grounded Wildstride in the same fixed step. There is no airborne
 timer, apex expiry, sustaining-state expiry, or generic-not-carrying expiry. Grounded direction
 reversal preserves authorization: the motor decelerates toward zero, changes facing at the turn

@@ -9,11 +9,14 @@
 `Docs/ImplementationPlans/Wildstride.md`; where this plan conflicts, the implementation document
 and current feature specs supersede it.
 
-> **Superseded cancellation assumptions:** this historical plan's claims that opposite/neutral
-> airborne input prevents landing Wildstride, that carry must remain active through the landing,
-> and that Double Jump destroys the complete sequence are no longer canonical. Underbrew now ends
-> forced carry at normal falling or Double Jump while preserving an established first-landing
-> authorisation; an ordinary Jump/Double Jump cannot create one.
+> **Superseded movement assumptions:** this historical plan's claims that neutral grounded input is
+> required for entry, that neutral airborne input cancels forced carry, that carry must remain
+> active through the landing, and that Double Jump destroys the complete sequence are no longer
+> canonical. Underbrew now uses the typed Dash completion direction when grounded or air-Dash
+> steering is neutral, preserves `AirborneCarry` while Dash remains held, ends forced carry at
+> normal falling or approved interruption while preserving established first-landing
+> authorisation, and hard-cancels the sequence on Double Jump. The implementation document and
+> current feature specs define the active contract.
 
 ---
 
@@ -25,8 +28,9 @@ Implement **Wildstride** as a permanent traversal ability that upgrades the exis
 - When `PlayerAbilityState.sprintUnlocked` is true, holding the same Dash input after a successful grounded dash transitions into Wildstride.
 - Wildstride is grounded, directional, faster than normal running, has no stamina or resource cost, and can carry its horizontal momentum into a jump.
 - Grounded reversal preserves Wildstride; airborne opposite input cancels captured jump carry.
-  Release, true neutral input, incompatible traversal/combat states, damage, death, control loss,
-  scene entry, or invalid terrain interaction end the relevant authorization.
+  Release, incompatible traversal/combat states, damage, death, control loss, scene entry, or
+  invalid terrain interaction end the relevant authorization. Neutral input while Dash remains
+  held maintains the authorized direction and does not cancel forced carry.
 - A dedicated forward **Wildstride attack** is available during Dash or Wildstride and uses the existing Underbrew attack, resource, hit-feedback, clash, and receiver pipelines.
 - The player-facing name is **Wildstride**, while internal code remains `Sprint`, `HeroSprintAction`, `AbilityId.Sprint`, and `sprintUnlocked`. This avoids an unnecessary save/API rename while allowing the game’s UI and lore to use its own identity.
 
@@ -250,10 +254,10 @@ Wildstride starts only when all of these are true:
 2. A valid grounded Dash began in the current authorised sequence.
 3. That Dash reaches its normal completion.
 4. Dash remains physically held and is not disarmed.
-5. Horizontal movement input is above the dead zone.
-6. Horizontal input remains aligned with the Dash direction.
-7. The hero is grounded.
-8. No incompatible action or control state owns the hero.
+5. A nonzero horizontal input may steer the handoff; otherwise the Dash completion direction is
+   used.
+6. The hero is grounded.
+7. No incompatible action or control state owns the hero.
 
 Wildstride must **not** start merely because Dash is held while:
 
@@ -282,7 +286,7 @@ While active:
 Wildstride ends immediately when:
 
 - Dash is released.
-- Horizontal input becomes neutral.
+- an approved incompatible action or control state takes ownership.
 - Horizontal input reverses during airborne captured carry (grounded reversal remains active).
 - the hero leaves the ground without beginning an authorised Wildstride jump.
 - Attack begins.
@@ -313,8 +317,8 @@ When Jump starts during active Wildstride:
 The carry ends when:
 
 - Dash is released;
-- movement becomes neutral;
 - movement reverses;
+- normal falling begins;
 - an attack starts;
 - Double Jump starts;
 - wall slide or wall jump starts;
@@ -328,8 +332,10 @@ On a normal cancellation in air, horizontal velocity should decelerate through t
 
 On landing:
 
-- if the carry remained valid, Dash is still held, aligned movement remains held, and Wildstride is still unlocked, the hero may re-enter Wildstride;
-- if the carry was cancelled or disarmed, landing does not restart Wildstride;
+- if the authorized sequence remains valid, Dash is still held, Wildstride is still unlocked, and
+  the first landing passes entry checks, the hero may re-enter Wildstride using current input or
+  the remembered sequence direction;
+- ending forced carry does not by itself remove the sequence's first-landing authorization;
 - landing never creates a fresh Dash or Wildstride sequence by itself.
 
 ### 4.7 Wildstride attack
@@ -1277,10 +1283,11 @@ Exit criteria:
 
 - locked Sprint has no effect;
 - Dash alone is unchanged;
-- valid grounded Dash + hold enters Wildstride;
+- valid grounded Dash + hold enters Wildstride, including neutral steering via the captured Dash direction;
 - air Dash cannot enter Sprint;
 - idle hold cannot enter Sprint;
-- release/neutral cancel; grounded reversal turns through the motor without exiting.
+- release cancels; neutral held input preserves the authorized direction, and grounded reversal
+  turns through the motor without exiting.
 
 ### Pass 2 — Jump carry and interruption hardening
 
@@ -1458,7 +1465,7 @@ Cover:
 - Releasing before Dash completion prevents Sprint.
 - Air Dash cannot start Sprint.
 - Holding Dash during cooldown cannot start Sprint from idle.
-- Neutral input cancels.
+- Neutral input while Dash is held preserves forced carry; opposite input cancels forced carry.
 - grounded reversal preserves Sprint; airborne carry reversal cancels carry.
 - control lock cancels and disarms.
 - input suspension cancels and disarms.
