@@ -307,7 +307,7 @@ public sealed class PlayerPersistentStateTests
 
         SaveDataMigrator.Migrate(data);
 
-        Assert.That(data.meta.saveVersion, Is.EqualTo(4));
+        Assert.That(data.meta.saveVersion, Is.EqualTo(6));
         Assert.That(data.health, Is.Not.Null);
         Assert.That(data.health.initialized, Is.False);
         Assert.That(data.resource, Is.Not.Null);

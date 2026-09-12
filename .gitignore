@@ -108,3 +108,8 @@ InitTestScene*.unity*
 
 # Unity Editor crash-recovery scenes (auto-saved, not authored content)
 /[Aa]ssets/_Recovery/
+
+# codex-workflow-managed-start
+.codex_workflow_hidden_resources/
+AGENTS.md
+# codex-workflow-managed-end

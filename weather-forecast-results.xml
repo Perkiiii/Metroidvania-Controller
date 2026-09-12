@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="13" result="Passed" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.1331194">
+  <test-suite type="TestSuite" id="1000" name="Metroidvania Controller" fullname="Metroidvania Controller" runstate="Runnable" testcasecount="718" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.133119" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1787" name="Assembly-CSharp-Editor.dll" fullname="E:/GameDev/Projects/Final_Project/Metroidvania Controller/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="718" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.107566" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="19036" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestFixture" id="1582" name="WeatherForecastTests" fullname="WeatherForecastTests" classname="WeatherForecastTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.091297" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1587" name="ExactCurrentSlotIsResolvedLiveAndNotDuplicatedInForecast" fullname="WeatherForecastTests.ExactCurrentSlotIsResolvedLiveAndNotDuplicatedInForecast" methodname="ExactCurrentSlotIsResolvedLiveAndNotDuplicatedInForecast" classname="WeatherForecastTests" runstate="Runnable" seed="671876713" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.033836" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1595" name="ForecastBeforeLiveProgressionMatchesLiveProgressionWithoutForecast" fullname="WeatherForecastTests.ForecastBeforeLiveProgressionMatchesLiveProgressionWithoutForecast" methodname="ForecastBeforeLiveProgressionMatchesLiveProgressionWithoutForecast" classname="WeatherForecastTests" runstate="Runnable" seed="1266880726" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.009601" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1584" name="ForecastDefensivelyCopiesEntriesAndValidatesEnvelope" fullname="WeatherForecastTests.ForecastDefensivelyCopiesEntriesAndValidatesEnvelope" methodname="ForecastDefensivelyCopiesEntriesAndValidatesEnvelope" classname="WeatherForecastTests" runstate="Runnable" seed="2060833738" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.005229" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1589" name="ForecastEntriesAreChronologicalContiguousAndHalfOpen" fullname="WeatherForecastTests.ForecastEntriesAreChronologicalContiguousAndHalfOpen" methodname="ForecastEntriesAreChronologicalContiguousAndHalfOpen" classname="WeatherForecastTests" runstate="Runnable" seed="653621075" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.002674" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1583" name="ForecastEntryIsImmutableAndValidatesItsHalfOpenInterval" fullname="WeatherForecastTests.ForecastEntryIsImmutableAndValidatesItsHalfOpenInterval" methodname="ForecastEntryIsImmutableAndValidatesItsHalfOpenInterval" classname="WeatherForecastTests" runstate="Runnable" seed="546756357" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001055" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1585" name="ForecastRejectsUnloadedUnknownAndOutOfRangeRequests" fullname="WeatherForecastTests.ForecastRejectsUnloadedUnknownAndOutOfRangeRequests" methodname="ForecastRejectsUnloadedUnknownAndOutOfRangeRequests" classname="WeatherForecastTests" runstate="Runnable" seed="735454078" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001266" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1592" name="ForecastReturnsFalseWhenExclusiveEndOverflowsLong" fullname="WeatherForecastTests.ForecastReturnsFalseWhenExclusiveEndOverflowsLong" methodname="ForecastReturnsFalseWhenExclusiveEndOverflowsLong" classname="WeatherForecastTests" runstate="Runnable" seed="1243705387" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.000842" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1594" name="ForecastSurvivesSaveAndReloadWithEquivalentOutput" fullname="WeatherForecastTests.ForecastSurvivesSaveAndReloadWithEquivalentOutput" methodname="ForecastSurvivesSaveAndReloadWithEquivalentOutput" classname="WeatherForecastTests" runstate="Runnable" seed="1583070122" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.002858" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1591" name="ForecastUsesAbsoluteDaySeasonAndYearMathAcrossCalendarTransitions" fullname="WeatherForecastTests.ForecastUsesAbsoluteDaySeasonAndYearMathAcrossCalendarTransitions" methodname="ForecastUsesAbsoluteDaySeasonAndYearMathAcrossCalendarTransitions" classname="WeatherForecastTests" runstate="Runnable" seed="563555642" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001043" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1590" name="ForecastUsesOverrideThenAuthoredFixedThenGeneratedPrecedence" fullname="WeatherForecastTests.ForecastUsesOverrideThenAuthoredFixedThenGeneratedPrecedence" methodname="ForecastUsesOverrideThenAuthoredFixedThenGeneratedPrecedence" classname="WeatherForecastTests" runstate="Runnable" seed="1643846411" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001506" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1593" name="RepeatedAndReorderedForecastQueriesAreDeterministicAndNonMutating" fullname="WeatherForecastTests.RepeatedAndReorderedForecastQueriesAreDeterministicAndNonMutating" methodname="RepeatedAndReorderedForecastQueriesAreDeterministicAndNonMutating" classname="WeatherForecastTests" runstate="Runnable" seed="956293905" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.003027" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1588" name="RepeatedFutureTypesStillProduceOneEntryPerSlot" fullname="WeatherForecastTests.RepeatedFutureTypesStillProduceOneEntryPerSlot" methodname="RepeatedFutureTypesStillProduceOneEntryPerSlot" classname="WeatherForecastTests" runstate="Runnable" seed="1284486855" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001801" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1586" name="ZeroDaysAheadEndsAtTheNextDayAndMeansRemainderOfToday" fullname="WeatherForecastTests.ZeroDaysAheadEndsAtTheNextDayAndMeansRemainderOfToday" methodname="ZeroDaysAheadEndsAtTheNextDayAndMeansRemainderOfToday" classname="WeatherForecastTests" runstate="Runnable" seed="1315794777" result="Passed" start-time="2026-09-10 13:38:31Z" end-time="2026-09-10 13:38:31Z" duration="0.001420" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/samue/AppData/LocalLow/DefaultCompany/Metroidvania Controller\TestResults.xml
+]]></output>
+        </test-case>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

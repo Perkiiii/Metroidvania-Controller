@@ -144,7 +144,8 @@ The mismatch still exists:
 - `PlayerAbilityState.asset`: Dash, Wall Cling, Double Jump, and Bind are currently `true`.
 - Intended true-new-game state: all eight flags locked.
 
-`SaveDataMigrator.CurrentSaveVersion` is 4 and already creates missing ability data through
+`SaveDataMigrator.CurrentSaveVersion` was 4 when this plan was written; the current schema is v5
+after World Time Package 1. The migrator already creates missing ability data through
 `new AbilitySaveData()`. Changing boolean defaults alone does not inherently require a schema
 version bump. Existing saves containing explicit booleans must keep those values. Missing/null
 ability data must receive the new all-locked default. Verify these semantics with tests before

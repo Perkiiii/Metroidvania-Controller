@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27e5981dcfce9e34aab65bf1b5e28b09, type: 3}
+  m_Name: WorldWeatherState
+  m_EditorClassIdentifier: Assembly-CSharp::WorldWeatherState
+  weatherSimulationConfig: {fileID: 11400000, guid: 5446ffc643350b94ea661a40ea8c19ef, type: 2}
+  climateRegionCatalog: {fileID: 11400000, guid: cb75648b25767584fa30bb104e3865a3, type: 2}

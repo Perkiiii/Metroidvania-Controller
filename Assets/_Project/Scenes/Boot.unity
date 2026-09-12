@@ -150,6 +150,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Bootstrap
   gameManagerPrefab: {fileID: 5245555594638145080, guid: 1b922406b6510c84fbb9e266b6866770, type: 3}
   saveManagerPrefab: {fileID: 1831271109743465967, guid: dba31fd7ffdd17c408331e3c3e29cfba, type: 3}
+  worldClockDriverPrefab: {fileID: 4681268309238558329, guid: e14de11a446da7f49a091958982bae1c, type: 3}
+  worldTimeState: {fileID: 11400000, guid: b54ef6925e67bfa49a3b516a0649d137, type: 2}
+  worldWeatherState: {fileID: 11400000, guid: 50716c6348f6c4543ba51dd8a11bde56, type: 2}
   audioManagerPrefab: {fileID: 7688381351352745638, guid: 7dc6fe541e5dd1340a5e4cd34cf88d45, type: 3}
   gameCamerasPrefab: {fileID: 1013261421592569327, guid: 3ad94c63a988c0f4d9a2fa182705e149, type: 3}
   interactManagerPrefab: {fileID: 3161705671875251235, guid: 421adfa9447ddc340be9f43f7296e185, type: 3}

@@ -7,6 +7,9 @@ public sealed class Bootstrap : MonoBehaviour
 {
     [SerializeField] private GameManager gameManagerPrefab;
     [SerializeField] private SaveManager saveManagerPrefab;
+    [SerializeField] private WorldClockDriver worldClockDriverPrefab;
+    [SerializeField] private WorldTimeState worldTimeState;
+    [SerializeField] private WorldWeatherState worldWeatherState;
     [SerializeField] private AudioManager audioManagerPrefab;
     [SerializeField] private GameCameras gameCamerasPrefab;
     [SerializeField] private InteractManager interactManagerPrefab;
@@ -19,6 +22,7 @@ public sealed class Bootstrap : MonoBehaviour
     {
         Instantiate(gameManagerPrefab);
         Instantiate(saveManagerPrefab);
+        if (worldClockDriverPrefab != null) Instantiate(worldClockDriverPrefab);
         Instantiate(audioManagerPrefab);
         if (gameCamerasPrefab != null) Instantiate(gameCamerasPrefab);
         if (interactManagerPrefab != null) Instantiate(interactManagerPrefab);
@@ -27,6 +31,18 @@ public sealed class Bootstrap : MonoBehaviour
     private void Start()
     {
         SaveManager.Instance.LoadOrCreate(0);
+        if (worldTimeState == null || worldWeatherState == null)
+        {
+            Debug.LogError(
+                "[Bootstrap] WorldTimeState and WorldWeatherState must be assigned so weather completion can run after save load.",
+                this);
+        }
+        else
+        {
+            // SaveManager target order is intentionally not a lifecycle contract. Complete the
+            // clock-dependent weather reconciliation only after every target has applied its DTO.
+            worldWeatherState.CompleteLoad(worldTimeState);
+        }
         GameManager.Instance.ResolveLoadedHealthState();
 
         if (worldGraphContainer == null)

@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="109" result="Passed" total="109" passed="109" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.5087872">
+  <test-suite type="TestSuite" id="1000" name="Metroidvania Controller" fullname="Metroidvania Controller" runstate="Runnable" testcasecount="705" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.508787" total="109" passed="109" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1773" name="Assembly-CSharp-Editor.dll" fullname="E:/GameDev/Projects/Final_Project/Metroidvania Controller/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="705" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.492845" total="109" passed="109" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="34080" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestFixture" id="1572" name="ClimateDefinitionTests" fullname="ClimateDefinitionTests" classname="ClimateDefinitionTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.058579" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1578" name="FixedWeatherSlotsRequireOneBasedDaysConcreteSlotsValidTypesAndUniqueKeys" fullname="ClimateDefinitionTests.FixedWeatherSlotsRequireOneBasedDaysConcreteSlotsValidTypesAndUniqueKeys" methodname="FixedWeatherSlotsRequireOneBasedDaysConcreteSlotsValidTypesAndUniqueKeys" classname="ClimateDefinitionTests" runstate="Runnable" seed="69838670" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.020821" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1580" name="RegionIdsAreNonemptyAndCatalogLookupIsCaseSensitiveStableAndFailClosedOnDuplicates" fullname="ClimateDefinitionTests.RegionIdsAreNonemptyAndCatalogLookupIsCaseSensitiveStableAndFailClosedOnDuplicates" methodname="RegionIdsAreNonemptyAndCatalogLookupIsCaseSensitiveStableAndFailClosedOnDuplicates" classname="ClimateDefinitionTests" runstate="Runnable" seed="1890979683" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003399" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1576" name="SeasonMatrixRequiresExactDimensionsAndEveryPositiveBoundedRow" fullname="ClimateDefinitionTests.SeasonMatrixRequiresExactDimensionsAndEveryPositiveBoundedRow" methodname="SeasonMatrixRequiresExactDimensionsAndEveryPositiveBoundedRow" classname="ClimateDefinitionTests" runstate="Runnable" seed="878269077" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000693" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1577" name="SeasonMatrixUsesFromRowToColumnIndexing" fullname="ClimateDefinitionTests.SeasonMatrixUsesFromRowToColumnIndexing" methodname="SeasonMatrixUsesFromRowToColumnIndexing" classname="ClimateDefinitionTests" runstate="Runnable" seed="963949456" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001196" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1579" name="SeasonTrackMatchesCalendarSeasonCountAndHasSafeOrdinalLookup" fullname="ClimateDefinitionTests.SeasonTrackMatchesCalendarSeasonCountAndHasSafeOrdinalLookup" methodname="SeasonTrackMatchesCalendarSeasonCountAndHasSafeOrdinalLookup" classname="ClimateDefinitionTests" runstate="Runnable" seed="1540326593" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001487" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1575" name="WeatherConfigRequiresExactlyOneDefinitionPerEnumAndLooksUpByType" fullname="ClimateDefinitionTests.WeatherConfigRequiresExactlyOneDefinitionPerEnumAndLooksUpByType" methodname="WeatherConfigRequiresExactlyOneDefinitionPerEnumAndLooksUpByType" classname="ClimateDefinitionTests" runstate="Runnable" seed="18596689" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003913" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1574" name="WeatherConfigRequiresNonemptySortedUniqueInRangeSlots" fullname="ClimateDefinitionTests.WeatherConfigRequiresNonemptySortedUniqueInRangeSlots" methodname="WeatherConfigRequiresNonemptySortedUniqueInRangeSlots" classname="ClimateDefinitionTests" runstate="Runnable" seed="1886469055" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000898" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1581" name="WeatherSnapshotIsImmutableAndComputesDurationFromCurrentMinute" fullname="ClimateDefinitionTests.WeatherSnapshotIsImmutableAndComputesDurationFromCurrentMinute" methodname="WeatherSnapshotIsImmutableAndComputesDurationFromCurrentMinute" classname="ClimateDefinitionTests" runstate="Runnable" seed="54864927" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.004185" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1573" name="WeatherTypeOrdinalsAreAppendOnlyApprovedValues" fullname="ClimateDefinitionTests.WeatherTypeOrdinalsAreAppendOnlyApprovedValues" methodname="WeatherTypeOrdinalsAreAppendOnlyApprovedValues" classname="ClimateDefinitionTests" runstate="Runnable" seed="1841382924" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000438" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1582" name="WeatherGeneratorTests" fullname="WeatherGeneratorTests" classname="WeatherGeneratorTests" runstate="Runnable" testcasecount="10" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.021381" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1591" name="CacheKeepsThreeImmutablePeriodsPerRegionUsingLruEviction" fullname="WeatherGeneratorTests.CacheKeepsThreeImmutablePeriodsPerRegionUsingLruEviction" methodname="CacheKeepsThreeImmutablePeriodsPerRegionUsingLruEviction" classname="WeatherGeneratorTests" runstate="Runnable" seed="1038409713" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.007506" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1588" name="FixedSlotDoesNotConsumeTheRandomStream" fullname="WeatherGeneratorTests.FixedSlotDoesNotConsumeTheRandomStream" methodname="FixedSlotDoesNotConsumeTheRandomStream" classname="WeatherGeneratorTests" runstate="Runnable" seed="357269358" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001163" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1587" name="FixedSlotEmitsAuthoredWeatherAndBecomesNextTransitionSource" fullname="WeatherGeneratorTests.FixedSlotEmitsAuthoredWeatherAndBecomesNextTransitionSource" methodname="FixedSlotEmitsAuthoredWeatherAndBecomesNextTransitionSource" classname="WeatherGeneratorTests" runstate="Runnable" seed="138772479" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000792" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1592" name="InvalidDimensionsAndQueryKeysFailClosed" fullname="WeatherGeneratorTests.InvalidDimensionsAndQueryKeysFailClosed" methodname="InvalidDimensionsAndQueryKeysFailClosed" classname="WeatherGeneratorTests" runstate="Runnable" seed="657564237" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002062" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1585" name="NextBelowMatchesApprovedGoldenValuesAndRejectsZeroBound" fullname="WeatherGeneratorTests.NextBelowMatchesApprovedGoldenValuesAndRejectsZeroBound" methodname="NextBelowMatchesApprovedGoldenValuesAndRejectsZeroBound" classname="WeatherGeneratorTests" runstate="Runnable" seed="2106291652" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001039" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1589" name="ResultsAreDeterministicRegardlessOfQueryOrder" fullname="WeatherGeneratorTests.ResultsAreDeterministicRegardlessOfQueryOrder" methodname="ResultsAreDeterministicRegardlessOfQueryOrder" classname="WeatherGeneratorTests" runstate="Runnable" seed="1560422941" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000796" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1590" name="SeasonsResolveByAbsoluteInstanceAndRestartFromTheirAuthoredEntryWeather" fullname="WeatherGeneratorTests.SeasonsResolveByAbsoluteInstanceAndRestartFromTheirAuthoredEntryWeather" methodname="SeasonsResolveByAbsoluteInstanceAndRestartFromTheirAuthoredEntryWeather" classname="WeatherGeneratorTests" runstate="Runnable" seed="1471652229" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000563" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1583" name="SplitMix64DerivationMatchesApprovedGoldenValues" fullname="WeatherGeneratorTests.SplitMix64DerivationMatchesApprovedGoldenValues" methodname="SplitMix64DerivationMatchesApprovedGoldenValues" classname="WeatherGeneratorTests" runstate="Runnable" seed="95408078" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000507" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1586" name="WeightedGenerationMatchesGoldenSequenceAndConfiguredShape" fullname="WeatherGeneratorTests.WeightedGenerationMatchesGoldenSequenceAndConfiguredShape" methodname="WeightedGenerationMatchesGoldenSequenceAndConfiguredShape" classname="WeatherGeneratorTests" runstate="Runnable" seed="1634931011" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000728" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1584" name="XorShift32MatchesApprovedGoldenSequence" fullname="WeatherGeneratorTests.XorShift32MatchesApprovedGoldenSequence" methodname="XorShift32MatchesApprovedGoldenSequence" classname="WeatherGeneratorTests" runstate="Runnable" seed="1646408458" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000448" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1593" name="WeatherHistoryTests" fullname="WeatherHistoryTests" classname="WeatherHistoryTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.043792" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1600" name="EntirelyUnavailableRangeReturnsTrueEmptyAndIncomplete" fullname="WeatherHistoryTests.EntirelyUnavailableRangeReturnsTrueEmptyAndIncomplete" methodname="EntirelyUnavailableRangeReturnsTrueEmptyAndIncomplete" classname="WeatherHistoryTests" runstate="Runnable" seed="31024201" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.014806" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1603" name="HistoryQuerySurvivesSaveReload" fullname="WeatherHistoryTests.HistoryQuerySurvivesSaveReload" methodname="HistoryQuerySurvivesSaveReload" classname="WeatherHistoryTests" runstate="Runnable" seed="1663516801" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.005193" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1594" name="HistoryRecordValidatesItsHalfOpenIntervalAndIsImmutable" fullname="WeatherHistoryTests.HistoryRecordValidatesItsHalfOpenIntervalAndIsImmutable" methodname="HistoryRecordValidatesItsHalfOpenIntervalAndIsImmutable" classname="WeatherHistoryTests" runstate="Runnable" seed="898466185" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001237" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1596" name="InvalidRangesUnknownRegionsAndPreLoadQueriesFailClosed" fullname="WeatherHistoryTests.InvalidRangesUnknownRegionsAndPreLoadQueriesFailClosed" methodname="InvalidRangesUnknownRegionsAndPreLoadQueriesFailClosed" classname="WeatherHistoryTests" runstate="Runnable" seed="433773473" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001992" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1598" name="QueryClipsRecordsToRequestAndAvailabilityPrefix" fullname="WeatherHistoryTests.QueryClipsRecordsToRequestAndAvailabilityPrefix" methodname="QueryClipsRecordsToRequestAndAvailabilityPrefix" classname="WeatherHistoryTests" runstate="Runnable" seed="1226528535" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002178" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1599" name="QueryCoalescesAdjacentCompatibleClosedAndOpenSegments" fullname="WeatherHistoryTests.QueryCoalescesAdjacentCompatibleClosedAndOpenSegments" methodname="QueryCoalescesAdjacentCompatibleClosedAndOpenSegments" classname="WeatherHistoryTests" runstate="Runnable" seed="585141429" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001239" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1601" name="QueryHonorsCurrentTimeAndHalfOpenRangeLimits" fullname="WeatherHistoryTests.QueryHonorsCurrentTimeAndHalfOpenRangeLimits" methodname="QueryHonorsCurrentTimeAndHalfOpenRangeLimits" classname="WeatherHistoryTests" runstate="Runnable" seed="1357465710" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001046" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1595" name="QueryResultDefensivelyOwnsReadOnlyRecordsAndComputesCompleteness" fullname="WeatherHistoryTests.QueryResultDefensivelyOwnsReadOnlyRecordsAndComputesCompleteness" methodname="QueryResultDefensivelyOwnsReadOnlyRecordsAndComputesCompleteness" classname="WeatherHistoryTests" runstate="Runnable" seed="27895460" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001895" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1597" name="QueryReturnsClosedRecordsAndSyntheticCurrentOpenSegment" fullname="WeatherHistoryTests.QueryReturnsClosedRecordsAndSyntheticCurrentOpenSegment" methodname="QueryReturnsClosedRecordsAndSyntheticCurrentOpenSegment" classname="WeatherHistoryTests" runstate="Runnable" seed="1238411900" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001777" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1604" name="RepeatedQueriesDoNotMutateStateHistorySubscriptionsOrSeeds" fullname="WeatherHistoryTests.RepeatedQueriesDoNotMutateStateHistorySubscriptionsOrSeeds" methodname="RepeatedQueriesDoNotMutateStateHistorySubscriptionsOrSeeds" classname="WeatherHistoryTests" runstate="Runnable" seed="858241469" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.004513" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1602" name="UnloadedFarmQueryReportsRainOccurrenceAndDuration" fullname="WeatherHistoryTests.UnloadedFarmQueryReportsRainOccurrenceAndDuration" methodname="UnloadedFarmQueryReportsRainOccurrenceAndDuration" classname="WeatherHistoryTests" runstate="Runnable" seed="1182296989" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001713" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1605" name="WeatherOverrideTests" fullname="WeatherOverrideTests" classname="WeatherOverrideTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.033331" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1611" name="ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" fullname="WeatherOverrideTests.ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" methodname="ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" classname="WeatherOverrideTests" runstate="Runnable" seed="611903862" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.006105" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1614" name="ClearFallsThroughAuthoredFixedThenGeneratedWeather" fullname="WeatherOverrideTests.ClearFallsThroughAuthoredFixedThenGeneratedWeather" methodname="ClearFallsThroughAuthoredFixedThenGeneratedWeather" classname="WeatherOverrideTests" runstate="Runnable" seed="1234755316" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001632" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1609" name="DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" fullname="WeatherOverrideTests.DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" methodname="DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" classname="WeatherOverrideTests" runstate="Runnable" seed="113591681" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001794" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1610" name="FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" fullname="WeatherOverrideTests.FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" methodname="FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" classname="WeatherOverrideTests" runstate="Runnable" seed="71082161" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001680" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1607" name="InvalidCommandsAndUnknownKeysFailClosed" fullname="WeatherOverrideTests.InvalidCommandsAndUnknownKeysFailClosed" methodname="InvalidCommandsAndUnknownKeysFailClosed" classname="WeatherOverrideTests" runstate="Runnable" seed="257591448" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001298" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1612" name="MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" fullname="WeatherOverrideTests.MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" methodname="MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" classname="WeatherOverrideTests" runstate="Runnable" seed="603475607" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001864" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1617" name="OverrideCommandsDoNotInvalidateGeneratorCache" fullname="WeatherOverrideTests.OverrideCommandsDoNotInvalidateGeneratorCache" methodname="OverrideCommandsDoNotInvalidateGeneratorCache" classname="WeatherOverrideTests" runstate="Runnable" seed="1075846428" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001855" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1606" name="OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" fullname="WeatherOverrideTests.OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" methodname="OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" classname="WeatherOverrideTests" runstate="Runnable" seed="923748120" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001027" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1616" name="OverridesPreserveSourceTagsAndDeterministicV6SaveReload" fullname="WeatherOverrideTests.OverridesPreserveSourceTagsAndDeterministicV6SaveReload" methodname="OverridesPreserveSourceTagsAndDeterministicV6SaveReload" classname="WeatherOverrideTests" runstate="Runnable" seed="1500711792" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002751" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1615" name="PastOverrideLeavesExperiencedHistoryImmutable" fullname="WeatherOverrideTests.PastOverrideLeavesExperiencedHistoryImmutable" methodname="PastOverrideLeavesExperiencedHistoryImmutable" classname="WeatherOverrideTests" runstate="Runnable" seed="380356335" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001142" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1613" name="SameResultOverrideAndClearAreNoOpsForEventsAndHistory" fullname="WeatherOverrideTests.SameResultOverrideAndClearAreNoOpsForEventsAndHistory" methodname="SameResultOverrideAndClearAreNoOpsForEventsAndHistory" classname="WeatherOverrideTests" runstate="Runnable" seed="1569764660" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001694" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1608" name="SetReplacesInPlaceAndClearRemovesExactOrdinalKey" fullname="WeatherOverrideTests.SetReplacesInPlaceAndClearRemovesExactOrdinalKey" methodname="SetReplacesInPlaceAndClearRemovesExactOrdinalKey" classname="WeatherOverrideTests" runstate="Runnable" seed="1899564702" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001378" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1731" name="WorldClockDriverTests" fullname="WorldClockDriverTests" classname="WorldClockDriverTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.017894" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1738" name="DebugMultiplierScalesSampledRealTimeWithoutChangingTimeScale" fullname="WorldClockDriverTests.DebugMultiplierScalesSampledRealTimeWithoutChangingTimeScale" methodname="DebugMultiplierScalesSampledRealTimeWithoutChangingTimeScale" classname="WorldClockDriverTests" runstate="Runnable" seed="589015056" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.005066" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1737" name="HitchClampDiscardsExcessRealTime" fullname="WorldClockDriverTests.HitchClampDiscardsExcessRealTime" methodname="HitchClampDiscardsExcessRealTime" classname="WorldClockDriverTests" runstate="Runnable" seed="2069236655" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001390" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1740" name="NearMaximumTimestampAdvancesOnlyAvailableMinutesAndSaturates" fullname="WorldClockDriverTests.NearMaximumTimestampAdvancesOnlyAvailableMinutesAndSaturates" methodname="NearMaximumTimestampAdvancesOnlyAvailableMinutesAndSaturates" classname="WorldClockDriverTests" runstate="Runnable" seed="853728480" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001465" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1735" name="PauseAndSceneTransitionStatesBlockTheClock" fullname="WorldClockDriverTests.PauseAndSceneTransitionStatesBlockTheClock" methodname="PauseAndSceneTransitionStatesBlockTheClock" classname="WorldClockDriverTests" runstate="Runnable" seed="426866642" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001346" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1736" name="PlayingClockUsesUnscaledDeltaDuringHitStop" fullname="WorldClockDriverTests.PlayingClockUsesUnscaledDeltaDuringHitStop" methodname="PlayingClockUsesUnscaledDeltaDuringHitStop" classname="WorldClockDriverTests" runstate="Runnable" seed="786724599" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000574" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1734" name="PlayingTickRetainsFractionalSecondsAndAdvancesCompleteMinutes" fullname="WorldClockDriverTests.PlayingTickRetainsFractionalSecondsAndAdvancesCompleteMinutes" methodname="PlayingTickRetainsFractionalSecondsAndAdvancesCompleteMinutes" classname="WorldClockDriverTests" runstate="Runnable" seed="1629367872" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000648" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1739" name="RepeatedTicksAtMaximumTimestampAreHarmless" fullname="WorldClockDriverTests.RepeatedTicksAtMaximumTimestampAreHarmless" methodname="RepeatedTicksAtMaximumTimestampAreHarmless" classname="WorldClockDriverTests" runstate="Runnable" seed="1583412635" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000657" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1732" name="TickBeforeSaveLoadDoesNotAdvanceOrMarkStateLoaded" fullname="WorldClockDriverTests.TickBeforeSaveLoadDoesNotAdvanceOrMarkStateLoaded" methodname="TickBeforeSaveLoadDoesNotAdvanceOrMarkStateLoaded" classname="WorldClockDriverTests" runstate="Runnable" seed="238936495" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000547" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1733" name="TickWithoutGameManagerDoesNotAdvanceLoadedState" fullname="WorldClockDriverTests.TickWithoutGameManagerDoesNotAdvanceLoadedState" methodname="TickWithoutGameManagerDoesNotAdvanceLoadedState" classname="WorldClockDriverTests" runstate="Runnable" seed="83867820" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000503" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1741" name="WorldTimeSaveTests" fullname="WorldTimeSaveTests" classname="WorldTimeSaveTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.012633" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1749" name="ApplyingNegativeSavedMinutesThrowsAndDoesNotApplyState" fullname="WorldTimeSaveTests.ApplyingNegativeSavedMinutesThrowsAndDoesNotApplyState" methodname="ApplyingNegativeSavedMinutesThrowsAndDoesNotApplyState" classname="WorldTimeSaveTests" runstate="Runnable" seed="922734088" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002134" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1748" name="ApplyingWorldTimeSaveRaisesStateAppliedExactlyOnce" fullname="WorldTimeSaveTests.ApplyingWorldTimeSaveRaisesStateAppliedExactlyOnce" methodname="ApplyingWorldTimeSaveRaisesStateAppliedExactlyOnce" classname="WorldTimeSaveTests" runstate="Runnable" seed="1687800018" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000581" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1742" name="CurrentSaveVersionIsSix" fullname="WorldTimeSaveTests.CurrentSaveVersionIsSix" methodname="CurrentSaveVersionIsSix" classname="WorldTimeSaveTests" runstate="Runnable" seed="262105448" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000168" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1744" name="MissingWorldTimeSectionIsNormalizedWithoutInventingTime" fullname="WorldTimeSaveTests.MissingWorldTimeSectionIsNormalizedWithoutInventingTime" methodname="MissingWorldTimeSectionIsNormalizedWithoutInventingTime" classname="WorldTimeSaveTests" runstate="Runnable" seed="2115712243" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000669" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1745" name="PreV5WorldTimeSectionRemainsUninitializedDuringMigration" fullname="WorldTimeSaveTests.PreV5WorldTimeSectionRemainsUninitializedDuringMigration" methodname="PreV5WorldTimeSectionRemainsUninitializedDuringMigration" classname="WorldTimeSaveTests" runstate="Runnable" seed="1368757831" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000253" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1743" name="WeatherMigrationDeepNormalizesNestedSaveShapeAndKeepsPreV6Uninitialized" fullname="WorldTimeSaveTests.WeatherMigrationDeepNormalizesNestedSaveShapeAndKeepsPreV6Uninitialized" methodname="WeatherMigrationDeepNormalizesNestedSaveShapeAndKeepsPreV6Uninitialized" classname="WorldTimeSaveTests" runstate="Runnable" seed="385231189" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000409" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1746" name="WorldTimeSaveDataRoundTripsThroughJson" fullname="WorldTimeSaveTests.WorldTimeSaveDataRoundTripsThroughJson" methodname="WorldTimeSaveDataRoundTripsThroughJson" classname="WorldTimeSaveTests" runstate="Runnable" seed="2093242094" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000785" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1747" name="WorldTimeStateGatherAndApplyRoundTripCanonicalMinutes" fullname="WorldTimeSaveTests.WorldTimeStateGatherAndApplyRoundTripCanonicalMinutes" methodname="WorldTimeStateGatherAndApplyRoundTripCanonicalMinutes" classname="WorldTimeSaveTests" runstate="Runnable" seed="1194725407" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000501" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1750" name="WorldTimeSnapshotTests" fullname="WorldTimeSnapshotTests" classname="WorldTimeSnapshotTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.007809" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1751" name="EpochUsesZeroBasedAbsoluteCountersAndEpochWeekday" fullname="WorldTimeSnapshotTests.EpochUsesZeroBasedAbsoluteCountersAndEpochWeekday" methodname="EpochUsesZeroBasedAbsoluteCountersAndEpochWeekday" classname="WorldTimeSnapshotTests" runstate="Runnable" seed="1427618243" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000903" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1754" name="LargeTimestampKeepsAbsoluteCountersWide" fullname="WorldTimeSnapshotTests.LargeTimestampKeepsAbsoluteCountersWide" methodname="LargeTimestampKeepsAbsoluteCountersWide" classname="WorldTimeSnapshotTests" runstate="Runnable" seed="1815311790" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001183" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1755" name="NegativeTimestampIsRejected" fullname="WorldTimeSnapshotTests.NegativeTimestampIsRejected" methodname="NegativeTimestampIsRejected" classname="WorldTimeSnapshotTests" runstate="Runnable" seed="1040607265" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000337" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1753" name="PhaseRangesWrapAtMidnightAndUseHalfOpenBoundaries" fullname="WorldTimeSnapshotTests.PhaseRangesWrapAtMidnightAndUseHalfOpenBoundaries" methodname="PhaseRangesWrapAtMidnightAndUseHalfOpenBoundaries" classname="WorldTimeSnapshotTests" runstate="Runnable" seed="1119856460" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000454" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1752" name="WorkedInitialDateMatchesExactEpochArithmetic" fullname="WorldTimeSnapshotTests.WorkedInitialDateMatchesExactEpochArithmetic" methodname="WorkedInitialDateMatchesExactEpochArithmetic" classname="WorldTimeSnapshotTests" runstate="Runnable" seed="290483523" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000398" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1756" name="WorldTimeStateTests" fullname="WorldTimeStateTests" classname="WorldTimeStateTests" runstate="Runnable" testcasecount="16" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.113613" total="16" passed="16" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1769" name="AdvanceFromBoundaryCallbackIsRejectedAsReentrant" fullname="WorldTimeStateTests.AdvanceFromBoundaryCallbackIsRejectedAsReentrant" methodname="AdvanceFromBoundaryCallbackIsRejectedAsReentrant" classname="WorldTimeStateTests" runstate="Runnable" seed="111203100" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000924" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1771" name="ApplyFreshAndInitializedSaveBothPublishOneStateApplied" fullname="WorldTimeStateTests.ApplyFreshAndInitializedSaveBothPublishOneStateApplied" methodname="ApplyFreshAndInitializedSaveBothPublishOneStateApplied" classname="WorldTimeStateTests" runstate="Runnable" seed="2109233171" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000489" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1768" name="CheckedOverflowIsRejectedWithoutChangingCanonicalTime" fullname="WorldTimeStateTests.CheckedOverflowIsRejectedWithoutChangingCanonicalTime" methodname="CheckedOverflowIsRejectedWithoutChangingCanonicalTime" classname="WorldTimeStateTests" runstate="Runnable" seed="716194904" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000516" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1766" name="CoincidentMidnightSeasonAndYearEventsUseFixedOrder" fullname="WorldTimeStateTests.CoincidentMidnightSeasonAndYearEventsUseFixedOrder" methodname="CoincidentMidnightSeasonAndYearEventsUseFixedOrder" classname="WorldTimeStateTests" runstate="Runnable" seed="1705233457" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001403" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1758" name="DawnToDawnSkipEmitsEveryCrossedPhaseInChronologicalOrder" fullname="WorldTimeStateTests.DawnToDawnSkipEmitsEveryCrossedPhaseInChronologicalOrder" methodname="DawnToDawnSkipEmitsEveryCrossedPhaseInChronologicalOrder" classname="WorldTimeStateTests" runstate="Runnable" seed="283007924" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001446" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1762" name="DayRolloverPublishesDayEventAndAdvancesWeekday" fullname="WorldTimeStateTests.DayRolloverPublishesDayEventAndAdvancesWeekday" methodname="DayRolloverPublishesDayEventAndAdvancesWeekday" classname="WorldTimeStateTests" runstate="Runnable" seed="1824672066" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001484" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1772" name="GatherWritesCanonicalLongAndDoesNotRequireLoadedFlag" fullname="WorldTimeStateTests.GatherWritesCanonicalLongAndDoesNotRequireLoadedFlag" methodname="GatherWritesCanonicalLongAndDoesNotRequireLoadedFlag" classname="WorldTimeStateTests" runstate="Runnable" seed="244203443" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000328" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1757" name="LargeSkipEmitsTheSameOrderedBoundaryStreamAsSmallerCalls" fullname="WorldTimeStateTests.LargeSkipEmitsTheSameOrderedBoundaryStreamAsSmallerCalls" methodname="LargeSkipEmitsTheSameOrderedBoundaryStreamAsSmallerCalls" classname="WorldTimeStateTests" runstate="Runnable" seed="1388061342" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.081287" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1760" name="MultipleCrossedHoursEmitOrderedHourBoundaries" fullname="WorldTimeStateTests.MultipleCrossedHoursEmitOrderedHourBoundaries" methodname="MultipleCrossedHoursEmitOrderedHourBoundaries" classname="WorldTimeStateTests" runstate="Runnable" seed="1749054261" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001628" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1759" name="OneCrossedHourEmitsOneHourChangedAtTheExactBoundary" fullname="WorldTimeStateTests.OneCrossedHourEmitsOneHourChangedAtTheExactBoundary" methodname="OneCrossedHourEmitsOneHourChangedAtTheExactBoundary" classname="WorldTimeStateTests" runstate="Runnable" seed="412681924" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000505" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1764" name="SeasonRolloverPublishesSeasonEventAndResetsDayOrdinal" fullname="WorldTimeStateTests.SeasonRolloverPublishesSeasonEventAndResetsDayOrdinal" methodname="SeasonRolloverPublishesSeasonEventAndResetsDayOrdinal" classname="WorldTimeStateTests" runstate="Runnable" seed="1355529559" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000557" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1770" name="ThrowingSubscriberDoesNotStopLaterBoundariesOrFinalEvent" fullname="WorldTimeStateTests.ThrowingSubscriberDoesNotStopLaterBoundariesOrFinalEvent" methodname="ThrowingSubscriberDoesNotStopLaterBoundariesOrFinalEvent" classname="WorldTimeStateTests" runstate="Runnable" seed="570570330" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.006486" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[InvalidOperationException: intentional world-time callback failure
+WorldTimeStateTests+<>c__DisplayClass13_0.<ThrowingSubscriberDoesNotStopLaterBoundariesOrFinalEvent>b__0 (WorldTimeSnapshot _) (at Assets/_Project/Scripts/Editor/Tests/WorldTime/WorldTimeStateTests.cs:388)
+WorldTimeState.InvokeBoundarySubscribers (System.Action`1[T] subscribers, WorldTimeSnapshot snapshot) (at Assets/_Project/Scripts/World/Time/WorldTimeState.cs:167)
+UnityEngine.Debug:LogException(Exception, Object)
+WorldTimeState:InvokeBoundarySubscribers(Action`1, WorldTimeSnapshot) (at Assets/_Project/Scripts/World/Time/WorldTimeState.cs:173)
+WorldTimeState:EmitBoundaryEvents(WorldTimeSnapshot, WorldTimeSnapshot) (at Assets/_Project/Scripts/World/Time/WorldTimeState.cs:145)
+WorldTimeState:AdvanceMinutes(Int64) (at Assets/_Project/Scripts/World/Time/WorldTimeState.cs:86)
+WorldTimeStateTests:ThrowingSubscriberDoesNotStopLaterBoundariesOrFinalEvent() (at Assets/_Project/Scripts/Editor/Tests/WorldTime/WorldTimeStateTests.cs:399)
+System.Reflection.MethodBase:Invoke(Object, Object[])
+NUnit.Framework.Internal.Reflect:InvokeMethod(MethodInfo, Object, Object[])
+NUnit.Framework.Internal.MethodWrapper:Invoke(Object, Object[])
+NUnit.Framework.Internal.Commands.TestMethodCommand:RunNonAsyncTestMethod(ITestExecutionContext)
+NUnit.Framework.Internal.Commands.TestMethodCommand:RunTestMethod(ITestExecutionContext)
+NUnit.Framework.Internal.Commands.TestMethodCommand:Execute(ITestExecutionContext)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions()
+
+]]></output>
+        </test-case>
+        <test-case id="1761" name="TimeAdvancedPublishesExactlyOnceWithBeforeAndAfterSnapshots" fullname="WorldTimeStateTests.TimeAdvancedPublishesExactlyOnceWithBeforeAndAfterSnapshots" methodname="TimeAdvancedPublishesExactlyOnceWithBeforeAndAfterSnapshots" classname="WorldTimeStateTests" runstate="Runnable" seed="1775526257" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000604" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1763" name="WeekdayWrapsFromSundayBackToMonday" fullname="WorldTimeStateTests.WeekdayWrapsFromSundayBackToMonday" methodname="WeekdayWrapsFromSundayBackToMonday" classname="WorldTimeStateTests" runstate="Runnable" seed="101321987" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001899" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1765" name="YearRolloverPublishesYearEventAndAdvancesYearCounter" fullname="WorldTimeStateTests.YearRolloverPublishesYearEventAndAdvancesYearCounter" methodname="YearRolloverPublishesYearEventAndAdvancesYearCounter" classname="WorldTimeStateTests" runstate="Runnable" seed="555905903" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000722" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1767" name="ZeroIsNoOpAndNegativeAdvanceIsRejected" fullname="WorldTimeStateTests.ZeroIsNoOpAndNegativeAdvanceIsRejected" methodname="ZeroIsNoOpAndNegativeAdvanceIsRejected" classname="WorldTimeStateTests" runstate="Runnable" seed="694247439" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000535" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+      </test-suite>
+      <test-suite type="TestFixture" id="1618" name="WorldWeatherPersistenceTests" fullname="WorldWeatherPersistenceTests" classname="WorldWeatherPersistenceTests" runstate="Runnable" testcasecount="29" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.077184" total="29" passed="29" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1634" name="AddedCatalogRegionSelfHealsAndUnknownSavedRegionIsDiscarded" fullname="WorldWeatherPersistenceTests.AddedCatalogRegionSelfHealsAndUnknownSavedRegionIsDiscarded" methodname="AddedCatalogRegionSelfHealsAndUnknownSavedRegionIsDiscarded" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="442217190" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.005336" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved weather region 'removed_region' is not in the current catalog and was discarded.
+]]></output>
+        </test-case>
+        <test-case id="1631" name="ApplyAndGatherDeepCopyCurrentStateHistoryAndOverrides" fullname="WorldWeatherPersistenceTests.ApplyAndGatherDeepCopyCurrentStateHistoryAndOverrides" methodname="ApplyAndGatherDeepCopyCurrentStateHistoryAndOverrides" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1360174279" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001761" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1642" name="ApplyCanRunBeforeOrAfterWorldTimeAndCompletionProducesEquivalentState" fullname="WorldWeatherPersistenceTests.ApplyCanRunBeforeOrAfterWorldTimeAndCompletionProducesEquivalentState" methodname="ApplyCanRunBeforeOrAfterWorldTimeAndCompletionProducesEquivalentState" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1771676267" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001610" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1629" name="ApplyDetachesOldClockAndRepeatedCompletionDoesNotDuplicateBinding" fullname="WorldWeatherPersistenceTests.ApplyDetachesOldClockAndRepeatedCompletionDoesNotDuplicateBinding" methodname="ApplyDetachesOldClockAndRepeatedCompletionDoesNotDuplicateBinding" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="124726559" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001716" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1630" name="CatalogRecompletionUsesLatestRuntimeStateAndAcceptedOverrides" fullname="WorldWeatherPersistenceTests.CatalogRecompletionUsesLatestRuntimeStateAndAcceptedOverrides" methodname="CatalogRecompletionUsesLatestRuntimeStateAndAcceptedOverrides" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="624721990" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002149" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1627" name="ClosingHistoryMergesAdjacentCompatibleSavedSegment" fullname="WorldWeatherPersistenceTests.ClosingHistoryMergesAdjacentCompatibleSavedSegment" methodname="ClosingHistoryMergesAdjacentCompatibleSavedSegment" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="559396697" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001426" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1633" name="CompleteLoadIsIdempotentAndDoesNotRegenerateSeed" fullname="WorldWeatherPersistenceTests.CompleteLoadIsIdempotentAndDoesNotRegenerateSeed" methodname="CompleteLoadIsIdempotentAndDoesNotRegenerateSeed" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1681007329" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001120" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1632" name="CompleteLoadRequiresLoadedWorldTime" fullname="WorldWeatherPersistenceTests.CompleteLoadRequiresLoadedWorldTime" methodname="CompleteLoadRequiresLoadedWorldTime" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="667074687" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001142" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1646" name="CurrentWeatherSaveMigrationNormalizesNullCollectionsAndNestedFields" fullname="WorldWeatherPersistenceTests.CurrentWeatherSaveMigrationNormalizesNullCollectionsAndNestedFields" methodname="CurrentWeatherSaveMigrationNormalizesNullCollectionsAndNestedFields" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="2071754881" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000636" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1620" name="CurrentWeatherSurvivesTimeAdvancementAndOnlyDurationChanges" fullname="WorldWeatherPersistenceTests.CurrentWeatherSurvivesTimeAdvancementAndOnlyDurationChanges" methodname="CurrentWeatherSurvivesTimeAdvancementAndOnlyDurationChanges" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="981575413" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001665" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1636" name="DuplicateSavedRegionUsesFirstEntryDeterministically" fullname="WorldWeatherPersistenceTests.DuplicateSavedRegionUsesFirstEntryDeterministically" methodname="DuplicateSavedRegionUsesFirstEntryDeterministically" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="723433302" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002687" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Duplicate saved weather region 'region_a' ignored; first entry wins.
+]]></output>
+        </test-case>
+        <test-case id="1619" name="FreshCompletionCreatesEveryRegionWithAuthoredWeatherAndPersistentSeeds" fullname="WorldWeatherPersistenceTests.FreshCompletionCreatesEveryRegionWithAuthoredWeatherAndPersistentSeeds" methodname="FreshCompletionCreatesEveryRegionWithAuthoredWeatherAndPersistentSeeds" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1082659598" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002414" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1623" name="FreshRegionUsesActiveSlotAtLoadAndKeepsAvailabilityAtLoadedMinute" fullname="WorldWeatherPersistenceTests.FreshRegionUsesActiveSlotAtLoadAndKeepsAvailabilityAtLoadedMinute" methodname="FreshRegionUsesActiveSlotAtLoadAndKeepsAvailabilityAtLoadedMinute" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1049226341" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001898" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1624" name="FreshRegionUsesPriorDayActiveSlotBeforeFirstSlotOfLoadedDay" fullname="WorldWeatherPersistenceTests.FreshRegionUsesPriorDayActiveSlotBeforeFirstSlotOfLoadedDay" methodname="FreshRegionUsesPriorDayActiveSlotBeforeFirstSlotOfLoadedDay" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="121067647" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001613" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1640" name="InvalidOverlappingHistoryResetsKnownBoundaryToLoadedMinute" fullname="WorldWeatherPersistenceTests.InvalidOverlappingHistoryResetsKnownBoundaryToLoadedMinute" methodname="InvalidOverlappingHistoryResetsKnownBoundaryToLoadedMinute" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1244674822" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002191" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved region 'region_a' had invalid or overlapping history; resetting its known history boundary.
+]]></output>
+        </test-case>
+        <test-case id="1641" name="InvalidOverridesAreDiscardedWithoutAffectingCurrentWeather" fullname="WorldWeatherPersistenceTests.InvalidOverridesAreDiscardedWithoutAffectingCurrentWeather" methodname="InvalidOverridesAreDiscardedWithoutAffectingCurrentWeather" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1733481980" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003723" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Ignoring a malformed saved weather override.
+[WorldWeatherState] Ignoring a malformed saved weather override.
+[WorldWeatherState] Ignoring a malformed saved weather override.
+]]></output>
+        </test-case>
+        <test-case id="1637" name="InvalidWeatherAndFutureTimestampsNormalizeSafely" fullname="WorldWeatherPersistenceTests.InvalidWeatherAndFutureTimestampsNormalizeSafely" methodname="InvalidWeatherAndFutureTimestampsNormalizeSafely" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="866261061" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003024" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved region 'region_a' contained invalid weather value 99; using its authored initial weather.
+[WorldWeatherState] region 'region_a' currentWeatherStartMinute was after the loaded world minute and was clamped.
+[WorldWeatherState] region 'region_a' historyAvailableFromMinute was after the loaded world minute and was clamped.
+]]></output>
+        </test-case>
+        <test-case id="1644" name="JsonUtilityPreservesAllRootSeedBits" fullname="WorldWeatherPersistenceTests.JsonUtilityPreservesAllRootSeedBits" methodname="JsonUtilityPreservesAllRootSeedBits" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1993586276" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000484" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1639" name="NegativeHistoryRecordTimestampResetsWeatherBoundaryToLoadedMinute" fullname="WorldWeatherPersistenceTests.NegativeHistoryRecordTimestampResetsWeatherBoundaryToLoadedMinute" methodname="NegativeHistoryRecordTimestampResetsWeatherBoundaryToLoadedMinute" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1813687626" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003008" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved region 'region_a' contained a negative timestamp; resetting its history and weather boundary to the loaded world minute.
+]]></output>
+        </test-case>
+        <test-case id="1638" name="NegativeRegionTimestampsResetWeatherBoundaryToLoadedMinute" fullname="WorldWeatherPersistenceTests.NegativeRegionTimestampsResetWeatherBoundaryToLoadedMinute" methodname="NegativeRegionTimestampsResetWeatherBoundaryToLoadedMinute" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="304194795" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.003063" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved region 'region_a' contained a negative timestamp; resetting its history and weather boundary to the loaded world minute.
+]]></output>
+        </test-case>
+        <test-case id="1645" name="PreWeatherSaveMigratesToUninitializedClimateStateWithoutHistory" fullname="WorldWeatherPersistenceTests.PreWeatherSaveMigratesToUninitializedClimateStateWithoutHistory" methodname="PreWeatherSaveMigratesToUninitializedClimateStateWithoutHistory" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="760753997" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.000490" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1628" name="ProgressedWeatherHistoryAndSeedSurviveSaveReload" fullname="WorldWeatherPersistenceTests.ProgressedWeatherHistoryAndSeedSurviveSaveReload" methodname="ProgressedWeatherHistoryAndSeedSurviveSaveReload" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="732526101" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002269" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1621" name="ProgressionResolvesSixAndEighteenAndClosesHistoryAtExactBoundaries" fullname="WorldWeatherPersistenceTests.ProgressionResolvesSixAndEighteenAndClosesHistoryAtExactBoundaries" methodname="ProgressionResolvesSixAndEighteenAndClosesHistoryAtExactBoundaries" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="916963149" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001764" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1635" name="RemovedRegionIsNotResurrectedWhenCatalogAddsItBack" fullname="WorldWeatherPersistenceTests.RemovedRegionIsNotResurrectedWhenCatalogAddsItBack" methodname="RemovedRegionIsNotResurrectedWhenCatalogAddsItBack" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="22475895" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002089" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[WorldWeatherState] Saved weather region 'region_b' is not in the current catalog and was discarded.
+]]></output>
+        </test-case>
+        <test-case id="1626" name="SameWeatherSlotIsNoOpWithoutEventOrHistoryMutation" fullname="WorldWeatherPersistenceTests.SameWeatherSlotIsNoOpWithoutEventOrHistoryMutation" methodname="SameWeatherSlotIsNoOpWithoutEventOrHistoryMutation" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1481865839" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001581" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1625" name="SavedOverrideBeatsFixedSlotWhichBeatsGeneratedWeather" fullname="WorldWeatherPersistenceTests.SavedOverrideBeatsFixedSlotWhichBeatsGeneratedWeather" methodname="SavedOverrideBeatsFixedSlotWhichBeatsGeneratedWeather" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="642261071" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001460" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1643" name="SaveManagerTargetOrderProducesEquivalentCompletedWeatherState" fullname="WorldWeatherPersistenceTests.SaveManagerTargetOrderProducesEquivalentCompletedWeatherState" methodname="SaveManagerTargetOrderProducesEquivalentCompletedWeatherState" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="2006769139" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.004980" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[[SaveManager] No save targets assigned — persistent ScriptableObject state will not be gathered or applied.
+[SaveManager] No save targets assigned — persistent ScriptableObject state will not be gathered or applied.
+]]></output>
+        </test-case>
+        <test-case id="1622" name="SkipResolvesEveryConfiguredSlotForEachRegionInCatalogOrder" fullname="WorldWeatherPersistenceTests.SkipResolvesEveryConfiguredSlotForEachRegionInCatalogOrder" methodname="SkipResolvesEveryConfiguredSlotForEachRegionInCatalogOrder" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="1168650473" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.002095" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1647" name="UnknownRegionQueryReturnsFalse" fullname="WorldWeatherPersistenceTests.UnknownRegionQueryReturnsFalse" methodname="UnknownRegionQueryReturnsFalse" classname="WorldWeatherPersistenceTests" runstate="Runnable" seed="158398367" result="Passed" start-time="2026-09-10 13:13:54Z" end-time="2026-09-10 13:13:54Z" duration="0.001056" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/samue/AppData/LocalLow/DefaultCompany/Metroidvania Controller\TestResults.xml
+]]></output>
+        </test-case>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

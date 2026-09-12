@@ -271,14 +271,14 @@ public sealed class WorldStateRegistryTests
     }
 
     [Test]
-    public void VersionThreeSaveMigratesToVersionFourWithEmptyWorldPersistenceSections()
+    public void VersionThreeSaveMigratesToVersionSixWithEmptyWorldPersistenceSections()
     {
         const string json = "{\"meta\":{\"saveVersion\":3},\"abilities\":{},\"player\":{},\"health\":{\"initialized\":true},\"resource\":{\"initialized\":true},\"world\":{\"collectedPickupIds\":[\"old_pickup\"]}}";
         Assert.That(SaveSerializer.TryDeserialize(json, out SaveData data), Is.True);
 
         SaveDataMigrator.Migrate(data);
 
-        Assert.That(data.meta.saveVersion, Is.EqualTo(4));
+        Assert.That(data.meta.saveVersion, Is.EqualTo(6));
         Assert.That(data.world.visitedRoomIds, Is.Not.Null);
         Assert.That(data.world.visitedRoomIds, Is.Empty);
         Assert.That(data.world.defeatedEncounterIds, Is.Not.Null);

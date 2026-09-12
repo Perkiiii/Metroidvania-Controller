@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="12" result="Passed" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.1265805">
+  <test-suite type="TestSuite" id="1000" name="Metroidvania Controller" fullname="Metroidvania Controller" runstate="Runnable" testcasecount="705" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.126581" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1773" name="Assembly-CSharp-Editor.dll" fullname="E:/GameDev/Projects/Final_Project/Metroidvania Controller/Library/ScriptAssemblies/Assembly-CSharp-Editor.dll" runstate="Runnable" testcasecount="705" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.102126" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="30524" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestFixture" id="1605" name="WeatherOverrideTests" fullname="WeatherOverrideTests" classname="WeatherOverrideTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.086186" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-case id="1611" name="ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" fullname="WeatherOverrideTests.ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" methodname="ActiveOverrideCorrectionUsesCurrentMinuteHistoryAndEventPath" classname="WeatherOverrideTests" runstate="Runnable" seed="2037394537" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.042399" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1614" name="ClearFallsThroughAuthoredFixedThenGeneratedWeather" fullname="WeatherOverrideTests.ClearFallsThroughAuthoredFixedThenGeneratedWeather" methodname="ClearFallsThroughAuthoredFixedThenGeneratedWeather" classname="WeatherOverrideTests" runstate="Runnable" seed="148113824" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001921" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1609" name="DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" fullname="WeatherOverrideTests.DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" methodname="DayZeroBeforeFirstSlotHasNoActiveKeyAndFutureOverrideAppliesAtBoundary" classname="WeatherOverrideTests" runstate="Runnable" seed="627415707" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.002821" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1610" name="FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" fullname="WeatherOverrideTests.FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" methodname="FutureAndPastOverridesDoNotMutateCurrentWeatherOrHistory" classname="WeatherOverrideTests" runstate="Runnable" seed="2021659335" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001755" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1607" name="InvalidCommandsAndUnknownKeysFailClosed" fullname="WeatherOverrideTests.InvalidCommandsAndUnknownKeysFailClosed" methodname="InvalidCommandsAndUnknownKeysFailClosed" classname="WeatherOverrideTests" runstate="Runnable" seed="721010497" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001620" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1612" name="MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" fullname="WeatherOverrideTests.MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" methodname="MidSlotActiveSetReplaceAndClearUseCurrentMinuteWithoutSameResultChurn" classname="WeatherOverrideTests" runstate="Runnable" seed="1210117008" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001870" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1617" name="OverrideCommandsDoNotInvalidateGeneratorCache" fullname="WeatherOverrideTests.OverrideCommandsDoNotInvalidateGeneratorCache" methodname="OverrideCommandsDoNotInvalidateGeneratorCache" classname="WeatherOverrideTests" runstate="Runnable" seed="1359318255" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001918" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1606" name="OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" fullname="WeatherOverrideTests.OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" methodname="OverrideEntryIsImmutableValidatedAndNullNormalizesSourceTag" classname="WeatherOverrideTests" runstate="Runnable" seed="1959109402" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.000960" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1616" name="OverridesPreserveSourceTagsAndDeterministicV6SaveReload" fullname="WeatherOverrideTests.OverridesPreserveSourceTagsAndDeterministicV6SaveReload" methodname="OverridesPreserveSourceTagsAndDeterministicV6SaveReload" classname="WeatherOverrideTests" runstate="Runnable" seed="1941931531" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.004800" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1615" name="PastOverrideLeavesExperiencedHistoryImmutable" fullname="WeatherOverrideTests.PastOverrideLeavesExperiencedHistoryImmutable" methodname="PastOverrideLeavesExperiencedHistoryImmutable" classname="WeatherOverrideTests" runstate="Runnable" seed="442656899" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001108" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1613" name="SameResultOverrideAndClearAreNoOpsForEventsAndHistory" fullname="WeatherOverrideTests.SameResultOverrideAndClearAreNoOpsForEventsAndHistory" methodname="SameResultOverrideAndClearAreNoOpsForEventsAndHistory" classname="WeatherOverrideTests" runstate="Runnable" seed="521818350" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001975" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+        </test-case>
+        <test-case id="1608" name="SetReplacesInPlaceAndClearRemovesExactOrdinalKey" fullname="WeatherOverrideTests.SetReplacesInPlaceAndClearRemovesExactOrdinalKey" methodname="SetReplacesInPlaceAndClearRemovesExactOrdinalKey" classname="WeatherOverrideTests" runstate="Runnable" seed="1197249506" result="Passed" start-time="2026-09-10 13:13:17Z" end-time="2026-09-10 13:13:17Z" duration="0.001376" asserts="0">
+          <properties>
+            <property name="retryIteration" value="0" />
+            <property name="repeatIteration" value="0" />
+          </properties>
+          <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/samue/AppData/LocalLow/DefaultCompany/Metroidvania Controller\TestResults.xml
+]]></output>
+        </test-case>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

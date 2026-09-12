@@ -1,16 +1,19 @@
 # Feature Spec — Save System
 
-**Last audited:** 2026-07-25 — boss-status sync
+**Last audited:** 2026-09-10 — World Time / Climate / Weather Package 3 completion
 
 ## Responsibilities
 
-Persist and restore game state across play sessions: player progress, unlocked abilities, active respawn marker, visited rooms, and relevant world state (opened doors, defeated bosses, collected pickups).
+Persist and restore game state across play sessions: player progress, unlocked abilities, active
+respawn marker, visited rooms, relevant world state (opened doors, defeated bosses, collected
+pickups), the canonical Package 1 world-time timestamp, and Packages 2–3 regional weather facts,
+history, and exact-slot overrides.
 
 ---
 
 ## Current State
 
-**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass). Cross-scene checkpoint respawn and scene-name-driven boot continue were added on 2026-05-26.**
+**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass). Cross-scene checkpoint respawn and scene-name-driven boot continue were added on 2026-05-26. Packages 1–3 world time/climate/weather are implemented in code, schema, tests, and existing asset/prefab composition; Package 3 adds no assets, prefabs, scenes, or Inspector assignments. Observed Unity 6000.3.10f1 EditMode results: generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13, complete WorldClimate/WorldTime 122/122, and WorldTime 38/38. Full EditMode is 717/718, with the sole unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failure. No Play Mode or manual primary-Editor validation was performed.**
 
 The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session / cross-scene respawn marker resolution, saved-scene startup routing, and hero placement on initial load are all implemented and working.
 
@@ -29,7 +32,12 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | `SaveStats` | `Scripts/Save/SaveStats.cs` | Done |
 | `SaveSerializer` (JsonUtility) | `Scripts/Save/SaveSerializer.cs` | Done |
 | `SaveFileStore` (sync + .bak) | `Scripts/Save/SaveFileStore.cs` | Done |
-| `SaveDataMigrator` (v3) | `Scripts/Save/SaveDataMigrator.cs` | Done |
+| `WorldTimeSaveData` | `Scripts/Save/Data/WorldTimeSaveData.cs` | Done (Package 1; v5 schema) |
+| `WorldTimeState` implements `ISaveTarget` | `Scripts/World/Time/WorldTimeState.cs` | Done (Package 1; asset wired) |
+| `WorldWeatherSaveData` and nested region/history/override DTOs | `Scripts/Save/Data/WorldWeatherSaveData.cs`, `RegionWeatherSaveEntry.cs`, `WeatherHistoryRecordSaveEntry.cs`, `WeatherOverrideSaveEntry.cs` | Done (Packages 2–3; v6 schema unchanged) |
+| `WorldWeatherState` implements `ISaveTarget` | `Scripts/World/Climate/WorldWeatherState.cs` | Done (Packages 2–3; asset wired) |
+| Climate definitions and regional catalog | `Scripts/World/Climate/*.cs` | Done (Packages 2–3; authored assets wired; generator/history/override/forecast behavior) |
+| `SaveDataMigrator` (v6) | `Scripts/Save/SaveDataMigrator.cs` | Done |
 | `SaveManager` persistent singleton | `Scripts/Save/SaveManager.cs` | Done |
 | `WorldStateRegistry` implements `ISaveTarget` | `Scripts/World/Persistence/Core/WorldStateRegistry.cs` | Done (World Persistence Phase 1) |
 | Coordinated boss completion (`BossEncounterController` → `WorldStateRegistry`) | `Scripts/Boss/BossEncounterController.cs` | Done; Undead Executioner authored in `SampleScene4` |
@@ -57,6 +65,8 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | Scene-name-driven boot continue (`activeRespawnSceneName` / `currentScene` instead of always `firstScene`) | Done |
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
 | Save slot UI (multi-slot selection, delete, stats display) | Milestone 5 |
+| Automatic climate/weather progression, forecasts, history queries, runtime overrides (Package 3) | Done; automated-tested; no Play Mode/manual primary-Editor validation |
+| Room climate context and authoring tools (Package 4) | Future package; not started |
 
 See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence), Phase 2 (normal-death lifecycle + pickup reconciliation), and Phase 3 (doors/switches/breakables + room visitation) are implemented; see the `WorldStateRegistry`, `EnemyPersistence`, and Phase 3 sections below and in `Docs/Architecture.md`.
 
@@ -87,6 +97,10 @@ Bootstrap.Start()
           → PlayerHealthState.ApplySaveData()     [ISaveTarget]
           → PlayerResourceState.ApplySaveData()   [ISaveTarget]
           → WorldStateRegistry.ApplySaveData()    [ISaveTarget]
+          → WorldTimeState.ApplySaveData()         [ISaveTarget; Package 1, wired]
+          → WorldWeatherState.ApplySaveData()      [ISaveTarget; Packages 2–3, wired]
+      → WorldWeatherState.CompleteLoad(WorldTimeState)
+          [post-target reconciliation; clock-dependent, not target-order dependent]
   → SaveManager.GetStartupScene(firstScene)
       → activeRespawnSceneName if set and loadable
       → currentScene if set and loadable
@@ -97,6 +111,13 @@ Bootstrap.Start()
           → ResolveActiveRespawnMarkerFromSave()  (key → live RespawnMarker)
           → PlaceHeroAtSavedRespawnIfRequested()  (move hero to marker)
           → [TransitionRoutine continues] → camera snap → fade in
+
+WorldClockDriver.Update()
+  → no-op until WorldTimeState.IsLoaded && GameManager.Instance != null
+      && GameManager.State == GameState.Playing
+  → unscaled/clamped real-time sample
+  → complete quanta via WorldTimeState.RealSecondsPerGameMinute
+  → WorldTimeState.AdvanceMinutes(completeMinutes)
 ```
 
 ### Class diagram
@@ -109,12 +130,16 @@ SaveManager (MonoBehaviour — DontDestroyOnLoad)
 │   ├── AbilitySaveData     8 bool flags (mirrors PlayerAbilityState; all default locked)
 │   ├── HealthSaveData      initialized marker, current/max/bonus health
 │   ├── ResourceSaveData    initialized marker, current/max integer parts
-│   └── WorldSaveData       collectedPickupIds, visitedRoomIds, defeatedEncounterIds, objectStates
+│   ├── WorldSaveData       collectedPickupIds, visitedRoomIds, defeatedEncounterIds, objectStates
+│   ├── WorldTimeSaveData   initialized marker, canonical totalGameMinutes [Package 1]
+│   └── WorldWeatherSaveData initialized marker, regional weather/history/override DTOs [Packages 2–3; v6]
 ├── ISaveTarget (interface — implemented by persistent SOs)
 │   ├── PlayerAbilityState  [implemented]
 │   ├── PlayerHealthState   [implemented; authoritative gameplay owner]
 │   ├── PlayerResourceState [implemented; authoritative gameplay owner]
-│   └── WorldStateRegistry  [implemented — World Persistence Phase 1]
+│   ├── WorldStateRegistry  [implemented — World Persistence Phase 1]
+│   ├── WorldTimeState      [implemented — Package 1; wired]
+│   └── WorldWeatherState   [implemented — Packages 2–3; wired]
 ├── SaveSerializer          JsonUtility wrapper with null/exception guards
 ├── SaveFileStore           persistentDataPath I/O; .bak before overwrite; synchronous
 └── SaveDataMigrator        null normalization + version stamp
@@ -139,8 +164,62 @@ Assets/_Project/Scripts/Save/
     ├── AbilitySaveData.cs
     ├── HealthSaveData.cs
     ├── ResourceSaveData.cs
-    └── WorldSaveData.cs
+    ├── WorldSaveData.cs
+    ├── WorldTimeSaveData.cs
+    ├── WorldWeatherSaveData.cs
+    ├── RegionWeatherSaveEntry.cs
+    ├── WeatherHistoryRecordSaveEntry.cs
+    └── WeatherOverrideSaveEntry.cs
 ```
+
+### Package 1 world-time composition
+
+The Package 1 target assets are:
+
+```text
+Assets/_Project/ScriptableObjects/World/CalendarConfig.asset
+Assets/_Project/ScriptableObjects/World/WorldTimeState.asset
+Assets/_Project/Prefabs/Managers/_WorldClockDriver.prefab
+```
+
+`WorldTimeState.asset` owns the serialized `CalendarConfig` reference and is the save target.
+`_WorldClockDriver.prefab` serializes only the `WorldTimeState` reference and reads pacing through
+`WorldTimeState.RealSecondsPerGameMinute`. The state asset is included in `_SaveManager.prefab`'s
+`saveTargets`, and the driver prefab is assigned to `Bootstrap.worldClockDriverPrefab` in
+`Assets/_Project/Scenes/Boot.unity`. The current checkout contains the runtime code, generated
+assets/prefab, and these serialized assignments. Package 1 baseline/full-suite validation is
+complete. Package 2 asset/composition generation and validation were performed through Unity APIs
+in an isolated copy; this does not claim Play Mode or manual primary-Editor validation, and the
+open primary Editor may require refresh/reimport.
+
+### Package 2 climate/weather composition
+
+Package 2 adds the following ScriptableObject assets under
+`Assets/_Project/ScriptableObjects/World/`:
+
+```text
+WeatherSimulationConfig.asset
+WorldWeatherState.asset
+ClimateRegionCatalog.asset
+WeatherDefinitions/Clear.asset
+WeatherDefinitions/Cloudy.asset
+WeatherDefinitions/Rain.asset
+WeatherDefinitions/Storm.asset
+WeatherDefinitions/Fog.asset
+Seasons/Spring.asset
+Seasons/Summer.asset
+Seasons/Autumn.asset
+Seasons/Winter.asset
+Seasons/UnderbrewSeasonTrack.asset
+Seasons/Underbrew.asset
+```
+
+The simulation config contains one weather definition per enum value and the authored 06:00/18:00
+slot policy. `WorldWeatherState.asset` references the simulation config and region catalog. The
+catalog currently contains the single provisional `region_underbrew` region, whose track contains
+the four authored seasons and whose initial weather is `Clear`. `WorldWeatherState.asset` is in
+`_SaveManager.prefab`'s target list and `Bootstrap.worldWeatherState` is assigned in
+`Assets/_Project/Scenes/Boot.unity`.
 
 ---
 
@@ -157,13 +236,15 @@ public class SaveData
     public HealthSaveData  health     = new HealthSaveData();
     public ResourceSaveData resource  = new ResourceSaveData();
     public WorldSaveData   world      = new WorldSaveData();
+    public WorldTimeSaveData worldTime = new WorldTimeSaveData();
+    public WorldWeatherSaveData worldWeather = new WorldWeatherSaveData();
 }
 
 // MetaSaveData.cs
 [Serializable]
 public class MetaSaveData
 {
-    public int    saveVersion     = 3;   // bumped by SaveDataMigrator on schema change
+    public int    saveVersion     = 3;   // constructor default; Migrate() stamps current schema v6
     public string lastSavedUtc    = "";  // DateTime.UtcNow.ToString("o") on every Save()
     public float  playTimeSeconds = 0f;  // stub — not yet accumulated; wire in Milestone 5
 }
@@ -233,6 +314,54 @@ public class WorldObjectStateEntry
     public string id = "";
     public string state = "";
 }
+
+// WorldTimeSaveData.cs — Package 1 canonical timestamp. Calendar conversion remains owned by
+// WorldTimeState and CalendarConfig; this DTO carries no Unity/Object references or derived fields.
+[Serializable]
+public class WorldTimeSaveData
+{
+    public bool initialized;
+    public long totalGameMinutes;
+}
+
+// WorldWeatherSaveData.cs — Package 2 regional weather persistence. JsonUtility uses flat lists
+// rather than dictionaries; runtime reconciliation remains owned by WorldWeatherState.
+[Serializable]
+public class WorldWeatherSaveData
+{
+    public bool initialized;
+    public List<RegionWeatherSaveEntry> regions = new List<RegionWeatherSaveEntry>();
+    public List<WeatherOverrideSaveEntry> overrides = new List<WeatherOverrideSaveEntry>();
+}
+
+[Serializable]
+public class RegionWeatherSaveEntry
+{
+    public string regionId = "";
+    public int currentWeatherType;
+    public long currentWeatherStartMinute;
+    public long historyAvailableFromMinute;
+    public uint rootSeed;
+    public List<WeatherHistoryRecordSaveEntry> history = new List<WeatherHistoryRecordSaveEntry>();
+}
+
+[Serializable]
+public class WeatherHistoryRecordSaveEntry
+{
+    public int weatherType;
+    public long startMinute;
+    public long endMinuteExclusive;
+}
+
+[Serializable]
+public class WeatherOverrideSaveEntry
+{
+    public string regionId = "";
+    public long absoluteDayIndex;
+    public int slotIndex;
+    public int weatherType;
+    public string sourceTag = "";
+}
 ```
 
 Respawnable-enemy death records and generic until-death state are intentionally NOT part of `WorldSaveData` — they are runtime-only collections owned by `WorldStateRegistry` (see below) and are cleared by `ApplySaveData` (fresh game / Continue / slot change) and by explicit reset calls on normal death.
@@ -241,12 +370,14 @@ Respawnable-enemy death records and generic until-death state are intentionally 
 
 ```json
 {
-  "meta": { "saveVersion": 4, "lastSavedUtc": "2026-07-21T08:37:37Z", "playTimeSeconds": 0.0 },
+  "meta": { "saveVersion": 6, "lastSavedUtc": "2026-07-21T08:37:37Z", "playTimeSeconds": 0.0 },
   "player": { "currentScene": "SampleScene", "activeRespawnSceneName": "SampleScene", "activeRespawnMarkerKey": "checkpoint_a", "activeHazardRespawnMarkerKey": "" },
   "abilities": { "dashUnlocked": true, "wallClingUnlocked": true, "sprintUnlocked": false, "wallLatchUnlocked": false, "doubleJumpUnlocked": false, "driftCloakUnlocked": false, "spiritCastUnlocked": false, "bindUnlocked": false },
   "health": { "initialized": true, "currentHealth": 5, "maximumHealth": 5, "bonusHealth": 0 },
   "resource": { "initialized": true, "currentParts": 0, "maximumParts": 0 },
-  "world": { "collectedPickupIds": [], "visitedRoomIds": [], "defeatedEncounterIds": [], "objectStates": [] }
+  "world": { "collectedPickupIds": [], "visitedRoomIds": [], "defeatedEncounterIds": [], "objectStates": [] },
+  "worldTime": { "initialized": true, "totalGameMinutes": 480 },
+  "worldWeather": { "initialized": true, "regions": [], "overrides": [] }
 }
 ```
 
@@ -258,7 +389,7 @@ Respawnable-enemy death records and generic until-death state are intentionally 
 - **Location:** `Application.persistentDataPath/save_slot{n}.json` (e.g. `save_slot0.json`)
 - **Backup:** `save_slot{n}.bak` written before every overwrite — one generation of rollback
 - **Newtonsoft.Json:** not installed (`com.unity.nuget.newtonsoft-json` absent from `Packages/manifest.json`). Upgrade path is available if richer null handling or polymorphism is later needed.
-- **Null normalization:** `SaveDataMigrator.Migrate()` always runs after deserialization. It normalizes all null sub-objects to fresh instances and all null strings to `""`. This means downstream code never needs to null-check save data fields.
+- **Null normalization:** `SaveDataMigrator.Migrate()` always runs after deserialization. It normalizes all null sub-objects, `worldWeather.regions`/`overrides`, each region history list, and region/source-tag strings. This means downstream code receives a stable non-null weather DTO shape; malformed entries still undergo WorldWeatherState completion validation.
 
 ---
 
@@ -278,7 +409,12 @@ public interface ISaveTarget
 [SerializeField] private List<ScriptableObject> saveTargets;
 ```
 
-The `_SaveManager.prefab` list must contain `PlayerAbilityState`, `PlayerHealthState`, and `PlayerResourceState`. `WorldStateRegistry` can be appended later without another `SaveManager` code change.
+The `_SaveManager.prefab` list must contain `PlayerAbilityState`, `PlayerHealthState`, and
+`PlayerResourceState`; it also contains `WorldStateRegistry`, the Package 1 `WorldTimeState`, and
+the Package 2 `WorldWeatherState` assets in the current serialized prefab. SaveManager remains a
+generic Inspector-ordered target pipeline and does not reference either world state by concrete
+type. Weather completion is a Bootstrap post-load step because target ordering is not a lifecycle
+contract.
 
 ### PlayerAbilityState (implemented)
 
@@ -306,6 +442,68 @@ Restricted enemy-timer API (see `Docs/ImplementationPlans/WorldPersistence.md` f
 - `internal bool ShouldSuppressEnemyOnInitialization(string enemyId)` — internal; only `EnemyPersistence` (same assembly) may call it, and only from `EnemyController`'s one-time initialization path. There is no live respawn scheduler, coroutine, or per-frame timer — expiry is resolved lazily, only when a scene next initializes that enemy.
 
 Keyed notifications use `WorldStateKey` (category + string id) and `WorldStateChange` (bool flag + optional string payload) via `Subscribe`/`Unsubscribe` — there is no unqualified global `Changed` event. Enemy timer expiry never dispatches a notification.
+
+### WorldTimeState (implemented — Package 1)
+
+`Assets/_Project/Scripts/World/Time/WorldTimeState.cs` is the canonical world-time
+`ScriptableObject` and an `ISaveTarget`. It owns the nonserialized `long totalGameMinutes`, derives
+the immutable `WorldTimeSnapshot` from its serialized `CalendarConfig`, and exposes
+`RealSecondsPerGameMinute` for the driver. `WorldTimeSaveData` stores only an `initialized` marker
+and the canonical long; a missing or pre-v5 section leaves the marker false so the state applies
+the authored fresh date. Initialized negative timestamps are rejected.
+
+`WorldTimeState` publishes `StateApplied` once after save application. `AdvanceMinutes` rejects
+negative values and checked overflow, treats zero as a no-op, rejects callback reentrancy, emits
+crossed hour boundaries in fixed order (`HourChanged`, applicable `DayChanged`, `SeasonChanged`,
+`YearChanged`, `DayPhaseChanged`), and emits one `TimeAdvanced(before, after)` after the final
+target. Boundary subscribers are isolated so one exception does not strand canonical time or stop
+later subscribers.
+
+`WorldClockDriver` is a separate persistent `MonoBehaviour` sampler. Its only serialized gameplay
+reference is `WorldTimeState`; it reads pacing through `WorldTimeState.RealSecondsPerGameMinute`
+and never holds a direct `CalendarConfig` reference. It advances only when the state is loaded and
+`GameManager.State == GameState.Playing`; pause/menu/loading/transition states stop it, while
+hit-stop continues because the game state remains `Playing`. The generated time assets, driver
+prefab, and SaveManager/Boot assignments are serialized at the paths listed in
+`Docs/ImplementationPlans/WorldTimeClimateWeather.md` §25. Package 1 baseline/full-suite
+validation is complete. Observed Unity 6000.3.10f1 EditMode results are generator 10/10,
+progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13, complete
+WorldClimate/WorldTime 122/122, and WorldTime 38/38. Full EditMode is 717/718 because of the
+unrelated pre-existing `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failure. No
+Play Mode or manual primary-Editor validation was performed.
+
+### WorldWeatherState (implemented — Packages 2–3)
+
+`Assets/_Project/Scripts/World/Climate/WorldWeatherState.cs` is the persistent regional-weather
+`ScriptableObject` and `ISaveTarget`. It is a sibling of `WorldTimeState`, not a concern of
+`SaveManager`, `GameManager`, or `WorldStateRegistry`. The asset references
+`WeatherSimulationConfig` and `ClimateRegionCatalog`. Its runtime records own each catalog
+region’s current `WeatherType`, current-start minute, history-availability minute, nonzero root
+seed, actual-weather history, and exact-slot override payloads.
+
+`GatherSaveData` writes `SaveData.worldWeather` only after completion and serializes the current
+regional records plus their payload lists. `ApplySaveData` deep-copies only the weather section to
+a private pending DTO, clears the old runtime view, and does not read `WorldTimeState`, subscribe
+to events, or depend on the Inspector order of save targets. `Bootstrap` calls
+`CompleteLoad(worldTimeState)` after `SaveManager.LoadOrCreate` has applied every target.
+
+`CompleteLoad` requires a loaded `WorldTimeState`, validates the simulation config, catalog, season
+tracks, matrices, fixed slot keys, and calendar/slot cardinality, then reconciles the pending save
+against the authored catalog. Missing configured regions start at the loaded minute with the
+active deterministic slot result, a truthful history boundary, and a generated nonzero seed.
+Saved regions removed from the catalog are dropped; duplicate saved IDs use the first entry;
+invalid weather values fall back to the region’s authored initial weather; malformed
+histories/overrides and invalid timestamps are warned and normalized/reset according to the climate
+implementation contract. Completion is idempotent for an unchanged catalog and snapshots the
+latest runtime state before catalog-changing recompletion.
+
+After completion, `WorldWeatherState` binds once to `WorldTimeState.HourChanged` and resolves every
+crossed configured slot in catalog order with runtime exact-slot override > authored fixed slot >
+generated weather precedence. One atomic mutation path updates actual weather, closes/merges
+history, and emits `WeatherChanged`; same-type resolutions do nothing. `TryQueryHistory` and
+`TryGetForecast` return immutable read-only results, and `SetOverride`/`ClearOverride` validate
+exact keys and never rewrite past actual history. Package 3 changes no save version; v6 persists
+the current regional records, closed history, and override payloads.
 
 ### EnemyPersistence and enemy persistence modes (implemented — World Persistence Phase 1)
 
@@ -349,20 +547,25 @@ Every application start runs through `Bootstrap.Start()`:
        → CreateFreshSave(0)
            → new SaveData() → Migrate → CurrentSave = fresh → ApplySaveData() → Write file
 
-2. GameManager.ResolveLoadedHealthState()
+2. WorldWeatherState.CompleteLoad(WorldTimeState)
+   → requires WorldTimeState.IsLoaded
+   → validates authored dependencies and reconciles all catalog regions
+   → runs after every ISaveTarget.ApplySaveData; binds weather progression only after reconciliation
+
+3. GameManager.ResolveLoadedHealthState()
    → PlayerHealthState.NormalizeDepletedContinue() (no-op unless CurrentHealth <= 0)
    → if it fired, also PlayerResourceState.Clear()
    → runs before any gameplay scene/Hero exists — zero-health save protection (see PlayerHealthAndResource.md)
 
-3. startupScene = SaveManager.GetStartupScene(firstScene)
+4. startupScene = SaveManager.GetStartupScene(firstScene)
    ├─ activeRespawnSceneName if present + loadable
    ├─ currentScene if present + loadable
    └─ firstScene fallback
 
-4. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
+5. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
    → sets _placeHeroAtSavedRespawnOnNextSceneLoad = true (single-use flag)
 
-5. GameManager.BeginSceneTransition(startupScene)
+6. GameManager.BeginSceneTransition(startupScene)
    → [fade out] → [LoadSceneAsync] → OnSceneLoaded():
        → ResolveActiveRespawnMarkerFromSave()
            scan FindObjectsByType<RespawnMarker>
@@ -462,6 +665,10 @@ void SetActiveHazardRespawnMarkerKey(string key)
 | No matching checkpoint `RespawnMarker` in the checkpoint scene | Log warning, use the first available `RespawnMarker`; if none exists, fall back to cached scene-entry position |
 | Multiple `RespawnMarker`s with same key | Use first match, log warning about duplicate keys |
 | A target receives a null data section | Migrator normalizes sections; individual targets also guard defensively |
+| Missing/removed saved weather region | `WorldWeatherState.CompleteLoad` discards it with a warning; re-adding the region creates fresh state |
+| Duplicate saved weather region ID | Completion keeps the first entry and warns |
+| Invalid weather/history/override payload | Completion falls back, resets, or discards the malformed entry according to the Package 2 weather contract and warns |
+| Weather completion before loaded world time | `CompleteLoad` throws; Bootstrap calls it only after time target application |
 
 ---
 
@@ -470,10 +677,12 @@ void SetActiveHazardRespawnMarkerKey(string key)
 ```csharp
 public static class SaveDataMigrator
 {
-    public const int CurrentSaveVersion = 4;
+    public const int CurrentSaveVersion = 6;
 
     public static void Migrate(SaveData data)
     {
+        int originalVersion = data.meta?.saveVersion ?? 0;
+
         // Null-normalize sub-objects
         data.meta       ??= new MetaSaveData();
         data.player     ??= new PlayerSaveData();
@@ -481,10 +690,34 @@ public static class SaveDataMigrator
         data.health     ??= new HealthSaveData();
         data.resource   ??= new ResourceSaveData();
         data.world      ??= new WorldSaveData();
+        data.worldTime  ??= new WorldTimeSaveData();
+        data.worldWeather ??= new WorldWeatherSaveData();
         data.world.collectedPickupIds   ??= new List<string>();
         data.world.visitedRoomIds       ??= new List<string>();
         data.world.defeatedEncounterIds ??= new List<string>();
         data.world.objectStates         ??= new List<WorldObjectStateEntry>();
+
+        data.worldWeather.regions  ??= new List<RegionWeatherSaveEntry>();
+        data.worldWeather.overrides ??= new List<WeatherOverrideSaveEntry>();
+        for (int regionIndex = 0; regionIndex < data.worldWeather.regions.Count; regionIndex++)
+        {
+            RegionWeatherSaveEntry region = data.worldWeather.regions[regionIndex];
+            if (region == null)
+                continue;
+
+            region.regionId ??= "";
+            region.history ??= new List<WeatherHistoryRecordSaveEntry>();
+        }
+
+        for (int overrideIndex = 0; overrideIndex < data.worldWeather.overrides.Count; overrideIndex++)
+        {
+            WeatherOverrideSaveEntry weatherOverride = data.worldWeather.overrides[overrideIndex];
+            if (weatherOverride == null)
+                continue;
+
+            weatherOverride.regionId ??= "";
+            weatherOverride.sourceTag ??= "";
+        }
 
         // Null-normalize string fields
         data.player.currentScene                ??= "";
@@ -508,14 +741,26 @@ public static class SaveDataMigrator
             data.resource.initialized = false;
         }
 
+        if (originalVersion < 5)
+        {
+            // Time was not persisted before v5. WorldTimeState supplies its authored fresh date.
+            data.worldTime.initialized = false;
+        }
+
+        if (originalVersion < 6)
+        {
+            // Weather was not persisted before v6. WorldWeatherState supplies authored regional
+            // initial weather and begins the history boundary at the loaded world minute.
+            data.worldWeather.initialized = false;
+        }
+
         // Version 3 and earlier had no room/encounter/object-state world sections. No transform
         // is needed beyond the null-coalescing above — an absent section is correctly empty.
 
         data.meta.saveVersion = CurrentSaveVersion;
 
-        // Version 3 adds health/resource sections. Their initialized markers
-        // intentionally remain false when absent so the state assets supply
-        // authored fresh-save defaults during ApplySaveData.
+        // Versions 3, 5, and 6 add initialized state sections. Their markers intentionally remain
+        // false when absent so the owning state assets supply authored fresh-save defaults.
     }
 }
 ```
@@ -524,6 +769,12 @@ When a schema change breaks backward compatibility:
 1. Increment `CurrentSaveVersion`.
 2. Add a `if (data.meta.saveVersion < N)` block to patch old data.
 3. Existing saves load and migrate in place. Only truly incompatible saves fall back to a fresh state.
+
+Version 5 is the Package 1 world-time addition. Version 6 is the Package 2 weather addition; it
+does not reinterpret existing player/world/time state. It adds the canonical regional weather
+payload and leaves `worldWeather.initialized == false` for pre-v6 saves so
+`WorldWeatherState.CompleteLoad` creates authored initial regional state at the loaded minute.
+Unsupported future-version rejection remains a separate technical-debt decision.
 
 ---
 
@@ -554,6 +805,12 @@ The API is already slot-aware. `Save(int slot)`, `HasSave(int slot)`, `GetSaveSt
 
 ### Save migration versioning
 When a schema change needs data patching, increment `SaveDataMigrator.CurrentSaveVersion` and add a version-gated block. Version 2 adds `activeRespawnSceneName`; old saves migrate by copying `currentScene` only when a respawn marker key exists, which is best-effort and may require checkpoint re-activation if the old save's `currentScene` is not the checkpoint scene. Version 3 adds initialized health and resource sections; missing sections retain `initialized == false` so the state assets apply authored defaults. Version 4 adds `visitedRoomIds`, `defeatedEncounterIds`, and `objectStates` to `WorldSaveData` for `WorldStateRegistry`; no version-gated transform was needed since the null-coalescing normalization already leaves absent sections correctly empty. Unsupported future-version rejection is not implemented: the current migrator stamps any deserialized data to the current version. Treat a forward-version policy as separate technical debt.
+
+### Package 1 schema note
+
+Version 5 adds `WorldTimeSaveData`/`SaveData.worldTime`; pre-v5 data keeps `initialized == false`
+so `WorldTimeState` applies its authored fresh date. Unsupported future-version rejection remains
+a separate technical-debt decision.
 
 ### Auto-save on scene transition
 Wire `SaveManager.Save()` into `GameManager.TransitionRoutine` before the `LoadSceneAsync` call. This creates a checkpoint-independent auto-save whenever the player moves between scenes, at the cost of slightly longer transition times.

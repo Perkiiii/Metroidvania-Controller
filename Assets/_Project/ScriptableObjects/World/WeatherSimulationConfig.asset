@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeee7f060e15e374eadf78754eeccac1, type: 3}
+  m_Name: WeatherSimulationConfig
+  m_EditorClassIdentifier: Assembly-CSharp::WeatherSimulationConfig
+  weatherSlotHours: 0600000012000000
+  maxForecastDaysAhead: 28
+  weatherDefinitions:
+  - {fileID: 11400000, guid: 8be2d6918088b074bb817a7f2ed7b361, type: 2}
+  - {fileID: 11400000, guid: 10091cc554183384c9ddb22bfff4af87, type: 2}
+  - {fileID: 11400000, guid: a0c7f57a211a4f2448077446dfacecc1, type: 2}
+  - {fileID: 11400000, guid: dc6f240cb5ee3b7499de1af58a73beb9, type: 2}
+  - {fileID: 11400000, guid: ed56271e455e7db488c266294ee55ebd, type: 2}

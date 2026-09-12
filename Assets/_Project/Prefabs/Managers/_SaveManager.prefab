@@ -49,4 +49,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: cee54eb6324705d4aabc766c56ae0d23, type: 2}
   - {fileID: 11400000, guid: 1caae1f2f1c32df4abb37115d051346d, type: 2}
   - {fileID: 11400000, guid: ca3cf2605a1f08340965381da8f97de7, type: 2}
+  - {fileID: 11400000, guid: b54ef6925e67bfa49a3b516a0649d137, type: 2}
+  - {fileID: 11400000, guid: 50716c6348f6c4543ba51dd8a11bde56, type: 2}
   saveOnApplicationQuit: 1

@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-07-27
+**Last audited:** 2026-09-10 — World Time / Climate / Weather Package 4 completion
 
 ## Overview
 
@@ -59,6 +59,122 @@ Single source of truth for the hero's runtime state. Written by Sensors, Motor, 
 ### Persistent HUD
 
 `PersistentHudRoot` is the implemented presentation composition root under the persistent `_GameCameras` prefab. Its UGUI child views (`HealthDisplay` and `ResourceDisplay`) subscribe directly to the persistent state assets, perform an explicit initial refresh, and unsubscribe safely. They do not read scene-local hero components, poll in `Update`, or rebind through `GameManager.SceneInit`; room transitions therefore preserve the displayed values without HUD-specific lifecycle logic. `ResourceDisplay` renders one continuous, always-visible bar. `PlayerResourceConfig.partsPerPip` is retained inert configuration and does not control current HUD grouping. `GameCameras` remains camera-only. See `Docs/FeatureSpecs/HUD.md`.
+
+### World Time (Package 1 — implemented)
+
+Package 1 supplies the canonical calendar/time runtime, save section, and focused EditMode test
+coverage. `CalendarConfig` is authoring-only calendar shape/fresh-date/phase/pace data;
+`WorldTimeState` is the persistent `ScriptableObject`/`ISaveTarget` owner of canonical
+`long totalGameMinutes`, calendar derivation, advancement, and time events; and
+`WorldTimeSnapshot` is the immutable projection consumed by readers. The state serializes its
+`CalendarConfig` reference and exposes `RealSecondsPerGameMinute` to the driver.
+
+`WorldClockDriver` is the persistent real-time sampler at the target prefab path
+`Assets/_Project/Prefabs/Managers/_WorldClockDriver.prefab`. It serializes **only** a
+`WorldTimeState` reference (never a direct `CalendarConfig` reference), retains a private
+fractional accumulator, and calls `WorldTimeState.AdvanceMinutes` for complete pacing quanta.
+`Bootstrap` creates it after `GameManager` and `SaveManager`; the serialized prefab reference is
+present in `Boot.unity`. The driver advances only when the state is loaded, `GameManager.Instance` exists, and
+`GameManager.State == GameState.Playing`; unscaled delta time is hitch-clamped, and pause, menus,
+and loading/entering/exiting states stop it. Hit-stop intentionally continues while the game state
+remains `Playing`.
+
+`WorldTimeState` emits `HourChanged`, `DayChanged`, `SeasonChanged`, `YearChanged`, and
+`DayPhaseChanged` at each crossed hour boundary in that order when applicable, then emits one
+`TimeAdvanced(before, after)` for the completed advance. `StateApplied` is emitted once after a
+fresh or initialized save is applied. Midnight reports the new hour before date/season/year;
+zero-minute advances are no-ops, backward/negative advances and checked overflow are rejected,
+and callbacks cannot re-enter advancement.
+
+The target authoring paths are `Assets/_Project/ScriptableObjects/World/CalendarConfig.asset`,
+`Assets/_Project/ScriptableObjects/World/WorldTimeState.asset`, and the driver prefab above. The
+current checkout contains the runtime files, generated Package 1–2 assets/prefab composition,
+serialized `_SaveManager.prefab`/`Boot.unity` assignments, and Package 4 scene metadata.
+Package 3 adds code and EditMode fixtures only; Package 4 adds no prefab or save composition.
+Observed Unity
+6000.3.10f1 EditMode results are validator 9/9; generator 10/10, progression/persistence 29/29,
+history 11/11, overrides 12/12, forecast 13/13; existing WorldClimate 84/84, WorldTime 38/38,
+and explicit existing climate/time union 122/122. Full EditMode is 727/727. The historical
+camera failure did not reproduce and its fixture passed 23/23. No PlayMode was applicable, and
+no manual visual or interactive matrix-Inspector/Undo validation was claimed.
+### Climate and Regional Weather State (Packages 2–4 — implemented)
+
+Package 2 establishes the authored climate graph and persistent regional weather facts. Package 3
+adds deterministic resolution and all temporal weather behavior. Package 4 adds passive room
+contexts, safe authoring, and project validation; presentation remains a later consumer.
+
+`WeatherType` is an append-only persistence/content enum with exactly these current ordinals:
+`Clear = 0`, `Cloudy = 1`, `Rain = 2`, `Storm = 3`, and `Fog = 4`; it has no `None` value.
+`WeatherDefinition` stores simulation metadata only (type, display name, precipitation, and
+severity). `WeatherSimulationConfig` owns the sorted weather-slot hours and the one-to-one
+`WeatherType` → `WeatherDefinition` lookup; it is not regional runtime state and no separate
+weather-definition catalog exists.
+
+The authored climate graph is:
+
+```text
+ClimateRegionCatalog
+  └── ClimateRegionDefinition (stable case-sensitive regionId, display name, initial weather)
+        └── SeasonTrackDefinition (global season ordinal → SeasonDefinition)
+              └── SeasonDefinition (entry weather, 5×5 row-major weights, fixed slot records)
+```
+
+`SeasonDefinition` validates a complete 5×5 non-negative transition matrix, positive row totals,
+and concrete one-based day/slot fixed-weather keys. `SeasonTrackDefinition` must contain exactly
+the calendar’s `SeasonsPerYear` entries. `ClimateRegionCatalog` validates non-null regions and
+duplicate IDs with ordinal case-sensitive lookup. Package 3 consumes these definitions through the
+deterministic generator; authored assets remain provisional content until production saves/content
+are frozen.
+
+`WorldWeatherState` is a persistent `ScriptableObject` and `ISaveTarget`, sibling to
+`WorldTimeState`. It owns current weather, current-start minute, nonzero root seed, actual-weather
+history, and exact-slot override payloads per catalog region. It resolves through the deterministic
+generator, binds once to `WorldTimeState.HourChanged` after completion, and exposes current-weather,
+root-seed, history, override, and forecast queries/commands. It does not own the clock, mutate
+`WorldTimeState`, or reference scene/presentation objects.
+
+The load lifecycle is deliberately two-phase. `ApplySaveData` deep-copies only
+`SaveData.worldWeather` into a private pending DTO and clears the prior runtime view; it does not
+read the clock or depend on save-target ordering. After `SaveManager.LoadOrCreate` has applied all
+targets, `Bootstrap` calls `WorldWeatherState.CompleteLoad(worldTimeState)`. Completion requires a
+loaded `WorldTimeState`, validates the config/catalog/season graph, creates missing catalog
+regions at the loaded minute with the active deterministic slot result and a nonzero seed, drops
+saved regions removed from the catalog, and normalizes malformed/duplicate entries with warnings.
+Completion is idempotent for an unchanged catalog and preserves the latest runtime
+weather/history/override state when catalog reconciliation is required.
+
+After completion, each crossed configured slot is resolved in authored catalog order with
+runtime exact-slot override > authored fixed slot > generated weather precedence. A single atomic
+mutation path changes actual weather, closes/merges history, and emits `WeatherChanged`; same-type
+resolutions are no-ops. History queries return immutable clipped half-open records and a synthetic
+open segment with truthful completeness. Forecast queries are immutable, inclusive in `daysAhead`,
+and cross season/year instances without mutating live state, history, overrides, seeds, caches, or
+subscriptions. Exact-slot override commands affect future resolution, immediately re-resolve the
+active slot, and never rewrite past history. The save schema remains v6.
+
+Package 2 climate assets are authored under `Assets/_Project/ScriptableObjects/World/`: the
+simulation config, five weather definitions, four seasonal definitions, an `UnderbrewSeasonTrack`,
+the provisional `Underbrew` region, the region catalog, and `WorldWeatherState`. Initial content is
+provisional and must be reviewed before production saves/content are frozen.
+
+### Room Climate Context and Authoring (Package 4 — implemented)
+
+`EnvironmentExposure` is the scene-authored `Outdoor`, `Sheltered`, or `Indoor` enum.
+`RoomClimateContext` is a `[DisallowMultipleComponent]` passive MonoBehaviour carrying only a
+private serialized `regionId` and exposure, exposed through read-only properties. It has no clock,
+weather, catalog, save, or lifecycle responsibility. Each enabled gameplay scene
+`SampleScene`–`SampleScene4` contains one root context provisionally assigned `region_underbrew` /
+`Outdoor`; `Boot` contains none and disabled `UISandbox` is excluded. Multiple scenes may share a
+region.
+
+`SeasonDefinitionEditor` presents the transition matrix with FROM rows, TO columns, row totals,
+`Set Uniform`, and `Clear Row`. It remaps existing cells safely when the append-only weather enum
+grows, confirms destructive shrink/reset operations, and has no Normalize-to-100 command.
+`WorldTimeClimateValidator` (`Tools/Project/Validate World Time & Climate`) first validates the
+catalog/season graph against `WorldTimeState`, then checks enabled Build Settings scenes: zero
+contexts in Boot, exactly one elsewhere, and every context region ID nonblank and present in the
+catalog. Shared region IDs are valid. This tooling and the scene metadata do not alter weather
+simulation or the save/schema contract.
 
 ### HeroAnimationLibrary (ScriptableObject)
 Maps logical animation names (idle, walk, retained legacy run, explicit sprint/Wildstride, jump,
@@ -448,24 +564,46 @@ Build Index 0 is a dedicated boot scene containing only a `Bootstrap` MonoBehavi
 Bootstrap.Awake() — instantiate and DontDestroyOnLoad in order:
   1. GameManager
   2. SaveManager
-  3. AudioManager
-  4. GameCameras      (null-guarded; optional)
-  5. InteractManager  (null-guarded; optional)
+  3. WorldClockDriver (Package 1; serialized prefab reference present)
+  4. AudioManager
+  5. GameCameras      (null-guarded; optional)
+  6. InteractManager  (null-guarded; optional)
 
 Bootstrap.Start():
-  6. SaveManager.LoadOrCreate(0)
+  7. SaveManager.LoadOrCreate(0)
        — deserialize file; if missing or corrupt: CreateFreshSave
-       — ApplySaveData() → Inspector-ordered ISaveTarget assets applied
-  7. SaveManager.GetStartupScene(firstScene)
+       — ApplySaveData() → Inspector-ordered ISaveTarget assets applied,
+         including the wired WorldTimeState and WorldWeatherState assets
+  8. WorldWeatherState.CompleteLoad(WorldTimeState)
+       — validate authored climate dependencies and reconcile regional state
+       — runs after all targets apply; binds one `HourChanged` subscriber after reconciliation
+  9. SaveManager.GetStartupScene(firstScene)
        — activeRespawnSceneName if loadable, else currentScene if loadable, else firstScene
-  8. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
+ 10. GameManager.RequestSavedRespawnPlacementOnNextSceneLoad()
        — sets a single-use flag; consumed on the next OnSceneLoaded
-  9. GameManager.BeginSceneTransition(startupScene)
+ 11. GameManager.BeginSceneTransition(startupScene)
        — fade out → LoadSceneAsync → OnSceneLoaded:
              ResolveActiveRespawnMarkerFromSave()  (key → live RespawnMarker)
              PlaceHeroAtSavedRespawnIfRequested()  (hero positioned at marker)
        → camera snap → fade in
 ```
+
+The Package 1 composition targets are `Assets/_Project/ScriptableObjects/World/CalendarConfig.asset`,
+`Assets/_Project/ScriptableObjects/World/WorldTimeState.asset`, and
+`Assets/_Project/Prefabs/Managers/_WorldClockDriver.prefab`. Package 2 adds
+`Assets/_Project/ScriptableObjects/World/WeatherSimulationConfig.asset`,
+`Assets/_Project/ScriptableObjects/World/ClimateRegionCatalog.asset`, and
+`Assets/_Project/ScriptableObjects/World/WorldWeatherState.asset` plus the authored weather and
+season graph. The current checkout contains these assets, the `Bootstrap.worldClockDriverPrefab`
+and `Bootstrap.worldWeatherState` references, and the `WorldTimeState.asset`/`WorldWeatherState.asset`
+entries in `_SaveManager.prefab`'s `saveTargets`. Package 3 adds no composition changes and
+Package 4 adds only scene metadata; no save/schema, prefab, ProjectSettings, Packages, or
+presentation change occurred. Observed Unity 6000.3.10f1 EditMode results are validator 9/9,
+generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13,
+existing WorldClimate 84/84, WorldTime 38/38, and explicit existing climate/time union 122/122.
+Full EditMode is 727/727; the historical camera failure did not reproduce and its fixture passed
+23/23. No PlayMode was applicable, and no manual visual or interactive matrix-Inspector/Undo
+validation was claimed.
 
 `firstScene` is a serialized string field on `Bootstrap` (currently `"SampleScene"`) and is now the fallback startup scene. When a main menu scene exists, Boot should load the menu instead; the menu routes to `firstScene` on New Game or `SaveManager.GetStartupScene(firstScene)` on Continue.
 
@@ -489,7 +627,9 @@ ISaveTarget (interface, implemented by persistent SOs)
   ├── PlayerAbilityState.asset       8 ability unlock flags   [implemented; all locked for a new game]
   ├── PlayerHealthState.asset        current/max/bonus health [gameplay ownership implemented]
   ├── PlayerResourceState.asset      current/max parts        [gameplay ownership implemented; generation + Bind spend + death-clear wired]
-  └── WorldStateRegistry.asset       rooms, pickups, encounters, object states, enemy timers  [implemented — World Persistence Phase 1/2]
+  ├── WorldStateRegistry.asset       rooms, pickups, encounters, object states, enemy timers  [implemented — World Persistence Phase 1/2]
+  ├── WorldTimeState.asset            canonical game minutes   [Package 1 implemented; wired]
+  └── WorldWeatherState.asset         regional weather + temporal behavior  [Packages 2–3 implemented; Package 4 metadata/tooling; wired]
 ```
 
 Targets are explicitly assigned as `ScriptableObject` assets on `SaveManager`. The Inspector list order is the deterministic gather/apply order. Initialization validates the `ISaveTarget` contract and ignores null, invalid, or duplicate entries with warnings; there is no reflection-based discovery or scene search.
@@ -687,7 +827,11 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Enemy AI | `Docs/FeatureSpecs/EnemyAI.md` | 2 | Foundation validated; broader enemy roster planned |
 | Boss Encounters | `Docs/FeatureSpecs/BossEncounters.md` | Phase 2A + Phase A hardening | Reusable lifecycle, Undead Executioner slice, fail-closed preparation, and production authoring validation implemented; feel/polish review pending |
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
-| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 done (M0/M4); slot UI in M5 | Partial |
+| Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 + Packages 1–4 world-time/climate v6 (Package 4 adds no schema); slot UI in M5 | Partial |
+| Calendar / World Time | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 1 | Implemented and validated; runtime code/schema/test coverage and serialized asset composition present |
+| Climate definitions / regional state | `Docs/FeatureSpecs/WorldTimeClimateWeather.md` | Package 2 | Implemented; Package 3 temporal behavior and Package 4 tooling integrated; EditMode-validated; no PlayMode applicable |
+| Climate progression / forecast / history / overrides | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 3 | Implemented; Package 4 room metadata/tooling integrated |
+| Room climate context / authoring tools | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 4 | Implemented; presentation and downstream consumers deferred |
 | HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
 | Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/GameplayMenu.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2.1 | A1 MenuRoot/Pause/modal/input/Sandbox and A2.1 five-tab Gameplay Menu + read-only Gear implemented; approved Gear identities, Loadout/Satchel/Field Notes/Map data owners, functional Quick Map, functional Options/Quit, frontend, and notifications deferred |
 | Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |
