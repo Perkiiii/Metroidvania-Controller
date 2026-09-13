@@ -1,9 +1,10 @@
 # Feature Spec — World Time, Climate, and Weather
 
-**Last audited:** 2026-09-10 — Package 4 room context and authoring tools
+**Last audited:** 2026-09-13 — Weather presentation Packages 1–3 completion; visual review pending
 
-This spec records the implemented Package 1–4 contract and the boundary for deferred presentation
-and downstream consumers. The detailed roadmap remains in
+This spec records the implemented simulation Package 1–4 contract and the implemented bounded
+weather presentation Packages 1–3. Expanded presentation and downstream consumers remain deferred.
+The detailed roadmap remains in
 `Docs/ImplementationPlans/WorldTimeClimateWeather.md`.
 
 ## Status and scope
@@ -15,9 +16,11 @@ generation, authored fixed-slot behavior, immutable three-period-per-region LRU,
 actual history, exact-slot overrides, and immutable forecasts. Observed Unity 6000.3.10f1 EditMode
 results: generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12,
 forecast 13/13, existing WorldClimate 84/84, WorldTime 38/38, and explicit existing
-climate/time union 122/122. Package 4 validator tests pass 9/9. Full EditMode is 727/727; the
-historical camera failure did not reproduce and its fixture passed 23/23. No PlayMode was
-applicable, and no manual visual or interactive matrix-Inspector/Undo validation was claimed.
+climate/time union 122/122. Package 4 validator tests pass 9/9. Final focused EditMode for
+simulation plus weather presentation is 169/169; the weather presentation lifecycle PlayMode
+fixture is 1/1. Full EditMode is 764/765; the sole failure is the established unrelated
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion. No live screenshot,
+hands-on visual/audio-mix validation, or profiling evidence was recorded.
 
 Package 2 establishes:
 
@@ -29,9 +32,10 @@ Package 2 establishes:
 - narrow current-weather and root-seed queries.
 
 Package 3 supplies deterministic generation, post-load live slot progression, actual-weather history
-recording and read-only queries, exact-slot runtime overrides, and immutable forecasts. Package 4
-adds passive room climate metadata, safe matrix authoring, and project validation; presentation and
-downstream consumers remain later work and are not part of this state contract.
+recording and read-only queries, exact-slot runtime overrides, and immutable forecasts. Simulation
+Package 4 adds passive room climate metadata, safe matrix authoring, and project validation. Weather
+presentation Packages 1–3 consume this state without changing the state contract; downstream
+consumers remain later work.
 
 ## Ownership
 
@@ -49,6 +53,9 @@ downstream consumers remain later work and are not part of this state contract.
 | `WorldWeatherState` | Current regional weather, deterministic resolution, actual-weather history, exact-slot overrides, immutable forecast/history queries, serialized payloads, save/reconciliation | Does not own the clock, scenes, or presentation |
 | `EnvironmentExposure` | Scene-authored `Outdoor`, `Sheltered`, or `Indoor` exposure enum | Does not drive weather or presentation |
 | `RoomClimateContext` | Passive scene-local region ID and exposure metadata | No clock, weather, catalog, save, or lifecycle work |
+| `RoomWeatherPresentation` | Maps actual room weather/exposure to a scene-local presentation request | Does not own simulation, clock, save, hero, or camera |
+| `RoomRainPresentation` | World-space rain, authored splashes, emission ramp, owner-scoped ambience request | Does not own weather or unmanaged audio sources |
+| `RoomStormPresentation` | Transient strike/flash cadence and delayed thunder request | Does not own weather, world time, persistence, gameplay, or camera shake |
 | `Bootstrap` | Calls weather completion after all save targets apply | Does not implement weather rules |
 
 `WorldWeatherState` is a persistent `ScriptableObject`/`ISaveTarget` sibling to `WorldTimeState`.
@@ -245,9 +252,9 @@ Seasons/Underbrew.asset
 
 `WorldWeatherState.asset` references the simulation config and catalog, is included in
 `Assets/_Project/Prefabs/Managers/_SaveManager.prefab`, and is assigned to
-`Bootstrap.worldWeatherState` in `Assets/_Project/Scenes/Boot.unity`. Package 4 authors exactly one
-root `RoomClimateContext` in each enabled `SampleScene` through `SampleScene4`, all provisionally
-`region_underbrew` / `Outdoor`; `Boot` has none. `UISandbox` is disabled and excluded.
+`Bootstrap.worldWeatherState` in `Assets/_Project/Scenes/Boot.unity`. Simulation Package 4 authors
+exactly one root `RoomClimateContext` in each enabled `SampleScene` through `SampleScene4`, all
+provisionally `region_underbrew` / `Outdoor`; `Boot` has none. `UISandbox` is disabled and excluded.
 
 Focused definition, generator, progression, history, override, and forecast tests are present under
 `Assets/_Project/Scripts/Editor/Tests/WorldClimate/`. The Package 2 definition/persistence
@@ -255,10 +262,12 @@ fixtures pass 28/28 in the historical isolated Unity 6.0.3.10f1 EditMode run (9 
 persistence). Current focused Package 3 fixtures pass generator 10/10, progression/persistence
 29/29, history 11/11, overrides 12/12, and forecast 13/13; existing WorldClimate and WorldTime
 pass 84/84 and 38/38, with the explicit union at 122/122. Package 4 validator tests pass 9/9.
-Full EditMode is 727/727; the historical camera failure did not reproduce and its fixture passed
-23/23. No PlayMode was applicable, and no manual visual or interactive matrix-Inspector/Undo
-validation was claimed. Package 4 changed scenes and docs only in addition to its runtime/editor/
-test files; it made no save/schema/prefab/ProjectSettings/Packages/presentation change.
+Final focused EditMode for simulation plus weather presentation is 169/169; the weather lifecycle
+PlayMode fixture is 1/1. Full EditMode is 764/765; the sole failure is the established unrelated
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion. No live screenshot, hands-on
+visual/audio-mix validation, or profiling evidence was recorded. Simulation Package 4 changed
+scenes and docs only; presentation Packages 1–3 add only the separate SampleScene composition and
+production weather assets described below, with no save/schema change.
 
 ## Room context and authoring tools (Package 4)
 
@@ -282,6 +291,55 @@ Package 4 is implemented as runtime metadata and Editor tooling only:
   a nonblank region ID present in the catalog. Shared region IDs are allowed; disabled scenes are
   skipped. The authored pass covers five enabled scenes, four contexts, and zero issues.
 
-The four scene assignments are provisional content. Presentation, particles, lighting,
-post-processing, audio, farming/NPC/UI consumers, final art/polish, and later stages remain
-deferred and are not part of this state contract.
+The four scene assignments are provisional content. The state contract remains simulation-only;
+the bounded weather presentation consumer is documented separately below.
+
+## Weather presentation vertical slice (Packages 1–3)
+
+This first production presentation pass stops at `Clear → Rain → Storm → Clear` for human visual
+review. It consumes actual `WorldWeatherState` output and never chooses/generates weather.
+
+- `RoomWeatherPresentation` reads the matching scene `RoomClimateContext`, refreshes on enable,
+  responds to that region's `WeatherChanged`, maps outdoor Rain/Storm to presentation requests, and
+  resets/unsubscribes safely on disable, destroy, or room unload.
+- `RoomRainPresentation` owns one world-space, gameplay-camera-framed `WorldRain` ParticleSystem,
+  three authored upward-facing `GroundSplash` emitters using the six-frame atlas, and short
+  emission ramps. Rain ambience starts/fades/stops through the owner-scoped `AudioManager`
+  ambience channel; the weather prefab owns no AudioSource.
+- `RoomStormPresentation` owns a transient unscaled strike cadence, a hidden view-bounded
+  `LightningFlash` SpriteRenderer with a restrained multi-pulse envelope, and delayed thunder via
+  `AudioManager.PlaySFX`. Storm exit and lifecycle teardown cancel future strikes and pending
+  thunder; transient timers are not persisted.
+
+Only `Assets/_Project/Scenes/SampleScene.unity` is authored for this slice, using
+`Assets/_Project/Prefabs/Weather/Rain/RoomRainPresentation.prefab` and project-owned rain/splash
+materials, `Assets/_Project/Audio/Weather/Rain.wav`, `Thunder.wav`, and the copied
+`Assets/_Project/Art/Weather/Rain/RainSplashFlipbook.png`; the flash uses the existing project-owned
+`Assets/_Project/Lights/white_fader.png` and `Assets/_Project/Shaders/SpriteFlash.mat`. Focused
+EditMode validation is 169/169;
+the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765 with only the established
+unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failing. No live
+screenshot, hands-on visual/audio-mix validation, or profiling evidence is recorded.
+
+### Editor-only weather presentation testing
+
+`WeatherDebugWindow` is available at `Tools/Underbrew/Weather Debug` and lives under
+`Assets/_Project/Scripts/Editor/`, so it is excluded from player builds. It resolves the existing
+`WorldTimeState` and `WorldWeatherState` assets, plus exactly one enabled `RoomClimateContext` in
+the active loaded scene. The window shows the room region ID, current absolute clock day, active
+weather slot, the override-key day/slot used by the exact-slot commands, and the current actual
+weather returned by `WorldWeatherState`.
+
+Controls are enabled only in Play Mode when both states are loaded, the context region and weather
+configuration are valid, an active slot can be resolved, and an actual-weather query succeeds.
+`Force Clear`, `Force Rain`, and `Force Storm` call the existing
+`SetOverride(new WeatherOverrideEntry(...))` for that active context/slot; `Clear Current Override`
+calls the existing `ClearOverride(...)`. The tool does not touch presentation effects or keep
+persistent debug state, so the normal `WeatherChanged` flow drives presentation.
+
+Focused weather/presentation/debug validation is 54/54. Live GUI/menu smoke and hands-on visual
+validation of this tool were not performed.
+
+Shelter policy, foreground rain, wind, ambient leaves/motes, camera feedback, wet surfaces, fog,
+day/night presentation, post-processing profiles, additional weather types, and broader polish
+are deferred until this slice receives human review.

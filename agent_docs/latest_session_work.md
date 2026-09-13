@@ -2,44 +2,52 @@
 
 ## Deployment
 
-- ID: `stage4_world_climate_weather_20260910`
+- ID: `weather_debug_editor_20260913`
 - Route: Heavy
-- State: complete
+- State: complete; manual visual review remains the next gate
 
 ## Implemented
 
-- Added `EnvironmentExposure` and passive `RoomClimateContext` runtime metadata.
-- Added a safe `SeasonDefinition` custom inspector with FROM/TO labels, row totals, row tools,
-  append-safe matrix remapping, and confirmation for destructive reshape/reset paths.
-- Added `WorldTimeClimateValidator` at `Tools/Project/Validate World Time & Climate` plus nine
-  EditMode tests.
-- Authored exactly one root climate context in `SampleScene` through `SampleScene4`, all provisionally
-  assigned `region_underbrew` / `Outdoor`; Boot remains excluded and disabled UISandbox untouched.
-- Added no weather presentation, save/version, prefab, GameManager, hero, camera, audio, WGE, or
-  simulation changes.
+- Added the Editor-only `WeatherDebugWindow` at `Tools/Underbrew/Weather Debug` plus focused tests.
+  It displays active room region, clock absolute day, active slot/key day, and actual weather, and
+  calls only the existing exact-slot `SetOverride` / `ClearOverride` APIs for Clear, Rain, and Storm.
+- The window is Play Mode/load/context/slot gated, has no persisted UI state, adds no runtime or
+  player-build code, and never controls presentation effects directly.
+- Package 1: added scene-local `RoomWeatherPresentation` and focused lifecycle/mapping tests.
+- Package 2: added `RoomRainPresentation`, one world-space camera-framed rain layer, three authored
+  `SampleScene` surface splash emitters, production rain/splash assets, and owner-scoped fading
+  ambience under `AudioManager`.
+- Package 3: added `RoomStormPresentation`, a hidden view-bounded three-pulse flash using existing
+  project material/art, production thunder audio, and delayed thunder through `AudioManager.PlaySFX`.
+- Added production prefabs/materials/assets under `Assets/_Project/`; no production dependency points
+  to `Assets/ThirdParty/HappyHarvest/`.
+- Added focused EditMode asset/runtime tests and one PlayMode lifecycle fixture.
+- Did not modify hero systems, camera follow/feel, `GameManager`, weather simulation/determinism,
+  save schema, renderer, packages, physics settings, or global sorting layers.
 
 ## Verification
 
-Unity 6000.3.10f1 real EditMode Test Runner and independent review results:
-
-- `WorldTimeClimateValidatorTests`: 9/9
-- `WeatherGeneratorTests`: 10/10
-- `WorldWeatherPersistenceTests`: 29/29
-- `WeatherHistoryTests`: 11/11
-- `WeatherOverrideTests`: 12/12
-- `WeatherForecastTests`: 13/13
-- Existing WorldClimate union: 84/84
-- WorldTime union: 38/38
-- Explicit existing climate/time union: 122/122
-- Full EditMode: 727/727; the prior camera assertion passed 23/23 with the rest of its fixture.
-- Validator menu pass: five enabled scenes, four contexts, zero issues; active scene stayed clean.
-
-No Play Mode run was required because Package 4 adds passive metadata and Editor tooling only. No
-manual visual validation or interactive matrix-Inspector/Undo check was claimed. ProjectSettings and
-Packages remained unchanged.
+- Weather debug and relevant override/presentation/asset EditMode union: 54/54.
+- Static audit confirmed three `SetOverride` calls, one `ClearOverride` call, the correct active-slot
+  rollover policy, Editor-only placement, and no direct effect/audio control.
+- No connected Pipeline Editor was available for a live menu/window visual smoke test.
+- Package 1 independent EditMode: 14/14.
+- Package 2 repaired independent union: 29/29; stale-owner regressions 2/2.
+- Package 3 focused: 9/9; climate/presentation regression: 131/131.
+- Final independent focused EditMode: 169/169.
+- Final PlayMode weather lifecycle: 1/1.
+- Full EditMode: 764/765; only unrelated
+  `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failed.
+- Static asset audit: one SampleScene weather composition, one rain layer, three splashes, hidden
+  flash, project-owned clips/materials, no duplicate prefab AudioSource, and zero donor dependencies.
+- No live Editor screenshot or hands-on visual/audio-mix validation was available. No performance
+  profiling claim was made.
 
 ## Continuation Point
 
-Package 4 is complete. Later weather presentation, particles, lighting, post-processing, audio,
-production assets, performance profiling, and hands-on visual/readability approval remain deferred.
-The four sample-room exposure values and current climate content are provisional authoring data.
+In Play Mode, open `Tools/Underbrew/Weather Debug` and inspect `SampleScene` through
+Clear -> Rain -> Storm -> Clear. Judge rain density,
+streak size/depth, camera-edge coverage, platform/hero/enemy/HUD readability, splash placement,
+ambience volume, flash intensity, thunder delay, repeated cycles, and room re-entry. Do not implement
+shelter geometry, foreground rain, wind, ambient foliage/motes, camera shake, wet surfaces, fog,
+day/night presentation, post-processing profiles, or additional polish before that review.

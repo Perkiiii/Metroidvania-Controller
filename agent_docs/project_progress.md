@@ -2,28 +2,42 @@
 
 ## Goal
 
-Complete World Time / Climate / Weather Package 4 without entering presentation or later packages.
+Add a minimal Editor-only weather override window so the accepted
+`Clear -> Rain -> Storm -> Clear` slice can be tested manually through normal weather events.
 
 ## Overall Progress
 
-Packages 1–4 are implemented and accepted. Package 4 adds passive room climate metadata, safe
-season-transition matrix authoring, project validation, validator coverage, and authored contexts
-for the four enabled gameplay scenes. Time/weather simulation ownership and save schema v6 are
-unchanged; presentation remains deferred.
+The three presentation packages are implemented and accepted. `RoomWeatherPresentation` consumes
+the actual regional weather selected by `WorldWeatherState`; `RoomRainPresentation` owns one
+camera-framed world-space rain layer, three authored surface splash emitters, and owner-scoped rain
+ambience; `RoomStormPresentation` owns a transient multi-pulse flash/thunder schedule. `SampleScene`
+is the only authored slice room. Simulation determinism, save schema, hero, camera behavior,
+`GameManager`, renderer, packages, and global sorting layers are unchanged.
+
+`WeatherDebugWindow` is implemented at `Tools/Underbrew/Weather Debug`. It reads the existing world
+time/weather assets and active room context, resolves the current simulation slot, and uses only
+`WorldWeatherState.SetOverride` / `ClearOverride`; it adds no runtime or player-build code.
 
 ## Current Position
 
-- Package 4 `WorldTimeClimateValidatorTests`: 9/9.
-- Stage 3 focused regressions: generator 10/10, progression/persistence 29/29, history 11/11,
-  overrides 12/12, forecast 13/13.
-- Existing WorldClimate union: 84/84; WorldTime union: 38/38; explicit combined union: 122/122.
-- Full EditMode: 727/727. The previously observed camera assertion passed in this run.
-- The validator reports five enabled scenes, four valid contexts, and zero issues.
-- No Play Mode or manual visual/interactive matrix-Inspector validation was performed.
-- All four sample contexts use provisional `region_underbrew` / `Outdoor` authoring.
-- No `ProjectSettings.asset`, Packages, save-version, prefab, or presentation change was made.
+- Final focused EditMode union: 169/169.
+- New weather-presentation PlayMode lifecycle fixture: 1/1.
+- Full EditMode: 764/765; only the established unrelated
+  `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failed.
+- Project-owned rain splash, rain ambience, and thunder copies have new production GUIDs; production
+  weather dependencies on `Assets/ThirdParty/HappyHarvest/` are zero.
+- `SampleScene` contains one weather presentation composition, one rain layer, three surface splash
+  emitters, and one initially hidden bounded lightning flash.
+- No live screenshot, hands-on Play Mode visual/readability pass, audio-mix judgment, or profiling
+  claim was completed. The implementation is visually provisional pending Sam's review.
+- Test-run `ProjectSettings.asset` symbol drift was restored; there is no remaining project-settings
+  delta.
+- Weather debug focused EditMode regression: 54/54. Live menu/window visual smoke remains unclaimed.
 
 ## Next Milestone
 
-Weather presentation, particles, lighting, post-processing, audio, final art/audio production, and
-hands-on visual/readability review remain later work. Do not infer those consumers from Package 4.
+Use `Tools/Underbrew/Weather Debug` in Play Mode for human visual review of rain density/streak
+scale/depth, splash readability, ambience volume, lightning intensity, and gameplay/HUD readability.
+Shelter policy, foreground rain, wind, ambient
+leaves/motes, camera feedback, wet surfaces, fog, day/night lighting, and broader polish remain
+deferred.

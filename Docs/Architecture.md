@@ -1,6 +1,6 @@
 # Architecture — Metroidvania Controller
 
-**Last audited:** 2026-09-10 — World Time / Climate / Weather Package 4 completion
+**Last audited:** 2026-09-13 — Weather presentation Packages 1–3 completion; visual review pending
 
 ## Overview
 
@@ -90,18 +90,23 @@ The target authoring paths are `Assets/_Project/ScriptableObjects/World/Calendar
 `Assets/_Project/ScriptableObjects/World/WorldTimeState.asset`, and the driver prefab above. The
 current checkout contains the runtime files, generated Package 1–2 assets/prefab composition,
 serialized `_SaveManager.prefab`/`Boot.unity` assignments, and Package 4 scene metadata.
-Package 3 adds code and EditMode fixtures only; Package 4 adds no prefab or save composition.
+Simulation Package 3 adds code and EditMode fixtures only; simulation Package 4 adds no prefab or
+save composition. Weather presentation Packages 1–3 add a scene-local SampleScene composition;
+they do not change simulation, save, renderer, camera, hero, or GameManager ownership.
 Observed Unity
 6000.3.10f1 EditMode results are validator 9/9; generator 10/10, progression/persistence 29/29,
 history 11/11, overrides 12/12, forecast 13/13; existing WorldClimate 84/84, WorldTime 38/38,
-and explicit existing climate/time union 122/122. Full EditMode is 727/727. The historical
-camera failure did not reproduce and its fixture passed 23/23. No PlayMode was applicable, and
-no manual visual or interactive matrix-Inspector/Undo validation was claimed.
+and explicit existing climate/time union 122/122. Final focused EditMode for simulation plus
+weather presentation is 169/169; the weather presentation PlayMode lifecycle fixture is 1/1.
+Full EditMode is 764/765; the sole failure is the established unrelated
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion. No live screenshot, hands-on
+visual/audio-mix validation, or profiling claim was made.
 ### Climate and Regional Weather State (Packages 2–4 — implemented)
 
 Package 2 establishes the authored climate graph and persistent regional weather facts. Package 3
 adds deterministic resolution and all temporal weather behavior. Package 4 adds passive room
-contexts, safe authoring, and project validation; presentation remains a later consumer.
+contexts, safe authoring, and project validation. The separate weather presentation Packages 1–3
+consume this state without changing simulation ownership.
 
 `WeatherType` is an append-only persistence/content enum with exactly these current ordinals:
 `Clear = 0`, `Cloudy = 1`, `Rain = 2`, `Storm = 3`, and `Fog = 4`; it has no `None` value.
@@ -175,6 +180,30 @@ catalog/season graph against `WorldTimeState`, then checks enabled Build Setting
 contexts in Boot, exactly one elsewhere, and every context region ID nonblank and present in the
 catalog. Shared region IDs are valid. This tooling and the scene metadata do not alter weather
 simulation or the save/schema contract.
+
+### Weather Presentation (Packages 1–3 — implemented; visually provisional)
+
+`RoomWeatherPresentation` is the scene-local consumer of `WorldWeatherState.WeatherChanged`.
+It reads the loaded room's `RoomClimateContext`, refreshes on enable, maps outdoor `Rain` and
+`Storm` to a presentation request, maps covered exposure or other weather to `Clear`, and
+unsubscribes/resets on disable or destroy. It owns no weather, clock, save, hero, or camera state.
+
+`RoomRainPresentation` consumes that request and owns one world-space `WorldRain` ParticleSystem,
+three authored `GroundSplash` emitters, and the short emission ramp. Camera coverage is refreshed
+from the gameplay camera through `CameraInfoCache`; emitted particles remain in world space.
+Rain and splash emission stop on Clear while tails finish, and rain ambience uses the one
+owner-scoped `AudioManager` ambience channel. The presentation prefab has no AudioSource.
+
+`RoomStormPresentation` consumes the same request and owns only a transient unscaled strike
+schedule, a hidden view-bounded `LightningFlash` SpriteRenderer with a restrained multi-pulse
+envelope, and delayed thunder requests through `AudioManager.PlaySFX`. Leaving Storm, disabling,
+destroying, or unloading the room cancels the schedule and pending thunder; no timer is persisted.
+
+The production composition is authored only in `Assets/_Project/Scenes/SampleScene.unity` using
+`Assets/_Project/Prefabs/Weather/Rain/RoomRainPresentation.prefab`. Focused EditMode validation
+is 169/169 and the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765 with only
+the established unrelated camera assertion failing. The slice is visually provisional: no live
+Editor screenshot, hands-on visual/audio-mix pass, or profiling evidence is recorded.
 
 ### HeroAnimationLibrary (ScriptableObject)
 Maps logical animation names (idle, walk, retained legacy run, explicit sprint/Wildstride, jump,
@@ -596,14 +625,17 @@ The Package 1 composition targets are `Assets/_Project/ScriptableObjects/World/C
 `Assets/_Project/ScriptableObjects/World/WorldWeatherState.asset` plus the authored weather and
 season graph. The current checkout contains these assets, the `Bootstrap.worldClockDriverPrefab`
 and `Bootstrap.worldWeatherState` references, and the `WorldTimeState.asset`/`WorldWeatherState.asset`
-entries in `_SaveManager.prefab`'s `saveTargets`. Package 3 adds no composition changes and
-Package 4 adds only scene metadata; no save/schema, prefab, ProjectSettings, Packages, or
-presentation change occurred. Observed Unity 6000.3.10f1 EditMode results are validator 9/9,
+entries in `_SaveManager.prefab`'s `saveTargets`. Simulation Package 3 adds no composition changes
+and simulation Package 4 adds only scene metadata. Weather presentation Packages 1–3 add the
+SampleScene presentation prefab and production rain/storm content; no save/schema, ProjectSettings,
+Packages, renderer, hero, camera, or GameManager change occurred. Observed Unity 6000.3.10f1
+EditMode results are validator 9/9,
 generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13,
 existing WorldClimate 84/84, WorldTime 38/38, and explicit existing climate/time union 122/122.
-Full EditMode is 727/727; the historical camera failure did not reproduce and its fixture passed
-23/23. No PlayMode was applicable, and no manual visual or interactive matrix-Inspector/Undo
-validation was claimed.
+Final focused EditMode is 169/169; the weather presentation PlayMode lifecycle fixture is 1/1.
+Full EditMode is 764/765; only the established unrelated
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failed. No live screenshot,
+hands-on visual/audio-mix validation, or profiling evidence was recorded.
 
 `firstScene` is a serialized string field on `Bootstrap` (currently `"SampleScene"`) and is now the fallback startup scene. When a main menu scene exists, Boot should load the menu instead; the menu routes to `firstScene` on New Game or `SaveManager.GetStartupScene(firstScene)` on Continue.
 
@@ -796,7 +828,10 @@ identities are approved.
 
 See `Docs/FeatureSpecs/Audio.md` for the full spec.
 
-`AudioManager` (MonoBehaviour, DontDestroyOnLoad, initialised in `Bootstrap`) is the global audio router for music, enemy/world/UI one-shots, and shared mix settings. Hero-owned action sounds are the one local exception: they are routed through `HeroAudioController` on the hero prefab.
+`AudioManager` (MonoBehaviour, DontDestroyOnLoad, initialised in `Bootstrap`) is the global audio
+router for music, enemy/world/UI one-shots, shared mix settings, and one owner-scoped looping
+ambience channel. Hero-owned action sounds are the one local exception: they are routed through
+`HeroAudioController` on the hero prefab.
 
 **Vertical slice API:**
 
@@ -804,12 +839,18 @@ See `Docs/FeatureSpecs/Audio.md` for the full spec.
 AudioManager.Instance.PlaySFX(AudioClip clip)
 AudioManager.Instance.PlaySFX(AudioClip clip, float pitchMin, float pitchMax, float volume = 1f)
 AudioManager.Instance.PlayMusic(AudioClip clip, bool loop = true)
+AudioManager.Instance.StartAmbience(UnityEngine.Object owner, AudioClip clip, float targetVolume = 1f, float fadeSeconds = 0.25f)
+AudioManager.Instance.UpdateAmbience(UnityEngine.Object owner, float targetVolume, float fadeSeconds = 0.25f)
+AudioManager.Instance.StopAmbience(UnityEngine.Object owner, float fadeSeconds = 0.25f)
 ```
 
 **Call sites:**
 - Hero movement, hurt, death, footstep, and terrain-impact sounds call methods on `HeroAudioController`, which owns the `Hero/Sounds/*` child `AudioSource`s and is the only hero subsystem allowed to call `AudioSource.Play()` / `Stop()` directly.
 - `HeroAttackModule` calls `AudioManager.PlaySFX(slashClip, pitchMin, pitchMax)` on activation — not `AudioSource.Play()`.
 - Enemy, world, UI, and shared one-shots call `AudioManager.PlaySFX`.
+- `RoomRainPresentation` requests Rain/Storm ambience through the owner-scoped channel; it owns no
+  scene AudioSource. `RoomStormPresentation` sends delayed thunder through the pooled `PlaySFX`
+  path.
 - `GameManager.BeginSceneTransition` will call `PlayMusic` for the incoming scene's music clip — **deferred to Milestone 5**. No music routing through transitions is implemented yet.
 
 **Do not** call `AudioSource.Play()` directly from actions, enemies, world objects, or UI. Hero-local source playback belongs only in `HeroAudioController`; all other audio routing goes through `AudioManager` so that volume settings, mix groups, and interrupt logic can be added without touching call sites.
@@ -829,9 +870,10 @@ Status and sequencing: `Docs/ImplementationPlan.md`.
 | Abilities / Upgrades | `Docs/FeatureSpecs/Abilities.md` | 3 | Partial |
 | Save / Load | `Docs/FeatureSpecs/SaveSystem.md` | Foundation + World Persistence Phase 1/2/3 + Packages 1–4 world-time/climate v6 (Package 4 adds no schema); slot UI in M5 | Partial |
 | Calendar / World Time | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 1 | Implemented and validated; runtime code/schema/test coverage and serialized asset composition present |
-| Climate definitions / regional state | `Docs/FeatureSpecs/WorldTimeClimateWeather.md` | Package 2 | Implemented; Package 3 temporal behavior and Package 4 tooling integrated; EditMode-validated; no PlayMode applicable |
+| Climate definitions / regional state | `Docs/FeatureSpecs/WorldTimeClimateWeather.md` | Simulation Package 2 | Implemented; simulation Packages 3–4 integrated and EditMode-validated; presentation validation is tracked separately |
 | Climate progression / forecast / history / overrides | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 3 | Implemented; Package 4 room metadata/tooling integrated |
-| Room climate context / authoring tools | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Package 4 | Implemented; presentation and downstream consumers deferred |
+| Room climate context / authoring tools | `Docs/ImplementationPlans/WorldTimeClimateWeather.md` | Simulation Package 4 | Implemented; weather presentation consumes it |
+| Weather presentation vertical slice | `Docs/FeatureSpecs/WorldTimeClimateWeather.md` | Presentation Packages 1–3 | Implemented in `SampleScene`; visually provisional pending human review; expanded weather presentation deferred |
 | HUD | `Docs/FeatureSpecs/HUD.md` | 6 + Boss Phase 1 | Player and boss presentation foundations wired; final feedback/art planned |
 | Menus / Gear | `Docs/FeatureSpecs/UIArchitecture.md`, `Docs/FeatureSpecs/PauseAndMenuFlow.md`, `Docs/FeatureSpecs/GameplayMenu.md`, `Docs/FeatureSpecs/Gear.md`, `Docs/FeatureSpecs/UISandbox.md` | Package A1/A2.1 | A1 MenuRoot/Pause/modal/input/Sandbox and A2.1 five-tab Gameplay Menu + read-only Gear implemented; approved Gear identities, Loadout/Satchel/Field Notes/Map data owners, functional Quick Map, functional Options/Quit, frontend, and notifications deferred |
-| Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial |
+| Audio | `Docs/FeatureSpecs/Audio.md` | 5 | Partial; owner-scoped weather ambience capability implemented |

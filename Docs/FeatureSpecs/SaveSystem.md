@@ -1,6 +1,6 @@
 # Feature Spec — Save System
 
-**Last audited:** 2026-09-10 — World Time / Climate / Weather Package 3 completion
+**Last audited:** 2026-09-13 — Weather presentation Packages 1–3 completion; visual review pending
 
 ## Responsibilities
 
@@ -13,7 +13,7 @@ history, and exact-slot overrides.
 
 ## Current State
 
-**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass). Cross-scene checkpoint respawn and scene-name-driven boot continue were added on 2026-05-26. Packages 1–3 world time/climate/weather are implemented in code, schema, tests, and existing asset/prefab composition; Package 3 adds no assets, prefabs, scenes, or Inspector assignments. Observed Unity 6000.3.10f1 EditMode results: generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13, complete WorldClimate/WorldTime 122/122, and WorldTime 38/38. Full EditMode is 717/718, with the sole unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failure. No Play Mode or manual primary-Editor validation was performed.**
+**Foundation implemented and verified (2026-05-20, Milestone 0 completion pass). Cross-scene checkpoint respawn and scene-name-driven boot continue were added on 2026-05-26. Simulation Packages 1–4 world time/climate/weather are implemented in code, schema, tests, and existing asset/prefab composition; weather presentation Packages 1–3 use transient scene-local state and do not change the save schema. Observed Unity 6000.3.10f1 EditMode results: generator 10/10, progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13, complete WorldClimate/WorldTime 122/122, and WorldTime 38/38. Final focused simulation/presentation EditMode is 169/169; the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765, with the sole unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failure. No live screenshot, hands-on visual/audio-mix validation, or profiling evidence was recorded.**
 
 The complete save data layer, manager singleton, ability round-trip, checkpoint save triggers, cross-session / cross-scene respawn marker resolution, saved-scene startup routing, and hero placement on initial load are all implemented and working.
 
@@ -66,7 +66,8 @@ The complete save data layer, manager singleton, ability round-trip, checkpoint 
 | Play-time accumulation (`playTimeSeconds` stub exists, not yet wired) | Milestone 5 |
 | Save slot UI (multi-slot selection, delete, stats display) | Milestone 5 |
 | Automatic climate/weather progression, forecasts, history queries, runtime overrides (Package 3) | Done; automated-tested; no Play Mode/manual primary-Editor validation |
-| Room climate context and authoring tools (Package 4) | Future package; not started |
+| Room climate context and authoring tools (simulation Package 4) | Done; passive metadata/tooling only; no save-schema change |
+| Weather presentation transient state (presentation Packages 1–3) | Not persisted; initialized from actual weather on room enable; visual review pending |
 
 See `Docs/ImplementationPlans/WorldPersistence.md` for the full World Persistence plan. Phase 1 (registry foundation + ordinary placed enemy persistence), Phase 2 (normal-death lifecycle + pickup reconciliation), and Phase 3 (doors/switches/breakables + room visitation) are implemented; see the `WorldStateRegistry`, `EnemyPersistence`, and Phase 3 sections below and in `Docs/Architecture.md`.
 
@@ -468,9 +469,11 @@ prefab, and SaveManager/Boot assignments are serialized at the paths listed in
 `Docs/ImplementationPlans/WorldTimeClimateWeather.md` §25. Package 1 baseline/full-suite
 validation is complete. Observed Unity 6000.3.10f1 EditMode results are generator 10/10,
 progression/persistence 29/29, history 11/11, overrides 12/12, forecast 13/13, complete
-WorldClimate/WorldTime 122/122, and WorldTime 38/38. Full EditMode is 717/718 because of the
-unrelated pre-existing `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` failure. No
-Play Mode or manual primary-Editor validation was performed.
+WorldClimate/WorldTime 122/122, and WorldTime 38/38. Final focused simulation/presentation
+EditMode is 169/169; the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765
+because of the unrelated pre-existing `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis`
+failure. No live screenshot, hands-on visual/audio-mix validation, or profiling evidence was
+recorded.
 
 ### WorldWeatherState (implemented — Packages 2–3)
 
@@ -504,6 +507,13 @@ history, and emits `WeatherChanged`; same-type resolutions do nothing. `TryQuery
 `TryGetForecast` return immutable read-only results, and `SetOverride`/`ClearOverride` validate
 exact keys and never rewrite past actual history. Package 3 changes no save version; v6 persists
 the current regional records, closed history, and override payloads.
+
+Weather presentation Packages 1–3 are not save targets. `RoomWeatherPresentation`,
+`RoomRainPresentation`, and `RoomStormPresentation` initialize from the current actual weather
+when a room is enabled and own only transient requests, particle state, ambience fades, and storm
+timers. They do not write `WorldWeatherState`, add save fields, or persist pending thunder/flash
+activity. Room unload/disable clears that transient state; re-entry reads the current saved/live
+weather again.
 
 ### EnemyPersistence and enemy persistence modes (implemented — World Persistence Phase 1)
 

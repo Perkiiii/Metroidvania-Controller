@@ -1,16 +1,18 @@
 # Feature Spec — Audio
 
-**Last audited:** 2026-05-20
+**Last audited:** 2026-09-13 — owner-scoped weather ambience added; visual review pending
 
 ## Responsibilities
 
-Provide one global audio router for music, enemy/world/UI one-shots, and future settings, while keeping the hero's fixed action sound palette visible on the hero prefab.
+Provide one global audio router for music, enemy/world/UI one-shots, and scoped looping ambience,
+while keeping the hero's fixed action sound palette visible on the hero prefab.
 
 ---
 
 ## Current State
 
-`AudioManager` is a persistent singleton created through the boot flow. It owns generic SFX playback and music playback.
+`AudioManager` is a persistent singleton created through the boot flow. It owns generic SFX playback,
+music playback, and one owner-scoped looping ambience channel used by the bounded weather slice.
 
 The hero has a local `HeroAudioController` on the root hero object. Its serialized fields reference one `AudioSource` per sound under `Hero/Sounds/*`:
 
@@ -38,13 +40,21 @@ This is intentionally Hollow-Knight-style authoring for the hero only. It lets a
 public void PlaySFX(AudioClip clip)
 public void PlaySFX(AudioClip clip, float pitchMin, float pitchMax, float volume = 1f)
 public void PlayMusic(AudioClip clip, bool loop = true)
+public void StartAmbience(UnityEngine.Object owner, AudioClip clip, float targetVolume = 1f, float fadeSeconds = 0.25f)
+public void UpdateAmbience(UnityEngine.Object owner, float targetVolume, float fadeSeconds = 0.25f)
+public void StopAmbience(UnityEngine.Object owner, float fadeSeconds = 0.25f)
 ```
 
 **Internal implementation:**
 - SFX without pitch uses the configured `SFX` child source through `sfxSource.PlayOneShot`.
 - Pitch-varied SFX use a small reusable pool of `PooledSFX` child sources under the configured `SFX` source.
 - Music uses a dedicated `AudioSource` on `AudioManager`.
-- On startup, `AudioManager` resolves missing `SFX` / `Music` references from child objects by name, and creates the child source if it is missing.
+- Ambience uses one dedicated `Ambience` child source. The owner token prevents a stale room from
+  stopping or updating a replacement request, and repeated same-clip requests do not restart it.
+- Ambience fades advance from `AudioManager.Update()` using unscaled time; no coroutine or scene
+  runner is retained. Stop fades to silence, stops the source, and clears the clip.
+- On startup, `AudioManager` resolves missing `SFX` / `Music` / `Ambience` references from child
+  objects by name, and creates the child source if it is missing.
 
 ---
 
@@ -75,6 +85,8 @@ Wall slide uses a dedicated local source and is stopped by `HeroAudioController`
 | Footstep | Walk/run animation event | `HeroAudioController.AnimEventFootstep()` |
 | Terrain hit | `HeroAttackAction.EvaluateTerrainImpact()` | `HeroAudioController.PlayTerrainImpact()` |
 | Enemy hit/death | Enemy health components | `AudioManager.Instance.PlaySFX(...)` |
+| Rain ambience | `RoomRainPresentation` while Rain/Storm is requested | `AudioManager.StartAmbience` / `StopAmbience` (owner-scoped) |
+| Thunder | `RoomStormPresentation` after its transient flash envelope | `AudioManager.Instance.PlaySFX(...)` (pitched pooled SFX path) |
 | Scene music | `GameManager.BeginSceneTransition` | `AudioManager.Instance.PlayMusic(clip)` |
 
 ---
@@ -99,6 +111,7 @@ One `AudioListener` on the main gameplay camera. `UICamera` must not have an `Au
 - `AudioManager` - routes global SFX and music
 - `HeroAudioController` - owns hero-local action sources
 - `EnemyConfig`, `HeroAttackModule` - store non-hero-local or module-local `AudioClip` references
+- `RoomRainPresentation`, `RoomStormPresentation` - request weather ambience/thunder through `AudioManager`
 
 ---
 
@@ -108,6 +121,10 @@ One `AudioListener` on the main gameplay camera. `UICamera` must not have an `Au
 - Hero movement, hurt, death, footstep, and terrain-impact sounds must go through `HeroAudioController`.
 - `HeroAudioController` is the only hero component allowed to directly play or stop hero-owned `AudioSource`s.
 - Non-hero gameplay, UI, world, enemy, and music audio must go through `AudioManager`.
+- Weather presentation may use only the owner-scoped `AudioManager` ambience channel and the
+  established `PlaySFX` one-shot path. Weather prefabs must not add unmanaged `AudioSource`s.
+- `StartAmbience`, `UpdateAmbience`, and `StopAmbience` require the same owner token; room disable,
+  destroy, and unload must stop/fade only that owner's request.
 - Do not play or stop music from any gameplay MonoBehaviour. Music is `GameManager`'s responsibility.
 - Do not add an `AudioListener` to any camera other than the main gameplay camera.
 - `AudioManager` must not reference `HeroController`, `EnemyController`, or any gameplay MonoBehaviour.
