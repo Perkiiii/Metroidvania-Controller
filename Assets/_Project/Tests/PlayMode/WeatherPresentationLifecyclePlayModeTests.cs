@@ -19,9 +19,12 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
     private Component weather;
     private Component rain;
     private Component storm;
+    private Component impactHandler;
     private Component audio;
-    private ParticleSystem rainLayer;
-    private ParticleSystem[] splashes;
+    private ParticleSystem backRainLayer;
+    private ParticleSystem midRainLayer;
+    private ParticleSystem frontRainLayer;
+    private ParticleSystem splashSystem;
     private SpriteRenderer flashRenderer;
 
     [UnityTearDown]
@@ -52,6 +55,7 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
         weather = null;
         rain = null;
         storm = null;
+        impactHandler = null;
         audio = null;
     }
 
@@ -72,7 +76,10 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
         SetPresentation("Rain");
         yield return null;
         Assert.That((bool)GetProperty(rain, "IsRainRequested"), Is.True);
-        Assert.That(rainLayer.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(backRainLayer.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(midRainLayer.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(frontRainLayer.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That((bool)GetProperty(impactHandler, "IsAcceptingImpacts"), Is.True);
         Assert.That(GetProperty(audio, "CurrentAmbienceClip"), Is.SameAs(GetField(rain, "rainAmbienceClip")));
         Assert.That((bool)GetProperty(audio, "IsAmbienceActive"), Is.True);
 
@@ -86,11 +93,12 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
         yield return null;
         Assert.That((bool)GetProperty(storm, "IsStormRequested"), Is.False);
         Assert.That((bool)GetProperty(rain, "IsRainRequested"), Is.False);
-        Assert.That(rainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
-        for (int i = 0; i < splashes.Length; i++)
-        {
-            Assert.That(splashes[i].emission.rateOverTime.constant, Is.EqualTo(0f));
-        }
+        Assert.That(backRainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
+        Assert.That(midRainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
+        Assert.That(frontRainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
+        Assert.That(splashSystem.emission.enabled, Is.False);
+        Assert.That(splashSystem.particleCount, Is.Zero);
+        Assert.That((bool)GetProperty(impactHandler, "IsAcceptingImpacts"), Is.False);
 
         Assert.That(GetProperty(audio, "CurrentAmbienceClip"), Is.Null);
         Assert.That((bool)GetProperty(audio, "IsAmbienceActive"), Is.False);
@@ -102,6 +110,8 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
         Assert.That((bool)GetProperty(storm, "IsStormRequested"), Is.False);
         Assert.That((bool)GetProperty(rain, "IsRainRequested"), Is.False);
         Assert.That(flashRenderer.enabled, Is.False);
+        Assert.That((bool)GetProperty(impactHandler, "IsAcceptingImpacts"), Is.False);
+        Assert.That(splashSystem.particleCount, Is.Zero);
 
         room.SetActive(true);
         yield return null;
@@ -118,6 +128,7 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
     {
         Type weatherType = RuntimeType("RoomWeatherPresentation");
         Type rainType = RuntimeType("RoomRainPresentation");
+        Type impactHandlerType = RuntimeType("RainImpactSplashHandler");
         Type stormType = RuntimeType("RoomStormPresentation");
         Type audioType = RuntimeType("AudioManager");
 
@@ -138,12 +149,11 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
         rain = room.AddComponent(rainType);
         storm = room.AddComponent(stormType);
 
-        rainLayer = CreateParticle(room.transform, "WorldRain");
-        splashes = new ParticleSystem[3];
-        for (int i = 0; i < splashes.Length; i++)
-        {
-            splashes[i] = CreateParticle(room.transform, "GroundSplash_" + i);
-        }
+        backRainLayer = CreateParticle(room.transform, "BackRain");
+        midRainLayer = CreateParticle(room.transform, "MidRain");
+        frontRainLayer = CreateParticle(room.transform, "FrontRain");
+        splashSystem = CreateParticle(room.transform, "GroundSplashPool");
+        impactHandler = midRainLayer.gameObject.AddComponent(impactHandlerType);
 
         GameObject flashObject = Track(new GameObject("LightningFlash"));
         flashObject.transform.SetParent(room.transform, false);
@@ -154,9 +164,16 @@ public sealed class WeatherPresentationLifecyclePlayModeTests
 
         AudioClip ambienceClip = Track(AudioClip.Create("Lifecycle Rain", 8, 1, 44100, false));
         AudioClip thunderClip = Track(AudioClip.Create("Lifecycle Thunder", 8, 1, 44100, false));
+        SetField(impactHandler, "collisionSource", midRainLayer);
+        SetField(impactHandler, "splashSystem", splashSystem);
+        SetField(impactHandler, "terrainLayers", (LayerMask)(1 << 7));
         SetField(rain, "weatherPresentation", weather);
-        SetField(rain, "rainLayer", rainLayer);
-        SetField(rain, "splashEmitters", splashes);
+        SetField(rain, "backRainLayer", backRainLayer);
+        SetField(rain, "midRainLayer", midRainLayer);
+        SetField(rain, "frontRainLayer", frontRainLayer);
+        SetField(rain, "splashSystem", splashSystem);
+        SetField(rain, "impactSplashHandler", impactHandler);
+        SetField(rain, "terrainCollisionLayers", (LayerMask)(1 << 7));
         SetField(rain, "rainAmbienceClip", ambienceClip);
         SetField(rain, "ambienceFadeSeconds", 0f);
 

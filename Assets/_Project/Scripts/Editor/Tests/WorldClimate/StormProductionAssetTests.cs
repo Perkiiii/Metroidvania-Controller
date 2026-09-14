@@ -61,7 +61,8 @@ public sealed class StormProductionAssetTests
             AssetDatabase.GetAssetPath(storm.FlashRenderer.sharedMaterial),
             Is.EqualTo(FlashMaterialPath));
         Assert.That(storm.FlashRenderer.sortingLayerName, Is.EqualTo("Default"));
-        Assert.That(storm.FlashRenderer.sortingOrder, Is.GreaterThan(rain.RainLayer.GetComponent<ParticleSystemRenderer>().sortingOrder));
+        Assert.That(storm.FlashRenderer.sortingOrder,
+            Is.GreaterThan(rain.FrontRainLayer.GetComponent<ParticleSystemRenderer>().sortingOrder));
         Assert.That(prefab.GetComponentsInChildren<AudioSource>(true), Is.Empty);
 
         SerializedObject serializedStorm = new SerializedObject(storm);

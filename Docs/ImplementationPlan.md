@@ -556,11 +556,13 @@ reference `HeroController`.
 
 ### Weather presentation Package 2 — Rain Slice
 
-**Implemented; visually provisional.** `RoomRainPresentation` drives one camera-framed, world-space
+**Implemented and live-validated.** `RoomRainPresentation` drives one camera-framed, world-space
 `WorldRain` ParticleSystem, three authored upward-facing `GroundSplash` emitters using the copied
 six-frame atlas, and short Clear/Rain ramps. Camera geometry is read through `CameraInfoCache`.
 Rain ambience uses `AudioManager`'s single owner-scoped looping channel; the prefab has no unmanaged
-AudioSource. `SampleScene` is the only authored weather room for this pass.
+AudioSource. `SampleScene` is the only authored weather room for this pass. A forced-Rain Play
+Mode pass verified readable downward world-XY streaks, padded camera-follow coverage, intended
+perspective depth, gameplay readability, and clean Clear → Rain → Clear teardown.
 
 ### Weather presentation Package 3 — Storm Slice
 
@@ -573,9 +575,10 @@ are part of this slice.
 
 Final focused EditMode validation is 169/169; the weather lifecycle PlayMode fixture is 1/1. Full
 EditMode is 764/765 with only the established unrelated
-`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failing. No live screenshot,
-hands-on visual/audio-mix validation, or profiling evidence was recorded. Stop here for human
-visual review; defer shelter policy, foreground rain, wind, ambient leaves/motes, camera feedback,
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failing. Falling rain has live
+gameplay-camera validation; storm presentation, audio mix, and profiling remain provisional. Stop
+here for human storm review; defer shelter policy, foreground rain, wind, ambient leaves/motes,
+camera feedback,
 wet surfaces, fog, day/night lighting, post-processing profiles, additional weather types, and
 broader polish.
 

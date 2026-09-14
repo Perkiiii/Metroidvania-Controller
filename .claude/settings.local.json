@@ -6,7 +6,8 @@
       "Bash(dotnet build *)",
       "Bash(Get-ChildItem -Recurse -Path \"Assets/_Project/Scripts\" -Filter \"*.cs\")",
       "Bash(Select-Object FullName)",
-      "mcp__unity-mcp__Unity_GetConsoleLogs"
+      "mcp__unity-mcp__Unity_GetConsoleLogs",
+      "mcp__unity-mcp__Unity_ManageEditor"
     ]
   }
 }

@@ -1,6 +1,6 @@
 # Feature Spec — World Time, Climate, and Weather
 
-**Last audited:** 2026-09-13 — Weather presentation Packages 1–3 completion; visual review pending
+**Last audited:** 2026-09-13 — falling-rain Play Mode visual validation
 
 This spec records the implemented simulation Package 1–4 contract and the implemented bounded
 weather presentation Packages 1–3. Expanded presentation and downstream consumers remain deferred.
@@ -19,8 +19,9 @@ forecast 13/13, existing WorldClimate 84/84, WorldTime 38/38, and explicit exist
 climate/time union 122/122. Package 4 validator tests pass 9/9. Final focused EditMode for
 simulation plus weather presentation is 169/169; the weather presentation lifecycle PlayMode
 fixture is 1/1. Full EditMode is 764/765; the sole failure is the established unrelated
-`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion. No live screenshot,
-hands-on visual/audio-mix validation, or profiling evidence was recorded.
+`CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion. Falling `WorldRain` has a live
+forced-Rain `SampleScene` gameplay-camera validation; storm presentation, audio mix, and profiling
+remain visually provisional.
 
 Package 2 establishes:
 
@@ -318,8 +319,10 @@ materials, `Assets/_Project/Audio/Weather/Rain.wav`, `Thunder.wav`, and the copi
 `Assets/_Project/Lights/white_fader.png` and `Assets/_Project/Shaders/SpriteFlash.mat`. Focused
 EditMode validation is 169/169;
 the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765 with only the established
-unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failing. No live
-screenshot, hands-on visual/audio-mix validation, or profiling evidence is recorded.
+unrelated `CameraPhaseOneTests.AxisLocksUseOnlyTheirOwnedLegalAxis` assertion failing. A live
+forced-Rain `SampleScene` pass verified visible downward world-XY streaks, camera-follow coverage,
+gameplay readability, intended perspective depth, and clean Clear → Rain → Clear teardown. Storm
+presentation, audio mix, and profiling remain visually provisional.
 
 ### Editor-only weather presentation testing
 

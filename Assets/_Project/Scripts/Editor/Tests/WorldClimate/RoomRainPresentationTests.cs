@@ -29,24 +29,31 @@ public sealed class RoomRainPresentationTests
     }
 
     [Test]
-    public void RainAndStormRequestsEnableTheSameRainLayer()
+    public void RainAndStormRequestsDriveAllThreeVisualLayers()
     {
         Fixture fixture = CreateFixture();
         InvokePrivate(fixture.Weather, "SetPresentation", RoomWeatherPresentationMode.Rain);
 
         Assert.That(fixture.Rain.IsRainRequested, Is.True);
         Assert.That(fixture.Rain.CurrentRequest, Is.EqualTo(RoomWeatherPresentationMode.Rain));
-        Assert.That(fixture.Rain.RainLayer.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(fixture.Rain.VisualLayerCount, Is.EqualTo(3));
+        Assert.That(fixture.Back.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(fixture.Mid.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(fixture.Front.emission.rateOverTime.constant, Is.GreaterThan(0f));
+        Assert.That(fixture.Back.emission.rateOverTime.constant,
+            Is.LessThan(fixture.Mid.emission.rateOverTime.constant));
+        Assert.That(fixture.Front.emission.rateOverTime.constant,
+            Is.LessThan(fixture.Back.emission.rateOverTime.constant));
 
         InvokePrivate(fixture.Weather, "SetPresentation", RoomWeatherPresentationMode.Storm);
 
         Assert.That(fixture.Rain.IsRainRequested, Is.True);
         Assert.That(fixture.Rain.CurrentRequest, Is.EqualTo(RoomWeatherPresentationMode.Storm));
-        Assert.That(fixture.Rain.SplashEmitterCount, Is.EqualTo(3));
+        Assert.That(fixture.ImpactHandler.IsAcceptingImpacts, Is.True);
     }
 
     [Test]
-    public void ClearStopsNewRainAndSplashEmissionAndCleansAmbience()
+    public void ClearStopsAllRainEmissionSplashRequestsAndAmbience()
     {
         Fixture fixture = CreateFixture(withAudio: true);
         InvokePrivate(fixture.Weather, "SetPresentation", RoomWeatherPresentationMode.Rain);
@@ -55,12 +62,12 @@ public sealed class RoomRainPresentationTests
         InvokePrivate(fixture.Weather, "SetPresentation", RoomWeatherPresentationMode.Clear);
 
         Assert.That(fixture.Rain.IsRainRequested, Is.False);
-        Assert.That(fixture.Rain.RainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
-        for (int i = 0; i < fixture.Splashes.Length; i++)
-        {
-            Assert.That(fixture.Splashes[i].emission.rateOverTime.constant, Is.EqualTo(0f));
-        }
-
+        Assert.That(fixture.Back.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Mid.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Front.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Splash.emission.enabled, Is.False);
+        Assert.That(fixture.Splash.particleCount, Is.Zero);
+        Assert.That(fixture.ImpactHandler.IsAcceptingImpacts, Is.False);
         Assert.That(fixture.Audio.CurrentAmbienceClip, Is.Null);
         Assert.That(fixture.Audio.IsAmbienceActive, Is.False);
     }
@@ -87,7 +94,7 @@ public sealed class RoomRainPresentationTests
     }
 
     [Test]
-    public void RepeatedCyclesKeepOneWeatherListenerAndThreeAuthoredSplashes()
+    public void RepeatedRainClearCyclesKeepOneListenerAndCleanAllLayers()
     {
         Fixture fixture = CreateFixture();
         for (int i = 0; i < 8; i++)
@@ -98,32 +105,48 @@ public sealed class RoomRainPresentationTests
         }
 
         Assert.That(GetSubscriberCount(fixture.Weather), Is.EqualTo(1));
-        Assert.That(fixture.Rain.SplashEmitterCount, Is.EqualTo(3));
         Assert.That(fixture.Rain.IsRainRequested, Is.False);
+        Assert.That(fixture.Back.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Mid.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Front.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.ImpactHandler.IsAcceptingImpacts, Is.False);
     }
 
     [Test]
-    public void RainAndSplashParticlesUseWorldSimulationWithoutCollision()
+    public void OnlyMidLayerUsesStaticTerrainCollisionAndMessages()
     {
         Fixture fixture = CreateFixture();
-        ParticleSystem.MainModule rainMain = fixture.Rain.RainLayer.main;
-        ParticleSystem.VelocityOverLifetimeModule velocity = fixture.Rain.RainLayer.velocityOverLifetime;
-        ParticleSystem.CollisionModule collision = fixture.Rain.RainLayer.collision;
+        ParticleSystem.CollisionModule backCollision = fixture.Back.collision;
+        ParticleSystem.CollisionModule midCollision = fixture.Mid.collision;
+        ParticleSystem.CollisionModule frontCollision = fixture.Front.collision;
 
-        Assert.That(rainMain.simulationSpace, Is.EqualTo(ParticleSystemSimulationSpace.World));
-        Assert.That(velocity.enabled, Is.True);
-        Assert.That(velocity.space, Is.EqualTo(ParticleSystemSimulationSpace.World));
-        Assert.That(collision.enabled, Is.False);
+        Assert.That(fixture.Back.main.simulationSpace, Is.EqualTo(ParticleSystemSimulationSpace.World));
+        Assert.That(fixture.Mid.main.simulationSpace, Is.EqualTo(ParticleSystemSimulationSpace.World));
+        Assert.That(fixture.Front.main.simulationSpace, Is.EqualTo(ParticleSystemSimulationSpace.World));
+        Assert.That(fixture.Back.velocityOverLifetime.space,
+            Is.EqualTo(ParticleSystemSimulationSpace.World));
+        Assert.That(fixture.Mid.velocityOverLifetime.space,
+            Is.EqualTo(ParticleSystemSimulationSpace.World));
+        Assert.That(fixture.Front.velocityOverLifetime.space,
+            Is.EqualTo(ParticleSystemSimulationSpace.World));
 
-        for (int i = 0; i < fixture.Splashes.Length; i++)
-        {
-            Assert.That(fixture.Splashes[i].main.simulationSpace,
-                Is.EqualTo(ParticleSystemSimulationSpace.World));
-        }
+        Assert.That(backCollision.enabled, Is.False);
+        Assert.That(backCollision.sendCollisionMessages, Is.False);
+        Assert.That(frontCollision.enabled, Is.False);
+        Assert.That(frontCollision.sendCollisionMessages, Is.False);
+
+        Assert.That(midCollision.enabled, Is.True);
+        Assert.That(midCollision.type, Is.EqualTo(ParticleSystemCollisionType.World));
+        Assert.That(midCollision.mode, Is.EqualTo(ParticleSystemCollisionMode.Collision2D));
+        Assert.That(midCollision.collidesWith.value, Is.EqualTo(1 << 7));
+        Assert.That(midCollision.enableDynamicColliders, Is.False);
+        Assert.That(midCollision.sendCollisionMessages, Is.True);
+        Assert.That(midCollision.lifetimeLoss.constant, Is.EqualTo(1f));
+        Assert.That(fixture.ImpactHandler.CollisionSource, Is.SameAs(fixture.Mid));
     }
 
     [Test]
-    public void CoverageUsesCachedGameplayCameraAndKeepsNarrowDepthBand()
+    public void PerspectiveCoverageUsesDistinctDepthsAndFrustumWidths()
     {
         Fixture fixture = CreateFixture();
         GameObject cameraObject = Track(new GameObject("Rain Coverage Camera"));
@@ -136,11 +159,15 @@ public sealed class RoomRainPresentationTests
 
         InvokePrivate(fixture.Rain, "LateUpdate");
 
-        Rect worldRect = CameraInfoCache.WorldRect;
-        Assert.That(fixture.Rain.RainLayer.transform.position.x, Is.EqualTo(worldRect.center.x).Within(0.001f));
-        Assert.That(fixture.Rain.RainLayer.transform.position.y, Is.EqualTo(worldRect.center.y).Within(0.001f));
-        Assert.That(fixture.Rain.RainLayer.shape.scale.x, Is.GreaterThan(worldRect.width));
-        Assert.That(fixture.Rain.RainLayer.shape.scale.z, Is.EqualTo(0.25f).Within(0.001f));
+        Assert.That(fixture.Back.transform.position.z, Is.EqualTo(5.9f).Within(0.001f));
+        Assert.That(fixture.Mid.transform.position.z, Is.EqualTo(-0.3f).Within(0.001f));
+        Assert.That(fixture.Front.transform.position.z, Is.EqualTo(-8.6f).Within(0.001f));
+        Assert.That(fixture.Splash.transform.position.z, Is.EqualTo(-0.45f).Within(0.001f));
+        Assert.That(fixture.Back.shape.scale.x, Is.GreaterThan(fixture.Mid.shape.scale.x));
+        Assert.That(fixture.Mid.shape.scale.x, Is.GreaterThan(fixture.Front.shape.scale.x));
+        Assert.That(fixture.Back.shape.scale.z, Is.EqualTo(0.35f).Within(0.001f));
+        Assert.That(fixture.Mid.shape.scale.z, Is.EqualTo(0.4f).Within(0.001f));
+        Assert.That(fixture.Front.shape.scale.z, Is.EqualTo(0.3f).Within(0.001f));
     }
 
     [Test]
@@ -151,7 +178,7 @@ public sealed class RoomRainPresentationTests
     }
 
     [Test]
-    public void DisableUnsubscribesAndStopsEmissionIdempotently()
+    public void DisableUnsubscribesAndLeavesNoActiveSplashRequests()
     {
         Fixture fixture = CreateFixture();
         InvokePrivate(fixture.Weather, "SetPresentation", RoomWeatherPresentationMode.Rain);
@@ -160,7 +187,11 @@ public sealed class RoomRainPresentationTests
 
         Assert.That(GetSubscriberCount(fixture.Weather), Is.Zero);
         Assert.That(fixture.Rain.IsRainRequested, Is.False);
-        Assert.That(fixture.Rain.RainLayer.emission.rateOverTime.constant, Is.EqualTo(0f));
+        Assert.That(fixture.Back.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Mid.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.Front.emission.rateOverTime.constant, Is.Zero);
+        Assert.That(fixture.ImpactHandler.IsAcceptingImpacts, Is.False);
+        Assert.That(fixture.Splash.particleCount, Is.Zero);
     }
 
     private Fixture CreateFixture(bool withAudio = false)
@@ -169,16 +200,22 @@ public sealed class RoomRainPresentationTests
         root.SetActive(false);
         RoomWeatherPresentation weather = root.AddComponent<RoomWeatherPresentation>();
         RoomRainPresentation rain = root.AddComponent<RoomRainPresentation>();
-        ParticleSystem rainLayer = CreateParticle(root.transform, "WorldRain");
-        ParticleSystem[] splashes = new ParticleSystem[3];
-        for (int i = 0; i < splashes.Length; i++)
-        {
-            splashes[i] = CreateParticle(root.transform, $"GroundSplash_{i}");
-        }
+        ParticleSystem back = CreateParticle(root.transform, "BackRain");
+        ParticleSystem mid = CreateParticle(root.transform, "MidRain");
+        ParticleSystem front = CreateParticle(root.transform, "FrontRain");
+        ParticleSystem splash = CreateParticle(root.transform, "GroundSplashPool");
+        RainImpactSplashHandler handler = mid.gameObject.AddComponent<RainImpactSplashHandler>();
 
+        SetField(handler, "collisionSource", mid);
+        SetField(handler, "splashSystem", splash);
+        SetField(handler, "terrainLayers", (LayerMask)(1 << 7));
         SetField(rain, "weatherPresentation", weather);
-        SetField(rain, "rainLayer", rainLayer);
-        SetField(rain, "splashEmitters", splashes);
+        SetField(rain, "backRainLayer", back);
+        SetField(rain, "midRainLayer", mid);
+        SetField(rain, "frontRainLayer", front);
+        SetField(rain, "splashSystem", splash);
+        SetField(rain, "impactSplashHandler", handler);
+        SetField(rain, "terrainCollisionLayers", (LayerMask)(1 << 7));
         SetField(rain, "rampSeconds", 0f);
         SetField(rain, "ambienceFadeSeconds", 0f);
 
@@ -209,7 +246,7 @@ public sealed class RoomRainPresentationTests
 
         InvokePrivate(weather, "OnEnable");
         InvokePrivate(rain, "OnEnable");
-        return new Fixture(root, weather, rain, splashes, audio, ambienceClip);
+        return new Fixture(root, weather, rain, back, mid, front, splash, handler, audio, ambienceClip);
     }
 
     private ParticleSystem CreateParticle(Transform parent, string name)
@@ -257,7 +294,11 @@ public sealed class RoomRainPresentationTests
         public readonly GameObject Root;
         public readonly RoomWeatherPresentation Weather;
         public readonly RoomRainPresentation Rain;
-        public readonly ParticleSystem[] Splashes;
+        public readonly ParticleSystem Back;
+        public readonly ParticleSystem Mid;
+        public readonly ParticleSystem Front;
+        public readonly ParticleSystem Splash;
+        public readonly RainImpactSplashHandler ImpactHandler;
         public readonly AudioManager Audio;
         public readonly AudioClip AmbienceClip;
 
@@ -265,14 +306,22 @@ public sealed class RoomRainPresentationTests
             GameObject root,
             RoomWeatherPresentation weather,
             RoomRainPresentation rain,
-            ParticleSystem[] splashes,
+            ParticleSystem back,
+            ParticleSystem mid,
+            ParticleSystem front,
+            ParticleSystem splash,
+            RainImpactSplashHandler impactHandler,
             AudioManager audio,
             AudioClip ambienceClip)
         {
             Root = root;
             Weather = weather;
             Rain = rain;
-            Splashes = splashes;
+            Back = back;
+            Mid = mid;
+            Front = front;
+            Splash = splash;
+            ImpactHandler = impactHandler;
             Audio = audio;
             AmbienceClip = ambienceClip;
         }

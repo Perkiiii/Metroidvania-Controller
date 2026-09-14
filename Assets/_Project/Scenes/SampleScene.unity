@@ -3477,45 +3477,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 2703331164896487991, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 24.36
-      objectReference: {fileID: 0}
-    - target: {fileID: 2703331164896487991, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 8.32
-      objectReference: {fileID: 0}
-    - target: {fileID: 2703331164896487991, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.05
-      objectReference: {fileID: 0}
     - target: {fileID: 5758366995578711439, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
       propertyPath: m_Name
       value: RoomRainPresentation
-      objectReference: {fileID: 0}
-    - target: {fileID: 5812681863389737979, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -14.66
-      objectReference: {fileID: 0}
-    - target: {fileID: 5812681863389737979, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 2.99
-      objectReference: {fileID: 0}
-    - target: {fileID: 5812681863389737979, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 6225653771484604177, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 3.2297
-      objectReference: {fileID: 0}
-    - target: {fileID: 6225653771484604177, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 6.66
-      objectReference: {fileID: 0}
-    - target: {fileID: 6225653771484604177, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.05
       objectReference: {fileID: 0}
     - target: {fileID: 8535957843445443130, guid: f653e221b7d701f4c8e90238fab56202, type: 3}
       propertyPath: weatherState

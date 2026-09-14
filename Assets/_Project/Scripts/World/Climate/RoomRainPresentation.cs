@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 /// <summary>
@@ -11,23 +10,47 @@ public sealed class RoomRainPresentation : MonoBehaviour
 {
     [Header("Request and authored effects")]
     [SerializeField] private RoomWeatherPresentation weatherPresentation;
-    [SerializeField] private ParticleSystem rainLayer;
-    [SerializeField] private ParticleSystem[] splashEmitters = Array.Empty<ParticleSystem>();
+    [SerializeField] private ParticleSystem backRainLayer;
+    [SerializeField] private ParticleSystem midRainLayer;
+    [SerializeField] private ParticleSystem frontRainLayer;
+    [SerializeField] private ParticleSystem splashSystem;
+    [SerializeField] private RainImpactSplashHandler impactSplashHandler;
     [SerializeField] private AudioClip rainAmbienceClip;
 
     [Header("Rain tuning")]
-    [SerializeField, Min(0f)] private float rainEmissionRate = 30f;
-    [SerializeField, Min(0f)] private float splashEmissionRate = 1.25f;
-    [SerializeField, Min(0f)] private float rainOpacity = 0.22f;
+    [SerializeField, Min(0f)] private float rainEmissionRate = 42f;
+    [SerializeField, Min(0f)] private float backEmissionMultiplier = 0.7f;
+    [SerializeField, Min(0f)] private float frontEmissionMultiplier = 0.18f;
+    [SerializeField, Min(0f)] private float rainOpacity = 0.46f;
+    [SerializeField, Range(0f, 1f)] private float backOpacityMultiplier = 0.38f;
+    [SerializeField, Range(0f, 1f)] private float frontOpacityMultiplier = 0.34f;
     [SerializeField, Min(0f)] private float rampSeconds = 0.3f;
     [SerializeField, Min(0f)] private float ambienceVolume = 0.28f;
     [SerializeField, Min(0f)] private float ambienceFadeSeconds = 0.35f;
 
-    [Header("Camera coverage")]
-    [SerializeField, Min(0f)] private float cameraPadding = 1.25f;
-    [SerializeField, Min(0.01f)] private float spawnBandHeight = 0.2f;
-    [SerializeField, Min(0.01f)] private float depthBand = 0.25f;
-    [SerializeField, Min(0.01f)] private float depthFromCamera = 37.8f;
+    [Header("Back camera coverage")]
+    [SerializeField, Min(0f)] private float backCameraPadding = 3.5f;
+    [SerializeField, Min(0.01f)] private float backSpawnBandHeight = 0.45f;
+    [SerializeField, Min(0.01f)] private float backDepthBand = 0.35f;
+    [SerializeField, Min(0.01f)] private float backDepthFromCamera = 44f;
+
+    [Header("Mid camera coverage")]
+    [SerializeField, Min(0f)] private float midCameraPadding = 3f;
+    [SerializeField, Min(0.01f)] private float midSpawnBandHeight = 0.35f;
+    [SerializeField, Min(0.01f)] private float midDepthBand = 0.4f;
+    [SerializeField, Min(0.01f)] private float midDepthFromCamera = 37.8f;
+
+    [Header("Front camera coverage")]
+    [SerializeField, Min(0f)] private float frontCameraPadding = 4f;
+    [SerializeField, Min(0.01f)] private float frontSpawnBandHeight = 0.5f;
+    [SerializeField, Min(0.01f)] private float frontDepthBand = 0.3f;
+    [SerializeField, Min(0.01f)] private float frontDepthFromCamera = 29.5f;
+
+    [Header("Splash depth")]
+    [SerializeField, Min(0.01f)] private float splashDepthFromCamera = 37.65f;
+
+    [Header("Mid terrain collision")]
+    [SerializeField] private LayerMask terrainCollisionLayers = 1 << 7;
 
     private RoomWeatherPresentation subscribedPresentation;
     private float currentRainIntensity;
@@ -44,11 +67,19 @@ public sealed class RoomRainPresentation : MonoBehaviour
     /// <summary>Current short-ramp value, useful for diagnostics and focused tests.</summary>
     public float RainIntensity => currentRainIntensity;
 
-    /// <summary>Authored splash count; scene setup intentionally uses a small fixed set.</summary>
-    public int SplashEmitterCount => splashEmitters == null ? 0 : splashEmitters.Length;
+    public int VisualLayerCount => (backRainLayer != null ? 1 : 0)
+        + (midRainLayer != null ? 1 : 0)
+        + (frontRainLayer != null ? 1 : 0);
 
-    /// <summary>Read-only access for validation tooling and focused tests.</summary>
-    public ParticleSystem RainLayer => rainLayer;
+    public ParticleSystem BackRainLayer => backRainLayer;
+    public ParticleSystem MidRainLayer => midRainLayer;
+    public ParticleSystem FrontRainLayer => frontRainLayer;
+    public ParticleSystem SplashSystem => splashSystem;
+    public RainImpactSplashHandler ImpactSplashHandler => impactSplashHandler;
+    public LayerMask TerrainCollisionLayers => terrainCollisionLayers;
+
+    /// <summary>The approved V1 rain is retained as the Mid/gameplay layer.</summary>
+    public ParticleSystem RainLayer => midRainLayer;
 
     private void Awake()
     {
@@ -150,36 +181,18 @@ public sealed class RoomRainPresentation : MonoBehaviour
             currentRainIntensity = targetRainIntensity;
         }
 
-        if (rainLayer != null)
-        {
-            ParticleSystem.EmissionModule emission = rainLayer.emission;
-            emission.enabled = true;
-            emission.rateOverTime = rainEmissionRate * currentRainIntensity;
+        StartRainLayer(backRainLayer, rainEmissionRate * backEmissionMultiplier, wasRequested);
+        StartRainLayer(midRainLayer, rainEmissionRate, wasRequested);
+        StartRainLayer(frontRainLayer, rainEmissionRate * frontEmissionMultiplier, wasRequested);
 
-            if (!wasRequested || !rainLayer.isPlaying)
-            {
-                rainLayer.Play(false);
-            }
+        if (splashSystem != null && (!wasRequested || !splashSystem.isPlaying))
+        {
+            splashSystem.Play(false);
         }
 
-        if (splashEmitters != null)
+        if (impactSplashHandler != null)
         {
-            for (int i = 0; i < splashEmitters.Length; i++)
-            {
-                ParticleSystem splash = splashEmitters[i];
-                if (splash == null)
-                {
-                    continue;
-                }
-
-                ParticleSystem.EmissionModule emission = splash.emission;
-                emission.enabled = true;
-                emission.rateOverTime = splashEmissionRate;
-                if (!wasRequested || !splash.isPlaying)
-                {
-                    splash.Play(false);
-                }
-            }
+            impactSplashHandler.SetImpactsEnabled(true);
         }
 
         if (rainAmbienceClip != null && AudioManager.Instance != null)
@@ -199,27 +212,18 @@ public sealed class RoomRainPresentation : MonoBehaviour
         targetRainIntensity = 0f;
         currentRainIntensity = 0f;
 
-        if (rainLayer != null)
+        if (impactSplashHandler != null)
         {
-            ParticleSystem.EmissionModule emission = rainLayer.emission;
-            emission.rateOverTime = 0f;
-            rainLayer.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+            impactSplashHandler.SetImpactsEnabled(false);
         }
 
-        if (splashEmitters != null)
-        {
-            for (int i = 0; i < splashEmitters.Length; i++)
-            {
-                ParticleSystem splash = splashEmitters[i];
-                if (splash == null)
-                {
-                    continue;
-                }
+        StopRainLayer(backRainLayer);
+        StopRainLayer(midRainLayer);
+        StopRainLayer(frontRainLayer);
 
-                ParticleSystem.EmissionModule emission = splash.emission;
-                emission.rateOverTime = 0f;
-                splash.Stop(false, ParticleSystemStopBehavior.StopEmitting);
-            }
+        if (splashSystem != null)
+        {
+            splashSystem.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
         if (AudioManager.Instance != null)
@@ -230,7 +234,7 @@ public sealed class RoomRainPresentation : MonoBehaviour
 
     private void UpdateRainRamp(float deltaTime)
     {
-        if (!rainRequested || rainLayer == null)
+        if (!rainRequested)
         {
             return;
         }
@@ -247,8 +251,13 @@ public sealed class RoomRainPresentation : MonoBehaviour
                 Mathf.Max(0f, deltaTime) / rampSeconds);
         }
 
-        ParticleSystem.EmissionModule emission = rainLayer.emission;
-        emission.rateOverTime = rainEmissionRate * currentRainIntensity;
+        SetEmissionRate(
+            backRainLayer,
+            rainEmissionRate * backEmissionMultiplier * currentRainIntensity);
+        SetEmissionRate(midRainLayer, rainEmissionRate * currentRainIntensity);
+        SetEmissionRate(
+            frontRainLayer,
+            rainEmissionRate * frontEmissionMultiplier * currentRainIntensity);
     }
 
     private void ConfigureParticleSystems()
@@ -262,58 +271,36 @@ public sealed class RoomRainPresentation : MonoBehaviour
         currentRainIntensity = 0f;
         targetRainIntensity = 0f;
 
-        if (rainLayer != null)
+        ConfigureRainLayer(backRainLayer, backOpacityMultiplier, false);
+        ConfigureRainLayer(midRainLayer, 1f, true);
+        ConfigureRainLayer(frontRainLayer, frontOpacityMultiplier, false);
+
+        if (splashSystem != null)
         {
-            ParticleSystem.MainModule main = rainLayer.main;
+            ParticleSystem.MainModule main = splashSystem.main;
             main.playOnAwake = false;
             main.loop = true;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.startColor = new Color(0.74f, 0.84f, 0.94f, Mathf.Clamp01(rainOpacity));
+            main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
 
-            ParticleSystem.EmissionModule emission = rainLayer.emission;
-            emission.enabled = true;
+            ParticleSystem.EmissionModule emission = splashSystem.emission;
+            emission.enabled = false;
             emission.rateOverTime = 0f;
 
-            ParticleSystem.VelocityOverLifetimeModule velocity = rainLayer.velocityOverLifetime;
-            velocity.enabled = true;
-            velocity.space = ParticleSystemSimulationSpace.World;
-            velocity.x = new ParticleSystem.MinMaxCurve(-0.75f, 0.75f);
-            velocity.y = new ParticleSystem.MinMaxCurve(-12f, -10f);
-            velocity.z = 0f;
-
-            ParticleSystem.CollisionModule collision = rainLayer.collision;
-            collision.enabled = false;
-
-            rainLayer.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ParticleSystem.ShapeModule shape = splashSystem.shape;
+            shape.enabled = false;
+            splashSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
-        if (splashEmitters == null)
+        if (impactSplashHandler != null)
         {
-            return;
-        }
-
-        for (int i = 0; i < splashEmitters.Length; i++)
-        {
-            ParticleSystem splash = splashEmitters[i];
-            if (splash == null)
-            {
-                continue;
-            }
-
-            ParticleSystem.MainModule main = splash.main;
-            main.playOnAwake = false;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-
-            ParticleSystem.EmissionModule emission = splash.emission;
-            emission.enabled = true;
-            emission.rateOverTime = 0f;
-            splash.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            impactSplashHandler.SetImpactsEnabled(false);
         }
     }
 
     private void UpdateCameraCoverage()
     {
-        if (rainLayer == null)
+        if (backRainLayer == null && midRainLayer == null && frontRainLayer == null)
         {
             return;
         }
@@ -329,34 +316,159 @@ public sealed class RoomRainPresentation : MonoBehaviour
             return;
         }
 
-        if (CameraInfoCache.MainCamera != camera || CameraInfoCache.FrameStamp != Time.frameCount)
-        {
-            CameraInfoCache.UpdateCache(camera);
-        }
+        UpdateLayerCoverage(
+            camera,
+            backRainLayer,
+            backDepthFromCamera,
+            backCameraPadding,
+            backSpawnBandHeight,
+            backDepthBand);
+        UpdateLayerCoverage(
+            camera,
+            midRainLayer,
+            midDepthFromCamera,
+            midCameraPadding,
+            midSpawnBandHeight,
+            midDepthBand);
+        UpdateLayerCoverage(
+            camera,
+            frontRainLayer,
+            frontDepthFromCamera,
+            frontCameraPadding,
+            frontSpawnBandHeight,
+            frontDepthBand);
 
-        Rect worldRect = CameraInfoCache.WorldRect;
-        if (worldRect.width <= 0f || worldRect.height <= 0f)
+        if (splashSystem != null)
+        {
+            splashSystem.transform.position = camera.ViewportToWorldPoint(
+                new Vector3(0.5f, 0.5f, Mathf.Max(0.01f, splashDepthFromCamera)));
+        }
+    }
+
+    private void ConfigureRainLayer(
+        ParticleSystem layer,
+        float opacityMultiplier,
+        bool collisionSource)
+    {
+        if (layer == null)
         {
             return;
         }
 
-        Transform rainTransform = rainLayer.transform;
-        Vector3 position = rainTransform.position;
-        position.x = worldRect.center.x;
-        position.y = worldRect.center.y;
-        position.z = camera.transform.position.z + Mathf.Max(0.01f, depthFromCamera);
-        rainTransform.position = position;
+        ParticleSystem.MainModule main = layer.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+        main.startColor = new Color(
+            0.76f,
+            0.86f,
+            0.98f,
+            Mathf.Clamp01(rainOpacity * Mathf.Clamp01(opacityMultiplier)));
 
-        ParticleSystem.ShapeModule shape = rainLayer.shape;
+        ParticleSystem.EmissionModule emission = layer.emission;
+        emission.enabled = true;
+        emission.rateOverTime = 0f;
+
+        ParticleSystem.VelocityOverLifetimeModule velocity = layer.velocityOverLifetime;
+        velocity.enabled = true;
+        velocity.space = ParticleSystemSimulationSpace.World;
+
+        ParticleSystem.CollisionModule collision = layer.collision;
+        collision.sendCollisionMessages = collisionSource;
+        collision.enableDynamicColliders = false;
+        if (collisionSource)
+        {
+            collision.type = ParticleSystemCollisionType.World;
+            collision.mode = ParticleSystemCollisionMode.Collision2D;
+            collision.collidesWith = terrainCollisionLayers;
+            collision.quality = ParticleSystemCollisionQuality.High;
+            collision.dampen = 0f;
+            collision.bounce = 0f;
+            collision.lifetimeLoss = 1f;
+            collision.minKillSpeed = 0f;
+            collision.maxKillSpeed = 100f;
+            collision.radiusScale = 0.35f;
+            collision.maxCollisionShapes = 64;
+            collision.enabled = true;
+        }
+        else
+        {
+            collision.enabled = false;
+        }
+
+        layer.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+    }
+
+    private static void UpdateLayerCoverage(
+        Camera camera,
+        ParticleSystem layer,
+        float depthFromCamera,
+        float cameraPadding,
+        float spawnBandHeight,
+        float depthBand)
+    {
+        if (layer == null)
+        {
+            return;
+        }
+
+        float depth = Mathf.Max(0.01f, depthFromCamera);
+        Vector3 bottomLeft = camera.ViewportToWorldPoint(new Vector3(0f, 0f, depth));
+        Vector3 topRight = camera.ViewportToWorldPoint(new Vector3(1f, 1f, depth));
+        Vector3 center = camera.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, depth));
+        float worldWidth = Mathf.Abs(topRight.x - bottomLeft.x);
+        float worldHeight = Mathf.Abs(topRight.y - bottomLeft.y);
+
+        layer.transform.position = center;
+
+        ParticleSystem.ShapeModule shape = layer.shape;
         shape.enabled = true;
         shape.shapeType = ParticleSystemShapeType.Box;
         shape.scale = new Vector3(
-            Mathf.Max(0.1f, worldRect.width + cameraPadding * 2f),
+            Mathf.Max(0.1f, worldWidth + cameraPadding * 2f),
             Mathf.Max(0.1f, spawnBandHeight),
             Mathf.Max(0.01f, depthBand));
         shape.position = new Vector3(
             0f,
-            worldRect.height * 0.5f + cameraPadding + spawnBandHeight * 0.5f,
+            worldHeight * 0.5f + cameraPadding + spawnBandHeight * 0.5f,
             0f);
+    }
+
+    private void StartRainLayer(ParticleSystem layer, float fullEmissionRate, bool wasRequested)
+    {
+        if (layer == null)
+        {
+            return;
+        }
+
+        SetEmissionRate(layer, fullEmissionRate * currentRainIntensity);
+        if (!wasRequested || !layer.isPlaying)
+        {
+            layer.Play(false);
+        }
+    }
+
+    private static void StopRainLayer(ParticleSystem layer)
+    {
+        if (layer == null)
+        {
+            return;
+        }
+
+        SetEmissionRate(layer, 0f);
+        layer.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+    }
+
+    private static void SetEmissionRate(ParticleSystem layer, float rate)
+    {
+        if (layer == null)
+        {
+            return;
+        }
+
+        ParticleSystem.EmissionModule emission = layer.emission;
+        emission.enabled = true;
+        emission.rateOverTime = Mathf.Max(0f, rate);
     }
 }

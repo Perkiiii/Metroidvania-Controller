@@ -11,9 +11,8 @@ GameObject:
   - component: {fileID: 9153348564754896295}
   - component: {fileID: 2439500151711372180}
   - component: {fileID: 4815832390834279131}
-  - component: {fileID: 1814854330130584998}
   m_Layer: 0
-  m_Name: WorldRain
+  m_Name: BackRain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -117,8 +116,8 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 1.95
-      minScalar: 1.65
+      scalar: 2.25
+      minScalar: 1.95
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -224,7 +223,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 1, g: 1, b: 1, a: 1}
-      maxColor: {r: 0.76, g: 0.86, b: 0.98, a: 0.46}
+      maxColor: {r: 0.76, g: 0.86, b: 0.98, a: 0.175}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -288,8 +287,8 @@ ParticleSystem:
     startSize:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 0.038
-      minScalar: 0.022
+      scalar: 0.024
+      minScalar: 0.014
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -605,7 +604,7 @@ ParticleSystem:
         m_RotationOrder: 4
     randomizeRotationDirection: 0
     gravitySource: 0
-    maxNumParticles: 128
+    maxNumParticles: 96
     customEmitterVelocity: {x: 0, y: 0, z: 0}
     size3D: 0
     rotation3D: 0
@@ -1496,8 +1495,8 @@ ParticleSystem:
     x:
       serializedVersion: 2
       minMaxState: 3
-      scalar: -0.55
-      minScalar: -1.25
+      scalar: -0.35
+      minScalar: -1
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -1549,8 +1548,8 @@ ParticleSystem:
     y:
       serializedVersion: 2
       minMaxState: 3
-      scalar: -12
-      minScalar: -14.5
+      scalar: -10.5
+      minScalar: -12.5
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -3620,10 +3619,10 @@ ParticleSystem:
         m_NumAlphaKeys: 2
     range: {x: 0, y: 1}
   CollisionModule:
-    enabled: 1
+    enabled: 0
     serializedVersion: 4
-    type: 1
-    collisionMode: 1
+    type: 0
+    collisionMode: 0
     colliderForce: 0
     multiplyColliderForceByParticleSize: 0
     multiplyColliderForceByParticleSpeed: 0
@@ -3685,7 +3684,7 @@ ParticleSystem:
     m_Bounce:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0
+      scalar: 1
       minScalar: 1
       maxCurve:
         serializedVersion: 2
@@ -3738,7 +3737,7 @@ ParticleSystem:
     m_EnergyLossOnCollision:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1
+      scalar: 0
       minScalar: 0
       maxCurve:
         serializedVersion: 2
@@ -3789,15 +3788,15 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     minKillSpeed: 0
-    maxKillSpeed: 100
-    radiusScale: 0.35
+    maxKillSpeed: 10000
+    radiusScale: 1
     collidesWith:
       serializedVersion: 2
-      m_Bits: 128
-    maxCollisionShapes: 64
+      m_Bits: 4294967295
+    maxCollisionShapes: 256
     quality: 0
     voxelSize: 0.5
-    collisionMessages: 1
+    collisionMessages: 0
     collidesWithDynamic: 0
     interiorCollisions: 0
   TriggerModule:
@@ -4804,16 +4803,16 @@ ParticleSystemRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 20
+  m_SortingOrder: -5
   m_MaskInteraction: 0
   m_RenderMode: 1
   m_MeshDistribution: 0
   m_SortMode: 0
   m_MinParticleSize: 0
-  m_MaxParticleSize: 0.2
+  m_MaxParticleSize: 0.15
   m_CameraVelocityScale: 0
-  m_VelocityScale: 0.055
-  m_LengthScale: 1
+  m_VelocityScale: 0.045
+  m_LengthScale: 0.9
   m_SortingFudge: 0
   m_NormalDirection: 1
   m_ShadowBias: 0
@@ -4837,24 +4836,3 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
---- !u!114 &1814854330130584998
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1439793899439529133}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ea0e6281d54e004182a620276ded3c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RainImpactSplashHandler
-  collisionSource: {fileID: 2439500151711372180}
-  splashSystem: {fileID: 0}
-  terrainLayers:
-    serializedVersion: 2
-    m_Bits: 128
-  minimumUpwardNormalY: 0.65
-  surfaceOffset: 0.03
-  minimumSecondsBetweenSplashes: 0.065
-  maxEventsToInspect: 48

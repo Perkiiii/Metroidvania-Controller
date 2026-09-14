@@ -181,7 +181,7 @@ contexts in Boot, exactly one elsewhere, and every context region ID nonblank an
 catalog. Shared region IDs are valid. This tooling and the scene metadata do not alter weather
 simulation or the save/schema contract.
 
-### Weather Presentation (Packages 1–3 — implemented; visually provisional)
+### Weather Presentation (Packages 1–3 — implemented; falling rain live-validated)
 
 `RoomWeatherPresentation` is the scene-local consumer of `WorldWeatherState.WeatherChanged`.
 It reads the loaded room's `RoomClimateContext`, refreshes on enable, maps outdoor `Rain` and
@@ -202,8 +202,10 @@ destroying, or unloading the room cancels the schedule and pending thunder; no t
 The production composition is authored only in `Assets/_Project/Scenes/SampleScene.unity` using
 `Assets/_Project/Prefabs/Weather/Rain/RoomRainPresentation.prefab`. Focused EditMode validation
 is 169/169 and the weather lifecycle PlayMode fixture is 1/1. Full EditMode is 764/765 with only
-the established unrelated camera assertion failing. The slice is visually provisional: no live
-Editor screenshot, hands-on visual/audio-mix pass, or profiling evidence is recorded.
+the established unrelated camera assertion failing. A live forced-Rain pass in `SampleScene`
+verified visible world-XY falling streaks, camera-follow coverage, gameplay readability, intended
+camera depth, and Clear → Rain → Clear cleanup. Storm presentation, audio mix, and profiling remain
+visually provisional.
 
 ### HeroAnimationLibrary (ScriptableObject)
 Maps logical animation names (idle, walk, retained legacy run, explicit sprint/Wildstride, jump,
